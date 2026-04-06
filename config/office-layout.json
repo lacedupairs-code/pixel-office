@@ -1,0 +1,37 @@
+{
+  "name": "Cortex's Office",
+  "version": "0.1.0",
+  "rooms": [
+    {
+      "id": "main",
+      "name": "Main Office",
+      "width": 800,
+      "height": 600,
+      "furniture": [
+        { "type": "desk", "id": "cortex-desk", "x": 400, "y": 200, "agent": "cortex" },
+        { "type": "desk", "id": "scout-desk", "x": 200, "y": 150, "agent": "scout" },
+        { "type": "desk", "id": "builder-desk", "x": 600, "y": 150, "agent": "builder" },
+        { "type": "desk", "id": "architect-desk", "x": 200, "y": 350, "agent": "architect" },
+        { "type": "desk", "id": "quick-desk", "x": 600, "y": 350, "agent": "quick" },
+        { "type": "desk", "id": "analyst-desk", "x": 400, "y": 400, "agent": "analyst" },
+        { "type": "couch", "id": "nap-couch", "x": 650, "width": 100, "y": 500 },
+        { "type": "coffee", "id": "coffee-machine", "x": 50, "y": 50 }
+      ]
+    }
+  ],
+  "agents": [
+    { "id": "cortex", "name": "Cortex", "sprite": "cortex.png" },
+    { "id": "scout", "name": "Scout", "sprite": "scout.png" },
+    { "id": "builder", "name": "Builder", "sprite": "builder.png" },
+    { "id": "architect", "name": "Architect", "sprite": "architect.png" },
+    { "id": "quick", "name": "Quick", "sprite": "quick.png" },
+    { "id": "analyst", "name": "Analyst", "sprite": "analyst.png" }
+  ],
+  "states": {
+    "active": { "animation": "typing", "bubble": true },
+    "idle": { "animation": "walking", "bubble": false },
+    "thinking": { "animation": "thinking", "bubble": true },
+    "sleeping": { "animation": "sleeping", "bubble": false },
+    "offline": { "animation": "none", "hidden": true }
+  }
+}
