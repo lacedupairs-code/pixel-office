@@ -130,7 +130,7 @@ function update() {
 }
 
 function connectWebSocket(scene) {
-    const wsUrl = `ws://${window.location.host}/pixel-office/ws`;
+    const wsUrl = `ws://${window.location.host}/ws`;
     updateConnectionStatus('connecting');
     
     ws = new WebSocket(wsUrl);

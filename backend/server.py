@@ -155,5 +155,5 @@ if FRONTEND_DIR.exists():
 
 if __name__ == "__main__":
     import uvicorn
-    print("🎮 Pixel Office starting at http://localhost:8081")
-    uvicorn.run(app, host="0.0.0.0", port=8081)
+    print("🎮 Pixel Office starting at http://localhost:8082")
+    uvicorn.run(app, host="0.0.0.0", port=8082)
