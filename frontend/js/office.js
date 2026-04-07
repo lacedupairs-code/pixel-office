@@ -4,6 +4,13 @@
  * Renders the pixel office with animated agent characters.
  */
 
+// Get the base path from the meta tag or fallback to /pixel-office/
+const baseElement = document.getElementById('base-path');
+const BASE_PATH = baseElement ? baseElement.getAttribute('href') : '/pixel-office/';
+
+// Ensure base path ends with /
+const NORMALIZED_BASE = BASE_PATH.endsWith('/') ? BASE_PATH : BASE_PATH + '/';
+
 // WebSocket connection
 let ws = null;
 let reconnectTimer = null;
@@ -30,8 +37,8 @@ const config = {
 const game = new Phaser.Game(config);
 
 function preload() {
-    // Load placeholder sprites (will be replaced with real pixel art)
-    // For now, using colored squares as placeholders
+    // Load assets if available
+    // For now using colored shapes as placeholders
     this.load.on('complete', () => {
         console.log('Assets loaded');
     });
@@ -41,7 +48,7 @@ function create() {
     // Create office background
     this.add.rectangle(400, 300, 780, 580, 0x2a2a4a);
     
-    // Draw desk outlines
+    // Draw desk outlines - arranged in an office layout
     const desks = [
         { x: 400, y: 200, agent: 'cortex', name: 'Cortex' },
         { x: 200, y: 150, agent: 'scout', name: 'Scout' },
@@ -130,12 +137,23 @@ function update() {
 }
 
 function connectWebSocket(scene) {
-    const wsUrl = `ws://${window.location.host}/ws`;
+    // Build WebSocket URL: use current host + base path + ws
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsPath = NORMALIZED_BASE.replace(/\/$/, '') + '/ws';
+    const wsUrl = wsProtocol + '//' + window.location.host + wsPath;
+    
+    console.log('Connecting to WebSocket:', wsUrl);
     updateConnectionStatus('connecting');
+    
+    // Close existing connection
+    if (ws) {
+        ws.close();
+    }
     
     ws = new WebSocket(wsUrl);
     
     ws.onopen = () => {
+        console.log('WebSocket connected');
         updateConnectionStatus('connected');
         if (reconnectTimer) {
             clearTimeout(reconnectTimer);
@@ -144,20 +162,25 @@ function connectWebSocket(scene) {
     };
     
     ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        
-        if (data.type === 'init') {
-            // Initial state
-            agents = data.agents;
-            updateAgentSprites();
-        } else if (data.type === 'agent_update') {
-            // Single agent update
-            agents[data.agent_id] = data.state;
-            updateAgentSprite(data.agent_id);
+        try {
+            const data = JSON.parse(event.data);
+            
+            if (data.type === 'init') {
+                // Initial state
+                agents = data.agents;
+                updateAgentSprites();
+            } else if (data.type === 'agent_update') {
+                // Single agent update
+                agents[data.agent_id] = data.state;
+                updateAgentSprite(data.agent_id);
+            }
+        } catch (err) {
+            console.error('Failed to parse WebSocket message:', err);
         }
     };
     
     ws.onclose = () => {
+        console.log('WebSocket closed');
         updateConnectionStatus('disconnected');
         // Reconnect after 3 seconds
         if (!reconnectTimer) {
@@ -167,7 +190,7 @@ function connectWebSocket(scene) {
     
     ws.onerror = (err) => {
         console.error('WebSocket error:', err);
-        updateConnectionStatus('disconnected');
+        updateConnectionStatus('error');
     };
 }
 
@@ -183,6 +206,10 @@ function updateConnectionStatus(status) {
         case 'disconnected':
             statusEl.innerHTML = '🔴 Disconnected';
             statusEl.className = 'disconnected';
+            break;
+        case 'error':
+            statusEl.innerHTML = '⚠️ Error';
+            statusEl.className = 'error';
             break;
         default:
             statusEl.innerHTML = '🟡 Connecting...';
@@ -213,7 +240,6 @@ function updateAgentSprite(agentId) {
     switch(agent.state) {
         case 'active':
             // Agent is working - show as bright
-            sprite.setFillStyle(sprite.fillColor);
             sprite.setAlpha(1);
             break;
         case 'idle':
@@ -232,6 +258,8 @@ function updateAgentSprite(agentId) {
             // Agent is offline - hidden or grey
             sprite.setAlpha(0.2);
             break;
+        default:
+            sprite.setAlpha(1);
     }
 }
 

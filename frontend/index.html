@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pixel Office - OpenClaw Agents</title>
+    <!-- Base path will be set by the server -->
+    <base id="base-path" href="/pixel-office/">
     <link rel="stylesheet" href="css/office.css">
 </head>
 <body>
@@ -23,7 +25,7 @@
         <span id="timestamp"></span>
     </div>
 
-    <!-- Phaser.js (will be replaced with local file in production) -->
+    <!-- Phaser.js from CDN (falls back to local if available) -->
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
     <script src="js/office.js"></script>
 </body>
