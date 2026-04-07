@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "cols": 20,
+  "rows": 15,
+  "tiles": [],
+  "agents": [
+    {
+      "agentId": "main",
+      "deskX": 10,
+      "deskY": 7
+    }
+  ]
+}

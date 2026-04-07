@@ -1,14 +1,16 @@
 # Pixel Office TODO
 
-## Pending
+## Phase 1
 
-- [ ] **Systemd Service:** Create systemd service file to keep Pixel Office server running persistently on port 8082
-- [ ] **Gateway Integration:** Mount `/pixel-office` route into main OpenClaw gateway (port 18789) for unified access
+- [x] Replace the FastAPI prototype with a VS Code extension scaffold
+- [ ] Build the OpenClaw session watcher against live JSONL files
+- [ ] Wire the extension to a React webview bootstrap
 
-## Completed
+## Later
 
-- [x] Generate placeholder sprites
-- [x] Fix WebSocket URL path (`/ws` not `/pixel-office/ws`)
-- [x] Run standalone server on port 8082
-- [x] Verify WebSocket connection works
-- [x] Push changes to GitHub
+- [ ] Canvas office renderer
+- [ ] Character state machine and pathfinding
+- [ ] Layout editor
+- [ ] Asset import pipeline
+- [ ] Marketplace packaging
+

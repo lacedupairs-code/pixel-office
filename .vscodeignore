@@ -1,0 +1,8 @@
+.vscode/**
+.github/**
+src/**
+webview-ui/src/**
+node_modules/**
+tsconfig.json
+esbuild.js
+
