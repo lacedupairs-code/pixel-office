@@ -1,49 +1,27 @@
 {
   "name": "pixel-office",
-  "displayName": "Pixel Office",
-  "description": "OpenClaw agents as animated pixel art characters in a virtual office",
   "version": "0.1.0",
-  "publisher": "lacedupairs-code",
   "private": true,
-  "engines": {
-    "vscode": "^1.109.0"
-  },
-  "categories": [
-    "Other"
-  ],
-  "activationEvents": [
-    "onStartupFinished",
-    "onCommand:pixelOffice.openPanel",
-    "onCommand:pixelOffice.openLayout"
-  ],
-  "main": "./dist/extension.js",
-  "contributes": {
-    "commands": [
-      {
-        "command": "pixelOffice.openPanel",
-        "title": "Open Pixel Office"
-      },
-      {
-        "command": "pixelOffice.openLayout",
-        "title": "Pixel Office: Edit Layout"
-      }
-    ]
-  },
+  "description": "Standalone browser visualizer for OpenClaw agents",
   "scripts": {
-    "build": "npm run build:ext && npm run build:webview",
-    "build:ext": "node esbuild.js",
-    "build:webview": "npm --prefix webview-ui run build",
-    "watch": "concurrently \"node esbuild.js --watch\" \"npm --prefix webview-ui run dev\"",
-    "lint": "tsc --noEmit -p tsconfig.json",
-    "package": "vsce package"
+    "build": "tsc -p tsconfig.json && npm --prefix webview-ui run build",
+    "start": "node dist/server/index.js",
+    "dev": "concurrently \"ts-node-dev --respawn --transpile-only server/index.ts\" \"npm --prefix webview-ui run dev\"",
+    "install:all": "npm install && npm --prefix webview-ui install",
+    "lint": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "chokidar": "^4.0.3",
+    "express": "^4.21.2",
+    "json5": "^2.2.3",
+    "ws": "^8.18.1"
   },
   "devDependencies": {
+    "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
-    "@types/vscode": "^1.109.0",
+    "@types/ws": "^8.5.14",
     "concurrently": "^9.1.2",
-    "esbuild": "^0.25.2",
-    "typescript": "^5.8.3",
-    "vsce": "^2.15.0"
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.8.3"
   }
 }
-

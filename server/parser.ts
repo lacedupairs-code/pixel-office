@@ -1,4 +1,4 @@
-export type AgentStatus =
+export type AgentState =
   | "working"
   | "reading"
   | "idle"
@@ -16,17 +16,13 @@ type JsonRecord = {
   }>;
 };
 
-const WORKING_TOOLS = new Set([
-  "bash",
-  "write",
-  "edit",
-  "computer",
-  "str_replace_based_edit_tool"
-]);
+const READING_TOOLS = new Set(["read", "glob", "search", "grep", "list", "find"]);
 
-const READING_TOOLS = new Set(["read", "glob", "search", "grep", "list"]);
+export function parseLineForState(line: string): AgentState | null {
+  if (!line.trim()) {
+    return null;
+  }
 
-export function inferStatusFromLine(line: string): AgentStatus | null {
   try {
     const record = JSON.parse(line) as JsonRecord;
 
@@ -45,15 +41,7 @@ export function inferStatusFromLine(line: string): AgentStatus | null {
     const content = Array.isArray(record.content) ? record.content : [];
     const toolUse = content.find((item) => item.type === "tool_use");
     if (toolUse?.name) {
-      if (WORKING_TOOLS.has(toolUse.name)) {
-        return "working";
-      }
-
-      if (READING_TOOLS.has(toolUse.name)) {
-        return "reading";
-      }
-
-      return "working";
+      return READING_TOOLS.has(toolUse.name.toLowerCase()) ? "reading" : "working";
     }
 
     const hasText = content.some((item) => item.type === "text" && item.text?.trim());
@@ -65,5 +53,21 @@ export function inferStatusFromLine(line: string): AgentStatus | null {
   }
 
   return null;
+}
+
+export function extractTaskHint(line: string): string | undefined {
+  try {
+    const record = JSON.parse(line) as JsonRecord;
+    const content = Array.isArray(record.content) ? record.content : [];
+    const toolUse = content.find((item) => item.type === "tool_use");
+    if (toolUse?.name) {
+      return toolUse.name;
+    }
+
+    const text = content.find((item) => item.type === "text" && item.text?.trim());
+    return text?.text?.slice(0, 40).trim() || undefined;
+  } catch {
+    return undefined;
+  }
 }
 

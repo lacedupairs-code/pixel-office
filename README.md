@@ -1,37 +1,37 @@
 # Pixel Office
 
-Pixel Office is a VS Code extension that visualizes OpenClaw agents as animated pixel-art coworkers in a virtual office.
+Pixel Office is a standalone web app that visualizes OpenClaw agents as animated pixel-art coworkers in a virtual office.
 
-## Status
+Open the app in a browser at `http://localhost:3456`.
 
-The project is currently being rebuilt from the original FastAPI prototype into a TypeScript extension plus React webview. The first milestone focuses on:
+## Current Scope
 
-- activating a VS Code extension
-- discovering OpenClaw agents from `~/.openclaw`
-- inferring agent status from JSONL transcript lines
-- opening a webview panel that can receive live agent updates
+The app is being rebuilt around a Node.js server plus React frontend:
+
+- `server/` watches `~/.openclaw/agents/*/sessions/*.jsonl`
+- state changes are broadcast to browsers over WebSockets
+- `webview-ui/` renders the browser UI that will become the full office canvas
+- `SKILL.md` lets OpenClaw clone, build, and launch the app automatically
 
 ## Development
 
 ```bash
-npm install
+npm run install:all
 npm run build
+npm start
 ```
 
-During active development, run:
+For active development:
 
 ```bash
-npm run watch
+npm run dev
 ```
-
-Then launch the extension in a VS Code Extension Development Host with `F5`.
 
 ## Project Structure
 
 ```text
-src/                 VS Code extension host
-webview-ui/          React webview application
-scripts/             local asset import helpers
-dist/                compiled extension bundle
+server/              Express + WebSocket server
+webview-ui/          React browser client
+scripts/             local helper scripts
+SKILL.md             OpenClaw setup skill
 ```
-

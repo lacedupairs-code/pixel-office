@@ -1,56 +1,36 @@
 import { useEffect, type CSSProperties } from "react";
+import { useAgentSocket } from "./hooks/useAgentSocket";
 import { useOfficeStore } from "./store/officeStore";
 
-type InitMessage = {
-  type: "init" | "agentUpdate";
-  agents: Array<{ id: string; status: string; sessionPath: string | null }>;
-  openClawBaseDir?: string;
-};
-
-declare global {
-  interface Window {
-    acquireVsCodeApi?: () => { postMessage: (message: unknown) => void };
-  }
-}
-
 export default function App() {
+  useAgentSocket();
+
   const agents = useOfficeStore((state) => state.agents);
-  const openClawBaseDir = useOfficeStore((state) => state.openClawBaseDir);
-  const setAgents = useOfficeStore((state) => state.setAgents);
-  const setOpenClawBaseDir = useOfficeStore((state) => state.setOpenClawBaseDir);
+  const connectionState = useOfficeStore((state) => state.connectionState);
 
   useEffect(() => {
-    window.acquireVsCodeApi?.().postMessage({ type: "webviewReady" });
-
-    const onMessage = (event: MessageEvent<InitMessage>) => {
-      if (event.data.type !== "init" && event.data.type !== "agentUpdate") {
-        return;
-      }
-
-      setAgents(event.data.agents);
-      if (event.data.openClawBaseDir) {
-        setOpenClawBaseDir(event.data.openClawBaseDir);
-      }
-    };
-
-    window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
-  }, [setAgents, setOpenClawBaseDir]);
+    document.title = "Pixel Office";
+  }, []);
 
   return (
     <main style={styles.page}>
       <section style={styles.panel}>
         <h1 style={styles.title}>Pixel Office</h1>
         <p style={styles.copy}>
-          Phase 1 scaffold loaded. The extension can now discover OpenClaw agents and push status updates into the
-          webview.
+          The standalone server is now responsible for OpenClaw discovery and state broadcasting. This browser client
+          is connected over WebSockets and ready for the canvas office port.
         </p>
-        <p style={styles.path}>OpenClaw path: {openClawBaseDir || "Not detected"}</p>
+        <p style={styles.path}>Socket status: {connectionState}</p>
         <ul style={styles.list}>
           {agents.length === 0 ? <li style={styles.item}>No agents discovered yet.</li> : null}
           {agents.map((agent) => (
             <li key={agent.id} style={styles.item}>
-              <strong>{agent.id}</strong> <span style={styles.status}>{agent.status}</span>
+              <div>
+                <strong>{agent.id}</strong>
+                <div style={styles.meta}>{agent.isDefault ? "Boss desk" : "Employee desk"}</div>
+                {agent.taskHint ? <div style={styles.meta}>{agent.taskHint}</div> : null}
+              </div>
+              <span style={styles.status}>{agent.state}</span>
             </li>
           ))}
         </ul>
@@ -107,5 +87,10 @@ const styles: Record<string, CSSProperties> = {
   status: {
     textTransform: "capitalize",
     color: "#f6b26b"
+  },
+  meta: {
+    marginTop: "4px",
+    fontSize: "12px",
+    color: "#bda988"
   }
 };
