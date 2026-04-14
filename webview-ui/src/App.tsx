@@ -1,5 +1,6 @@
 import { useEffect, type CSSProperties } from "react";
 import { useAgentSocket } from "./hooks/useAgentSocket";
+import { OfficeCanvas } from "./office/OfficeCanvas";
 import { useOfficeStore } from "./store/officeStore";
 
 export default function App() {
@@ -14,13 +15,25 @@ export default function App() {
 
   return (
     <main style={styles.page}>
+      <section style={styles.hero}>
+        <div style={styles.copyBlock}>
+          <p style={styles.kicker}>OpenClaw Live View</p>
+          <h1 style={styles.title}>Pixel Office</h1>
+          <p style={styles.copy}>
+            The office scene is live now. This first canvas milestone renders a static room, landmark furniture, and
+            live agent markers driven by the standalone WebSocket feed.
+          </p>
+        </div>
+        <div style={styles.badgeRow}>
+          <span style={styles.badge}>Socket: {connectionState}</span>
+          <span style={styles.badge}>Agents: {agents.length}</span>
+        </div>
+      </section>
+      <section style={styles.stage}>
+        <OfficeCanvas agents={agents} />
+      </section>
       <section style={styles.panel}>
-        <h1 style={styles.title}>Pixel Office</h1>
-        <p style={styles.copy}>
-          The standalone server is now responsible for OpenClaw discovery and state broadcasting. This browser client
-          is connected over WebSockets and ready for the canvas office port.
-        </p>
-        <p style={styles.path}>Socket status: {connectionState}</p>
+        <h2 style={styles.sectionTitle}>Live Agent Feed</h2>
         <ul style={styles.list}>
           {agents.length === 0 ? <li style={styles.item}>No agents discovered yet.</li> : null}
           {agents.map((agent) => (
@@ -47,27 +60,61 @@ const styles: Record<string, CSSProperties> = {
     background:
       "radial-gradient(circle at top, rgba(255, 214, 153, 0.22), transparent 45%), linear-gradient(180deg, #241f1a 0%, #12100f 100%)",
     color: "#f3e7d2",
-    fontFamily: '"Segoe UI", sans-serif'
+    fontFamily: '"Segoe UI", sans-serif',
+    display: "grid",
+    gap: "18px"
+  },
+  hero: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "end",
+    gap: "16px",
+    flexWrap: "wrap"
+  },
+  copyBlock: {
+    maxWidth: "680px"
+  },
+  kicker: {
+    margin: "0 0 6px",
+    textTransform: "uppercase",
+    letterSpacing: "0.12em",
+    fontSize: "11px",
+    color: "#d7b98d"
   },
   panel: {
-    maxWidth: "560px",
     padding: "20px",
     border: "1px solid rgba(255, 231, 198, 0.15)",
     borderRadius: "16px",
     background: "rgba(30, 24, 19, 0.9)",
     boxShadow: "0 20px 60px rgba(0, 0, 0, 0.35)"
   },
+  stage: {
+    overflowX: "auto"
+  },
   title: {
     margin: "0 0 12px",
-    fontSize: "28px"
+    fontSize: "36px"
+  },
+  sectionTitle: {
+    margin: "0 0 14px",
+    fontSize: "18px"
   },
   copy: {
     margin: "0 0 8px",
     lineHeight: 1.5
   },
-  path: {
-    margin: "0 0 16px",
-    color: "#d6c2a4"
+  badgeRow: {
+    display: "flex",
+    gap: "10px",
+    flexWrap: "wrap"
+  },
+  badge: {
+    padding: "8px 12px",
+    borderRadius: "999px",
+    background: "rgba(255,255,255,0.07)",
+    border: "1px solid rgba(255,255,255,0.08)",
+    color: "#e7d2ae",
+    fontSize: "13px"
   },
   list: {
     listStyle: "none",
