@@ -13,6 +13,7 @@ import {
   COUCH_COLOR
 } from "./constants";
 import { buildWalkableGrid, findPath, toCanvasPoint, toTilePoint, type TilePoint } from "./pathfinding";
+import { drawAgentSprite, drawDeskActivity } from "./renderer";
 import { resolveAgentIntent } from "./stateMachine";
 import type { AgentMotionTarget, OfficeLayout } from "./types";
 import type { OfficeAgent } from "../store/officeStore";
@@ -140,7 +141,7 @@ export function OfficeCanvas({ agents }: OfficeCanvasProps) {
 
       advanceAgents(agentsRef.current, deltaSeconds);
       updateIdleIntent(agentsRef.current, agents, timestamp);
-      drawOffice(ctx, agents, agentsRef.current);
+      drawOffice(ctx, agents, agentsRef.current, timestamp);
       animationFrameRef.current = window.requestAnimationFrame(tick);
     };
 
@@ -159,7 +160,12 @@ export function OfficeCanvas({ agents }: OfficeCanvasProps) {
   return <canvas ref={canvasRef} style={styles.canvas} aria-label="Pixel Office canvas" />;
 }
 
-function drawOffice(ctx: CanvasRenderingContext2D, agents: OfficeAgent[], sprites: Map<string, AgentSprite>) {
+function drawOffice(
+  ctx: CanvasRenderingContext2D,
+  agents: OfficeAgent[],
+  sprites: Map<string, AgentSprite>,
+  timestampMs: number
+) {
   const width = layout.cols * TILE_SIZE;
   const height = layout.rows * TILE_SIZE;
 
@@ -170,7 +176,7 @@ function drawOffice(ctx: CanvasRenderingContext2D, agents: OfficeAgent[], sprite
   drawRoomShell(ctx);
   drawLandmarks(ctx);
   drawGrid(ctx);
-  drawAgents(ctx, agents, sprites);
+  drawAgents(ctx, agents, sprites, timestampMs);
 }
 
 function drawRoomShell(ctx: CanvasRenderingContext2D) {
@@ -226,7 +232,14 @@ function drawGrid(ctx: CanvasRenderingContext2D) {
   }
 }
 
-function drawAgents(ctx: CanvasRenderingContext2D, agents: OfficeAgent[], sprites: Map<string, AgentSprite>) {
+function drawAgents(
+  ctx: CanvasRenderingContext2D,
+  agents: OfficeAgent[],
+  sprites: Map<string, AgentSprite>,
+  timestampMs: number
+) {
+  const seatMap = buildSeatMap();
+
   agents.forEach((agent, index) => {
     const sprite = sprites.get(agent.id) ?? {
       id: agent.id,
@@ -238,52 +251,19 @@ function drawAgents(ctx: CanvasRenderingContext2D, agents: OfficeAgent[], sprite
       pathIndex: 0
     };
 
-    const centerX = sprite.x;
-    const centerY = sprite.y;
-    const color = getAgentColor(agent.state);
-
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, AGENT_RADIUS, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = "rgba(255,255,255,0.18)";
-    ctx.beginPath();
-    ctx.arc(centerX - 3, centerY - 4, 3, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = "#111";
-    ctx.font = "bold 10px sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText(agent.id.slice(0, 8), centerX, centerY - 16);
-
-    const bubbleText = sprite.bubbleText;
-    if (bubbleText) {
-      ctx.fillStyle = "rgba(255, 248, 232, 0.92)";
-      ctx.fillRect(centerX - 40, centerY - 42, 80, 16);
-      ctx.fillStyle = "#2b2622";
-      ctx.font = "10px sans-serif";
-      ctx.fillText(bubbleText.slice(0, 14), centerX, centerY - 30);
+    const seat = seatMap.get(agent.id);
+    if (seat) {
+      drawDeskActivity(
+        ctx,
+        agent,
+        seat.deskX * TILE_SIZE + TILE_SIZE,
+        seat.deskY * TILE_SIZE + TILE_SIZE,
+        timestampMs
+      );
     }
-  });
-}
 
-function getAgentColor(state: OfficeAgent["state"]) {
-  switch (state) {
-    case "working":
-      return "#f29c52";
-    case "reading":
-      return "#7eb6ff";
-    case "waiting":
-      return "#f2d06b";
-    case "sleeping":
-      return "#8f86d8";
-    case "offline":
-      return "#5e5751";
-    case "idle":
-    default:
-      return "#7cc08a";
-  }
+    drawAgentSprite(ctx, agent, sprite, timestampMs);
+  });
 }
 
 function advanceAgents(sprites: Map<string, AgentSprite>, deltaSeconds: number) {
