@@ -14,6 +14,16 @@
       "agentId": "main",
       "deskX": 10,
       "deskY": 7
+    },
+    {
+      "agentId": "scout",
+      "deskX": 5,
+      "deskY": 5
+    },
+    {
+      "agentId": "builder",
+      "deskX": 14,
+      "deskY": 5
     }
   ]
 }

@@ -1,17 +1,40 @@
 import { useEffect, useRef } from "react";
 import layoutJson from "../assets/default-layout.json";
-import { TILE_SIZE, GRID_LINE_COLOR, FLOOR_COLOR, WALL_COLOR, DESK_COLOR, COFFEE_COLOR, COUCH_COLOR } from "./constants";
-import type { OfficeLayout } from "./types";
+import {
+  TILE_SIZE,
+  AGENT_MOVE_SPEED,
+  AGENT_RADIUS,
+  GRID_LINE_COLOR,
+  FLOOR_COLOR,
+  WALL_COLOR,
+  DESK_COLOR,
+  COFFEE_COLOR,
+  COUCH_COLOR
+} from "./constants";
+import type { OfficeLayout, Point } from "./types";
 import type { OfficeAgent } from "../store/officeStore";
 
 const layout = layoutJson as OfficeLayout;
+const spawnPoint = { x: TILE_SIZE * 2.5, y: TILE_SIZE * (layout.rows - 2.2) };
+const couchPoint = { x: TILE_SIZE * (layout.cols - 4), y: TILE_SIZE * (layout.rows - 2.7) };
 
 interface OfficeCanvasProps {
   agents: OfficeAgent[];
 }
 
+interface AgentSprite {
+  id: string;
+  x: number;
+  y: number;
+  targetX: number;
+  targetY: number;
+}
+
 export function OfficeCanvas({ agents }: OfficeCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const agentsRef = useRef<Map<string, AgentSprite>>(new Map());
+  const animationFrameRef = useRef<number | null>(null);
+  const lastTickRef = useRef<number | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -35,14 +58,85 @@ export function OfficeCanvas({ agents }: OfficeCanvasProps) {
 
     ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
     ctx.imageSmoothingEnabled = false;
+  }, []);
 
-    drawOffice(ctx, agents);
+  useEffect(() => {
+    const seatMap = buildSeatMap();
+    const nextIds = new Set(agents.map((agent) => agent.id));
+    const sprites = agentsRef.current;
+
+    for (const agent of agents) {
+      const sprite = sprites.get(agent.id);
+      const target = resolveTargetPoint(agent, seatMap, agents);
+
+      if (!sprite) {
+        sprites.set(agent.id, {
+          id: agent.id,
+          x: spawnPoint.x,
+          y: spawnPoint.y,
+          targetX: target.x,
+          targetY: target.y
+        });
+        continue;
+      }
+
+      sprite.targetX = target.x;
+      sprite.targetY = target.y;
+    }
+
+    for (const [id, sprite] of sprites) {
+      if (nextIds.has(id)) {
+        continue;
+      }
+
+      sprite.targetX = spawnPoint.x;
+      sprite.targetY = spawnPoint.y;
+      if (distance(sprite.x, sprite.y, spawnPoint.x, spawnPoint.y) < 6) {
+        sprites.delete(id);
+      }
+    }
+  }, [agents]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return;
+    }
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      return;
+    }
+
+    const tick = (timestamp: number) => {
+      if (lastTickRef.current === null) {
+        lastTickRef.current = timestamp;
+      }
+
+      const deltaSeconds = Math.min((timestamp - lastTickRef.current) / 1000, 0.05);
+      lastTickRef.current = timestamp;
+
+      advanceAgents(agentsRef.current, deltaSeconds);
+      drawOffice(ctx, agents, agentsRef.current);
+      animationFrameRef.current = window.requestAnimationFrame(tick);
+    };
+
+    animationFrameRef.current = window.requestAnimationFrame(tick);
+
+    return () => {
+      if (animationFrameRef.current !== null) {
+        window.cancelAnimationFrame(animationFrameRef.current);
+      }
+
+      animationFrameRef.current = null;
+      lastTickRef.current = null;
+    };
   }, [agents]);
 
   return <canvas ref={canvasRef} style={styles.canvas} aria-label="Pixel Office canvas" />;
 }
 
-function drawOffice(ctx: CanvasRenderingContext2D, agents: OfficeAgent[]) {
+function drawOffice(ctx: CanvasRenderingContext2D, agents: OfficeAgent[], sprites: Map<string, AgentSprite>) {
   const width = layout.cols * TILE_SIZE;
   const height = layout.rows * TILE_SIZE;
 
@@ -53,7 +147,7 @@ function drawOffice(ctx: CanvasRenderingContext2D, agents: OfficeAgent[]) {
   drawRoomShell(ctx);
   drawLandmarks(ctx);
   drawGrid(ctx);
-  drawAgents(ctx, agents);
+  drawAgents(ctx, agents, sprites);
 }
 
 function drawRoomShell(ctx: CanvasRenderingContext2D) {
@@ -109,23 +203,28 @@ function drawGrid(ctx: CanvasRenderingContext2D) {
   }
 }
 
-function drawAgents(ctx: CanvasRenderingContext2D, agents: OfficeAgent[]) {
-  const seats = new Map(layout.agents.map((seat) => [seat.agentId, seat]));
-
+function drawAgents(ctx: CanvasRenderingContext2D, agents: OfficeAgent[], sprites: Map<string, AgentSprite>) {
   agents.forEach((agent, index) => {
-    const seat = seats.get(agent.id) ?? {
-      agentId: agent.id,
-      deskX: 4 + (index % 4) * 3,
-      deskY: 9 + Math.floor(index / 4) * 2
+    const sprite = sprites.get(agent.id) ?? {
+      id: agent.id,
+      x: spawnPoint.x + index * 12,
+      y: spawnPoint.y,
+      targetX: spawnPoint.x + index * 12,
+      targetY: spawnPoint.y
     };
 
-    const centerX = seat.deskX * TILE_SIZE + TILE_SIZE;
-    const centerY = seat.deskY * TILE_SIZE + TILE_SIZE + 8;
+    const centerX = sprite.x;
+    const centerY = sprite.y;
     const color = getAgentColor(agent.state);
 
     ctx.fillStyle = color;
     ctx.beginPath();
-    ctx.arc(centerX, centerY, 11, 0, Math.PI * 2);
+    ctx.arc(centerX, centerY, AGENT_RADIUS, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "rgba(255,255,255,0.18)";
+    ctx.beginPath();
+    ctx.arc(centerX - 3, centerY - 4, 3, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.fillStyle = "#111";
@@ -159,6 +258,56 @@ function getAgentColor(state: OfficeAgent["state"]) {
     default:
       return "#7cc08a";
   }
+}
+
+function advanceAgents(sprites: Map<string, AgentSprite>, deltaSeconds: number) {
+  const maxStep = AGENT_MOVE_SPEED * deltaSeconds;
+  for (const sprite of sprites.values()) {
+    const dx = sprite.targetX - sprite.x;
+    const dy = sprite.targetY - sprite.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist <= 0.5) {
+      sprite.x = sprite.targetX;
+      sprite.y = sprite.targetY;
+      continue;
+    }
+
+    const step = Math.min(maxStep, dist);
+    sprite.x += (dx / dist) * step;
+    sprite.y += (dy / dist) * step;
+  }
+}
+
+function buildSeatMap() {
+  return new Map(layout.agents.map((seat) => [seat.agentId, seat]));
+}
+
+function resolveTargetPoint(agent: OfficeAgent, seatMap: Map<string, OfficeLayout["agents"][number]>, agents: OfficeAgent[]): Point {
+  if (agent.state === "sleeping") {
+    return couchPoint;
+  }
+
+  if (agent.state === "offline") {
+    return spawnPoint;
+  }
+
+  const seat = seatMap.get(agent.id) ?? getFallbackSeat(agent.id, agents.findIndex((item) => item.id === agent.id));
+  return {
+    x: seat.deskX * TILE_SIZE + TILE_SIZE,
+    y: seat.deskY * TILE_SIZE + TILE_SIZE + 8
+  };
+}
+
+function getFallbackSeat(agentId: string, index: number) {
+  return {
+    agentId,
+    deskX: 4 + (index % 4) * 3,
+    deskY: 9 + Math.floor(index / 4) * 2
+  };
+}
+
+function distance(ax: number, ay: number, bx: number, by: number) {
+  return Math.hypot(ax - bx, ay - by);
 }
 
 const styles = {

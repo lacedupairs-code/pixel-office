@@ -17,3 +17,8 @@ export interface OfficeLayout {
   }>;
   agents: LayoutAgentSeat[];
 }
+
+export interface Point {
+  x: number;
+  y: number;
+}
