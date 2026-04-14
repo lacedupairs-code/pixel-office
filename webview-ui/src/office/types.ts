@@ -48,4 +48,11 @@ export type Facing = "up" | "down" | "left" | "right";
 
 export type LayoutTool = LayoutTileType | "erase";
 
-export type LayoutPaintMode = "brush" | "line" | "rect" | "fill";
+export type LayoutPaintMode = "brush" | "line" | "rect" | "fill" | "select";
+
+export interface TileSelectionBounds {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}

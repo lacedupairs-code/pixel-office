@@ -13,7 +13,7 @@ import {
 import { buildWalkableGrid, findPath, toCanvasPoint, toTilePoint, type TilePoint } from "./pathfinding";
 import { drawAgentSprite, drawDeskActivity } from "./renderer";
 import { resolveAgentIntent } from "./stateMachine";
-import type { AgentMotionTarget, LayoutPaintMode, LayoutTileType, LayoutTool, OfficeLayout } from "./types";
+import type { AgentMotionTarget, LayoutPaintMode, LayoutTileType, LayoutTool, OfficeLayout, TileSelectionBounds } from "./types";
 import { loadOfficeTileset, type LoadedTileset } from "./tileset";
 import type { OfficeAgent } from "../store/officeStore";
 
@@ -27,6 +27,8 @@ interface OfficeCanvasProps {
   onPaintTiles?: (tiles: Array<{ x: number; y: number }>) => void;
   selectedSeatAgentId?: string | null;
   onAssignSeatToTile?: (tileX: number, tileY: number) => void;
+  selectionBounds?: TileSelectionBounds | null;
+  onSelectionChange?: (selection: TileSelectionBounds | null) => void;
 }
 
 interface AgentSprite {
@@ -62,7 +64,9 @@ export function OfficeCanvas({
   onPaintTile,
   onPaintTiles,
   selectedSeatAgentId = null,
-  onAssignSeatToTile
+  onAssignSeatToTile,
+  selectionBounds = null,
+  onSelectionChange
 }: OfficeCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const agentsRef = useRef<Map<string, AgentSprite>>(new Map());
@@ -235,6 +239,14 @@ export function OfficeCanvas({
         return;
       }
 
+      if (paintMode === "select") {
+        dragSelectionRef.current = {
+          start: tile,
+          current: tile
+        };
+        return;
+      }
+
       if (paintMode !== "brush") {
         dragSelectionRef.current = {
           start: tile,
@@ -260,6 +272,9 @@ export function OfficeCanvas({
       }
 
       if (dragSelectionRef.current) {
+        if (paintMode === "select") {
+          onSelectionChange?.(normalizeSelectionBounds(dragSelectionRef.current.start, tile));
+        }
         dragSelectionRef.current = {
           ...dragSelectionRef.current,
           current: tile
@@ -278,7 +293,11 @@ export function OfficeCanvas({
       if (dragSelectionRef.current) {
         const selection = dragSelectionRef.current;
         dragSelectionRef.current = null;
-        paintTiles(getPaintTiles(selection.start, selection.current, paintMode));
+        if (paintMode === "select") {
+          onSelectionChange?.(normalizeSelectionBounds(selection.start, selection.current));
+        } else {
+          paintTiles(getPaintTiles(selection.start, selection.current, paintMode));
+        }
       }
 
       dragPaintRef.current = false;
@@ -303,7 +322,7 @@ export function OfficeCanvas({
       canvas.removeEventListener("pointerup", handlePointerUp);
       canvas.removeEventListener("pointerleave", handlePointerLeave);
     };
-  }, [editMode, layout.cols, layout.rows, onAssignSeatToTile, onPaintTile, onPaintTiles, paintMode, selectedSeatAgentId]);
+  }, [editMode, layout.cols, layout.rows, onAssignSeatToTile, onPaintTile, onPaintTiles, onSelectionChange, paintMode, selectedSeatAgentId]);
 
   useEffect(() => {
     if (editMode) {
@@ -346,7 +365,8 @@ export function OfficeCanvas({
         tilesetRef.current,
         selectedSeatAgentId,
         hoverTile,
-        dragSelectionRef.current
+        dragSelectionRef.current,
+        selectionBounds
       );
       animationFrameRef.current = window.requestAnimationFrame(tick);
     };
@@ -361,7 +381,7 @@ export function OfficeCanvas({
       animationFrameRef.current = null;
       lastTickRef.current = null;
     };
-  }, [agents, editMode, hoverTile, layout, paintMode, selectedSeatAgentId, selectedTool, spawnPoint, tilesetReady, walkableGrid]);
+  }, [agents, editMode, hoverTile, layout, paintMode, selectedSeatAgentId, selectedTool, selectionBounds, spawnPoint, tilesetReady, walkableGrid]);
 
   return (
     <canvas
@@ -384,7 +404,8 @@ function drawOffice(
   tileset: LoadedTileset | null,
   selectedSeatAgentId: string | null,
   hoverTile: HoverTile | null,
-  dragSelection: DragSelection | null
+  dragSelection: DragSelection | null,
+  selectionBounds: TileSelectionBounds | null
 ) {
   const width = layout.cols * TILE_SIZE;
   const height = layout.rows * TILE_SIZE;
@@ -398,6 +419,7 @@ function drawOffice(
   if (editMode) {
     drawEditorBadge(ctx, selectedTool, paintMode, selectedSeatAgentId);
     drawHoverPreview(ctx, layout, hoverTile, selectedTool, paintMode, selectedSeatAgentId, dragSelection);
+    drawSelectionBounds(ctx, selectionBounds);
   }
   drawAgents(ctx, agents, sprites, timestampMs, layout);
 }
@@ -743,6 +765,34 @@ function buildLineTiles(start: HoverTile, end: HoverTile) {
   }
 
   return tiles;
+}
+
+function normalizeSelectionBounds(start: HoverTile, end: HoverTile): TileSelectionBounds {
+  return {
+    minX: Math.min(start.tileX, end.tileX),
+    minY: Math.min(start.tileY, end.tileY),
+    maxX: Math.max(start.tileX, end.tileX),
+    maxY: Math.max(start.tileY, end.tileY)
+  };
+}
+
+function drawSelectionBounds(ctx: CanvasRenderingContext2D, selectionBounds: TileSelectionBounds | null) {
+  if (!selectionBounds) {
+    return;
+  }
+
+  const x = selectionBounds.minX * TILE_SIZE;
+  const y = selectionBounds.minY * TILE_SIZE;
+  const width = (selectionBounds.maxX - selectionBounds.minX + 1) * TILE_SIZE;
+  const height = (selectionBounds.maxY - selectionBounds.minY + 1) * TILE_SIZE;
+
+  ctx.fillStyle = "rgba(242, 190, 92, 0.12)";
+  ctx.fillRect(x, y, width, height);
+  ctx.strokeStyle = "#f2be5c";
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 4]);
+  ctx.strokeRect(x + 1, y + 1, width - 2, height - 2);
+  ctx.setLineDash([]);
 }
 
 function drawGrid(ctx: CanvasRenderingContext2D, layout: OfficeLayout) {

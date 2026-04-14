@@ -4,7 +4,7 @@ import { Toolbar } from "./components/Toolbar";
 import { LayoutEditor } from "./editor/LayoutEditor";
 import { useAgentSocket } from "./hooks/useAgentSocket";
 import { OfficeCanvas } from "./office/OfficeCanvas";
-import type { LayoutPaintMode, LayoutTile, LayoutTool, OfficeLayout } from "./office/types";
+import type { LayoutPaintMode, LayoutTile, LayoutTool, OfficeLayout, TileSelectionBounds } from "./office/types";
 import { useOfficeStore } from "./store/officeStore";
 
 export default function App() {
@@ -20,6 +20,7 @@ export default function App() {
   const [selectedTool, setSelectedTool] = useState<LayoutTool>("floor");
   const [selectedPaintMode, setSelectedPaintMode] = useState<LayoutPaintMode>("brush");
   const [selectedSeatAgentId, setSelectedSeatAgentId] = useState<string | null>(null);
+  const [selectionBounds, setSelectionBounds] = useState<TileSelectionBounds | null>(null);
   const knownAgentIds = Array.from(new Set([...layout.agents.map((seat) => seat.agentId), ...agents.map((agent) => agent.id)])).sort();
 
   useEffect(() => {
@@ -106,6 +107,7 @@ export default function App() {
   function handleResetLayout() {
     commitLayout(() => defaultLayout);
     setSelectedSeatAgentId(null);
+    setSelectionBounds(null);
   }
 
   function handleAssignSeat(agentId: string, value: string) {
@@ -148,6 +150,31 @@ export default function App() {
 
     handleAssignSeat(selectedSeatAgentId, `${tileX},${tileY}`);
     setSelectedSeatAgentId(null);
+  }
+
+  function handleDeleteSelection() {
+    if (!selectionBounds) {
+      return;
+    }
+
+    commitLayout((current) => ({
+      ...current,
+      tiles: current.tiles.filter(
+        (tile) =>
+          tile.x < selectionBounds.minX ||
+          tile.x > selectionBounds.maxX ||
+          tile.y < selectionBounds.minY ||
+          tile.y > selectionBounds.maxY
+      ),
+      agents: current.agents.filter(
+        (seat) =>
+          seat.deskX < selectionBounds.minX ||
+          seat.deskX > selectionBounds.maxX ||
+          seat.deskY < selectionBounds.minY ||
+          seat.deskY > selectionBounds.maxY
+      )
+    }));
+    setSelectionBounds(null);
   }
 
   function handleExportLayout() {
@@ -197,6 +224,8 @@ export default function App() {
           onPaintTiles={handlePaintTiles}
           selectedSeatAgentId={selectedSeatAgentId}
           onAssignSeatToTile={handleAssignSeatToTile}
+          selectionBounds={selectionBounds}
+          onSelectionChange={setSelectionBounds}
         />
       </section>
       {editMode ? (
@@ -206,10 +235,13 @@ export default function App() {
           selectedPaintMode={selectedPaintMode}
           agentIds={knownAgentIds}
           selectedSeatAgentId={selectedSeatAgentId}
+          selectionBounds={selectionBounds}
           onSelectTool={setSelectedTool}
           onSelectPaintMode={setSelectedPaintMode}
           onAssignSeat={handleAssignSeat}
           onSelectSeatAgent={setSelectedSeatAgentId}
+          onClearSelection={() => setSelectionBounds(null)}
+          onDeleteSelection={handleDeleteSelection}
         />
       ) : null}
       <section style={styles.panel}>

@@ -1,20 +1,23 @@
 import type { CSSProperties } from "react";
-import type { LayoutAgentSeat, LayoutPaintMode, LayoutTool, OfficeLayout } from "../office/types";
+import type { LayoutAgentSeat, LayoutPaintMode, OfficeLayout, TileSelectionBounds } from "../office/types";
 
 interface LayoutEditorProps {
   layout: OfficeLayout;
-  selectedTool: LayoutTool;
+  selectedTool: OfficeLayout["tiles"][number]["type"] | "erase";
   selectedPaintMode: LayoutPaintMode;
   agentIds: string[];
   selectedSeatAgentId: string | null;
+  selectionBounds: TileSelectionBounds | null;
   onSelectTool: (tool: LayoutTool) => void;
   onSelectPaintMode: (mode: LayoutPaintMode) => void;
   onAssignSeat: (agentId: string, value: string) => void;
   onSelectSeatAgent: (agentId: string | null) => void;
+  onClearSelection: () => void;
+  onDeleteSelection: () => void;
 }
 
 const tools: LayoutTool[] = ["floor", "wall", "desk", "coffee", "couch", "erase"];
-const paintModes: LayoutPaintMode[] = ["brush", "line", "rect", "fill"];
+const paintModes: LayoutPaintMode[] = ["brush", "line", "rect", "fill", "select"];
 
 export function LayoutEditor({
   layout,
@@ -22,10 +25,13 @@ export function LayoutEditor({
   selectedPaintMode,
   agentIds,
   selectedSeatAgentId,
+  selectionBounds,
   onSelectTool,
   onSelectPaintMode,
   onAssignSeat,
-  onSelectSeatAgent
+  onSelectSeatAgent,
+  onClearSelection,
+  onDeleteSelection
 }: LayoutEditorProps) {
   const desks = layout.tiles
     .filter((tile) => tile.type === "desk")
@@ -73,7 +79,26 @@ export function LayoutEditor({
             </button>
           ))}
         </div>
-        <p style={styles.note}>`brush` paints continuously, `line` draws between click and release, `rect` fills a dragged box, and `fill` floods a connected region.</p>
+        <p style={styles.note}>`brush` paints continuously, `line` draws between click and release, `rect` fills a dragged box, `fill` floods a connected region, and `select` creates a marquee.</p>
+      </section>
+      <section style={styles.assignmentSection}>
+        <div style={styles.assignmentHeading}>Selection</div>
+        <div style={styles.metaBox}>
+          <div>
+            Bounds:{" "}
+            {selectionBounds
+              ? `${selectionBounds.minX},${selectionBounds.minY} -> ${selectionBounds.maxX},${selectionBounds.maxY}`
+              : "None"}
+          </div>
+        </div>
+        <div style={styles.modeGrid}>
+          <button type="button" onClick={onDeleteSelection} style={styles.toolButton} disabled={!selectionBounds}>
+            Delete
+          </button>
+          <button type="button" onClick={onClearSelection} style={styles.toolButton} disabled={!selectionBounds}>
+            Clear
+          </button>
+        </div>
       </section>
       <section style={styles.assignmentSection}>
         <div style={styles.assignmentHeading}>Seat Assignments</div>
