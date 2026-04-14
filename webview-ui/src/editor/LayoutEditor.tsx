@@ -5,13 +5,23 @@ interface LayoutEditorProps {
   layout: OfficeLayout;
   selectedTool: LayoutTool;
   agentIds: string[];
+  selectedSeatAgentId: string | null;
   onSelectTool: (tool: LayoutTool) => void;
   onAssignSeat: (agentId: string, value: string) => void;
+  onSelectSeatAgent: (agentId: string | null) => void;
 }
 
 const tools: LayoutTool[] = ["floor", "wall", "desk", "coffee", "couch", "erase"];
 
-export function LayoutEditor({ layout, selectedTool, agentIds, onSelectTool, onAssignSeat }: LayoutEditorProps) {
+export function LayoutEditor({
+  layout,
+  selectedTool,
+  agentIds,
+  selectedSeatAgentId,
+  onSelectTool,
+  onAssignSeat,
+  onSelectSeatAgent
+}: LayoutEditorProps) {
   const desks = layout.tiles
     .filter((tile) => tile.type === "desk")
     .sort((left, right) => left.y - right.y || left.x - right.x);
@@ -43,26 +53,41 @@ export function LayoutEditor({ layout, selectedTool, agentIds, onSelectTool, onA
       </div>
       <section style={styles.assignmentSection}>
         <div style={styles.assignmentHeading}>Seat Assignments</div>
+        <p style={styles.note}>
+          Choose an agent below, then click a desk on the canvas to assign that seat directly from the map.
+        </p>
         {agentIds.length === 0 ? <p style={styles.note}>No live agents yet. Once the socket feed is active, desk assignment options will appear here.</p> : null}
         {agentIds.map((agentId) => (
-          <label key={agentId} style={styles.assignmentRow}>
-            <span style={styles.agentLabel}>{agentId}</span>
-            <select
-              value={serializeSeat(seatMap.get(agentId))}
-              onChange={(event) => onAssignSeat(agentId, event.target.value)}
-              style={styles.select}
+          <div key={agentId} style={styles.assignmentCard}>
+            <label style={styles.assignmentRow}>
+              <span style={styles.agentLabel}>{agentId}</span>
+              <select
+                value={serializeSeat(seatMap.get(agentId))}
+                onChange={(event) => onAssignSeat(agentId, event.target.value)}
+                style={styles.select}
+              >
+                <option value="">Unassigned</option>
+                {desks.map((desk) => (
+                  <option key={`${desk.x}-${desk.y}`} value={`${desk.x},${desk.y}`}>
+                    Desk {desk.x}, {desk.y}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={() => onSelectSeatAgent(selectedSeatAgentId === agentId ? null : agentId)}
+              style={{
+                ...styles.assignButton,
+                ...(selectedSeatAgentId === agentId ? styles.assignButtonActive : null)
+              }}
             >
-              <option value="">Unassigned</option>
-              {desks.map((desk) => (
-                <option key={`${desk.x}-${desk.y}`} value={`${desk.x},${desk.y}`}>
-                  Desk {desk.x}, {desk.y}
-                </option>
-              ))}
-            </select>
-          </label>
+              {selectedSeatAgentId === agentId ? "Cancel Map Assign" : "Assign On Map"}
+            </button>
+          </div>
         ))}
       </section>
-      <p style={styles.note}>Undo and redo are now available from the toolbar. Auto-tiling and drag editing can build on this next.</p>
+      <p style={styles.note}>Drag painting is now supported on the canvas. Auto-tiling and marquee tools can build on this next.</p>
     </aside>
   );
 }
@@ -139,6 +164,13 @@ const styles: Record<string, CSSProperties> = {
     display: "grid",
     gap: "6px"
   },
+  assignmentCard: {
+    display: "grid",
+    gap: "8px",
+    padding: "10px",
+    borderRadius: "10px",
+    background: "rgba(255,255,255,0.03)"
+  },
   agentLabel: {
     fontSize: "12px",
     color: "#d8c3a3"
@@ -149,6 +181,21 @@ const styles: Record<string, CSSProperties> = {
     border: "1px solid rgba(255,255,255,0.12)",
     background: "rgba(22,18,15,0.85)",
     color: "#f0dfc4"
+  },
+  assignButton: {
+    appearance: "none",
+    borderRadius: "10px",
+    padding: "9px 12px",
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(255,255,255,0.06)",
+    color: "#f0dfc4",
+    cursor: "pointer",
+    fontSize: "12px"
+  },
+  assignButtonActive: {
+    background: "#f0b56a",
+    color: "#241a12",
+    fontWeight: 700
   },
   note: {
     margin: 0,

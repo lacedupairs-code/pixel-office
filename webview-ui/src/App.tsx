@@ -18,6 +18,7 @@ export default function App() {
   const [futureLayouts, setFutureLayouts] = useState<OfficeLayout[]>([]);
   const [editMode, setEditMode] = useState(false);
   const [selectedTool, setSelectedTool] = useState<LayoutTool>("floor");
+  const [selectedSeatAgentId, setSelectedSeatAgentId] = useState<string | null>(null);
   const knownAgentIds = Array.from(new Set([...layout.agents.map((seat) => seat.agentId), ...agents.map((agent) => agent.id)])).sort();
 
   useEffect(() => {
@@ -95,6 +96,7 @@ export default function App() {
 
   function handleResetLayout() {
     commitLayout(() => defaultLayout);
+    setSelectedSeatAgentId(null);
   }
 
   function handleAssignSeat(agentId: string, value: string) {
@@ -123,6 +125,20 @@ export default function App() {
         ]
       };
     });
+  }
+
+  function handleAssignSeatToTile(tileX: number, tileY: number) {
+    if (!selectedSeatAgentId) {
+      return;
+    }
+
+    const deskExists = layout.tiles.some((tile) => tile.type === "desk" && tile.x === tileX && tile.y === tileY);
+    if (!deskExists) {
+      return;
+    }
+
+    handleAssignSeat(selectedSeatAgentId, `${tileX},${tileY}`);
+    setSelectedSeatAgentId(null);
   }
 
   function handleExportLayout() {
@@ -168,6 +184,8 @@ export default function App() {
           editMode={editMode}
           selectedTool={selectedTool}
           onPaintTile={handlePaintTile}
+          selectedSeatAgentId={selectedSeatAgentId}
+          onAssignSeatToTile={handleAssignSeatToTile}
         />
       </section>
       {editMode ? (
@@ -175,8 +193,10 @@ export default function App() {
           layout={layout}
           selectedTool={selectedTool}
           agentIds={knownAgentIds}
+          selectedSeatAgentId={selectedSeatAgentId}
           onSelectTool={setSelectedTool}
           onAssignSeat={handleAssignSeat}
+          onSelectSeatAgent={setSelectedSeatAgentId}
         />
       ) : null}
       <section style={styles.panel}>
