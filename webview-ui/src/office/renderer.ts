@@ -1,5 +1,7 @@
 import { AGENT_RADIUS, TILE_SIZE } from "./constants";
 import type { OfficeAgent } from "../store/officeStore";
+import type { Facing } from "./types";
+import { getFrameRect, getFrameScale, getGeneratedSpriteSheet, getPalette } from "./sprites";
 
 interface RenderAgentSprite {
   id: string;
@@ -23,6 +25,10 @@ export function drawAgentSprite(
   const bob = moving ? Math.sin(timestampMs / 120) * 1.8 : Math.sin(timestampMs / 400) * 0.5;
   const bodyY = sprite.y + bob;
   const palette = getPalette(agent);
+  const sheet = getGeneratedSpriteSheet();
+  const frame = agent.state === "sleeping" ? 1 : moving ? Math.floor(timestampMs / 140) % 3 : 1;
+  const frameRect = getFrameRect(direction, frame);
+  const scale = getFrameScale();
 
   ctx.fillStyle = "rgba(0,0,0,0.22)";
   ctx.beginPath();
@@ -32,7 +38,7 @@ export function drawAgentSprite(
   if (agent.state === "sleeping") {
     drawSleepingBody(ctx, sprite.x, bodyY, palette);
   } else {
-    drawStandingBody(ctx, sprite.x, bodyY, palette, direction, moving, timestampMs);
+    drawStandingBody(ctx, sheet, frameRect, sprite.x, bodyY, palette);
   }
 
   ctx.fillStyle = "#111";
@@ -47,44 +53,22 @@ export function drawAgentSprite(
 
 function drawStandingBody(
   ctx: CanvasRenderingContext2D,
+  sheet: HTMLCanvasElement,
+  frameRect: ReturnType<typeof getFrameRect>,
   x: number,
   y: number,
-  palette: Palette,
-  direction: Facing,
-  moving: boolean,
-  timestampMs: number
+  palette: Palette
 ) {
-  const sway = moving ? Math.sign(Math.sin(timestampMs / 130)) * 1.2 : 0;
-  const legOffset = moving ? Math.sign(Math.sin(timestampMs / 130)) * 2 : 0;
+  const destWidth = frameRect.sw * scale;
+  const destHeight = frameRect.sh * scale;
+  const destX = x - destWidth / 2;
+  const destY = y - destHeight / 2;
 
-  ctx.fillStyle = palette.legs;
-  ctx.fillRect(x - 5, y + 6, 4, 8);
-  ctx.fillRect(x + 1, y + 6 + legOffset, 4, 8);
-
-  ctx.fillStyle = palette.body;
-  ctx.fillRect(x - 7, y - 4, 14, 12);
-
-  ctx.fillStyle = palette.head;
-  ctx.fillRect(x - 5, y - 13, 10, 10);
-
-  ctx.fillStyle = palette.accent;
-  if (direction === "left") {
-    ctx.fillRect(x - 9, y - 1 + sway, 3, 8);
-  } else if (direction === "right") {
-    ctx.fillRect(x + 6, y - 1 - sway, 3, 8);
-  } else {
-    ctx.fillRect(x - 9, y - 1 + sway, 3, 8);
-    ctx.fillRect(x + 6, y - 1 - sway, 3, 8);
-  }
-
-  if (direction === "up") {
-    ctx.fillStyle = "rgba(255,255,255,0.16)";
-    ctx.fillRect(x - 4, y - 10, 8, 3);
-  } else {
-    ctx.fillStyle = "#1a1715";
-    ctx.fillRect(x - 3, y - 9, 2, 2);
-    ctx.fillRect(x + 1, y - 9, 2, 2);
-  }
+  ctx.drawImage(sheet, frameRect.sx, frameRect.sy, frameRect.sw, frameRect.sh, destX, destY, destWidth, destHeight);
+  tintMask(ctx, destX, destY, destWidth, destHeight, "#ffffff", palette.head);
+  tintMask(ctx, destX, destY, destWidth, destHeight, "#ff00ff", palette.body);
+  tintMask(ctx, destX, destY, destWidth, destHeight, "#00ffff", palette.legs);
+  tintMask(ctx, destX, destY, destWidth, destHeight, "#00ff00", palette.accent);
 }
 
 function drawSleepingBody(ctx: CanvasRenderingContext2D, x: number, y: number, palette: Palette) {
@@ -118,8 +102,6 @@ function drawBubble(ctx: CanvasRenderingContext2D, x: number, y: number, text: s
   ctx.fill();
 }
 
-type Facing = "up" | "down" | "left" | "right";
-
 function getFacing(dx: number, dy: number): Facing {
   if (Math.abs(dx) > Math.abs(dy)) {
     return dx >= 0 ? "right" : "left";
@@ -135,56 +117,6 @@ interface Palette {
   legs: string;
 }
 
-function getPalette(agent: OfficeAgent): Palette {
-  const isBoss = agent.isDefault;
-
-  switch (agent.state) {
-    case "working":
-      return {
-        head: "#f2d2b6",
-        body: isBoss ? "#d7863e" : "#d06f4c",
-        accent: "#ffe0b8",
-        legs: "#5d3b29"
-      };
-    case "reading":
-      return {
-        head: "#f2d2b6",
-        body: isBoss ? "#6996d7" : "#5a84bf",
-        accent: "#dcecff",
-        legs: "#354965"
-      };
-    case "waiting":
-      return {
-        head: "#f2d2b6",
-        body: "#d0b04a",
-        accent: "#fff2b3",
-        legs: "#60502a"
-      };
-    case "sleeping":
-      return {
-        head: "#dcc4b0",
-        body: "#7d72b8",
-        accent: "#c8c1eb",
-        legs: "#4c456f"
-      };
-    case "offline":
-      return {
-        head: "#98887a",
-        body: "#5e5751",
-        accent: "#867d77",
-        legs: "#3f3935"
-      };
-    case "idle":
-    default:
-      return {
-        head: "#f2d2b6",
-        body: isBoss ? "#6fa86f" : "#69a98f",
-        accent: "#dbf6de",
-        legs: "#345342"
-      };
-  }
-}
-
 export function drawDeskActivity(ctx: CanvasRenderingContext2D, agent: OfficeAgent, x: number, y: number, timestampMs: number) {
   if (agent.state !== "working" && agent.state !== "reading") {
     return;
@@ -193,4 +125,46 @@ export function drawDeskActivity(ctx: CanvasRenderingContext2D, agent: OfficeAge
   const blink = Math.sin(timestampMs / 180) > 0 ? 1 : 0.4;
   ctx.fillStyle = agent.state === "working" ? `rgba(255, 214, 120, ${blink})` : `rgba(150, 210, 255, ${blink})`;
   ctx.fillRect(x - TILE_SIZE / 2 + 8, y - TILE_SIZE / 2 - 4, TILE_SIZE - 16, 4);
+}
+
+function tintMask(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  maskColor: string,
+  tintColor: string
+) {
+  const imageData = ctx.getImageData(x, y, width, height);
+  const mask = hexToRgb(maskColor);
+  const tint = hexToRgb(tintColor);
+
+  for (let i = 0; i < imageData.data.length; i += 4) {
+    const r = imageData.data[i];
+    const g = imageData.data[i + 1];
+    const b = imageData.data[i + 2];
+    const a = imageData.data[i + 3];
+
+    if (a === 0) {
+      continue;
+    }
+
+    if (r === mask.r && g === mask.g && b === mask.b) {
+      imageData.data[i] = tint.r;
+      imageData.data[i + 1] = tint.g;
+      imageData.data[i + 2] = tint.b;
+    }
+  }
+
+  ctx.putImageData(imageData, x, y);
+}
+
+function hexToRgb(value: string) {
+  const normalized = value.replace("#", "");
+  return {
+    r: Number.parseInt(normalized.slice(0, 2), 16),
+    g: Number.parseInt(normalized.slice(2, 4), 16),
+    b: Number.parseInt(normalized.slice(4, 6), 16)
+  };
 }

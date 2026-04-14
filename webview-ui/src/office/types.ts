@@ -39,3 +39,5 @@ export interface AgentIntent {
   point: Point;
   bubbleText?: string;
 }
+
+export type Facing = "up" | "down" | "left" | "right";
