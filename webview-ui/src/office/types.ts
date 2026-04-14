@@ -47,3 +47,5 @@ export interface AgentIntent {
 export type Facing = "up" | "down" | "left" | "right";
 
 export type LayoutTool = LayoutTileType | "erase";
+
+export type LayoutPaintMode = "brush" | "line" | "rect";

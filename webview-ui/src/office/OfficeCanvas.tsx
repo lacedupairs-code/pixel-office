@@ -13,7 +13,7 @@ import {
 import { buildWalkableGrid, findPath, toCanvasPoint, toTilePoint, type TilePoint } from "./pathfinding";
 import { drawAgentSprite, drawDeskActivity } from "./renderer";
 import { resolveAgentIntent } from "./stateMachine";
-import type { AgentMotionTarget, LayoutTileType, LayoutTool, OfficeLayout } from "./types";
+import type { AgentMotionTarget, LayoutPaintMode, LayoutTileType, LayoutTool, OfficeLayout } from "./types";
 import { loadOfficeTileset, type LoadedTileset } from "./tileset";
 import type { OfficeAgent } from "../store/officeStore";
 
@@ -22,7 +22,9 @@ interface OfficeCanvasProps {
   layout: OfficeLayout;
   editMode?: boolean;
   selectedTool?: LayoutTool;
+  paintMode?: LayoutPaintMode;
   onPaintTile?: (tileX: number, tileY: number) => void;
+  onPaintTiles?: (tiles: Array<{ x: number; y: number }>) => void;
   selectedSeatAgentId?: string | null;
   onAssignSeatToTile?: (tileX: number, tileY: number) => void;
 }
@@ -46,12 +48,19 @@ interface HoverTile {
   tileY: number;
 }
 
+interface DragSelection {
+  start: HoverTile;
+  current: HoverTile;
+}
+
 export function OfficeCanvas({
   agents,
   layout,
   editMode = false,
   selectedTool = "floor",
+  paintMode = "brush",
   onPaintTile,
+  onPaintTiles,
   selectedSeatAgentId = null,
   onAssignSeatToTile
 }: OfficeCanvasProps) {
@@ -62,6 +71,7 @@ export function OfficeCanvas({
   const tilesetRef = useRef<LoadedTileset | null>(null);
   const dragPaintRef = useRef(false);
   const lastPaintedTileRef = useRef<string | null>(null);
+  const dragSelectionRef = useRef<DragSelection | null>(null);
   const [tilesetReady, setTilesetReady] = useState(false);
   const [hoverTile, setHoverTile] = useState<HoverTile | null>(null);
   const spawnPoint = useMemo(() => ({ x: TILE_SIZE * 2.5, y: TILE_SIZE * (layout.rows - 2.2) }), [layout.rows]);
@@ -196,6 +206,17 @@ export function OfficeCanvas({
       onPaintTile(tileX, tileY);
     };
 
+    const paintTiles = (tiles: HoverTile[]) => {
+      if (onPaintTiles) {
+        onPaintTiles(tiles);
+        return;
+      }
+
+      for (const tile of tiles) {
+        onPaintTile?.(tile.tileX, tile.tileY);
+      }
+    };
+
     const handlePointerDown = (event: PointerEvent) => {
       const tile = resolveTile(event);
       if (!tile) {
@@ -209,20 +230,39 @@ export function OfficeCanvas({
         return;
       }
 
+      if (paintMode !== "brush") {
+        dragSelectionRef.current = {
+          start: tile,
+          current: tile
+        };
+        return;
+      }
+
       dragPaintRef.current = true;
       paintTile(tile.tileX, tile.tileY);
     };
 
     const handlePointerMove = (event: PointerEvent) => {
-      if (!dragPaintRef.current || selectedSeatAgentId) {
-        const tile = resolveTile(event);
-        setHoverTile(tile);
+      const tile = resolveTile(event);
+      setHoverTile(tile);
+
+      if (selectedSeatAgentId) {
         return;
       }
 
-      const tile = resolveTile(event);
-      setHoverTile(tile);
       if (!tile) {
+        return;
+      }
+
+      if (dragSelectionRef.current) {
+        dragSelectionRef.current = {
+          ...dragSelectionRef.current,
+          current: tile
+        };
+        return;
+      }
+
+      if (!dragPaintRef.current) {
         return;
       }
 
@@ -230,11 +270,18 @@ export function OfficeCanvas({
     };
 
     const handlePointerUp = () => {
+      if (dragSelectionRef.current) {
+        const selection = dragSelectionRef.current;
+        dragSelectionRef.current = null;
+        paintTiles(getPaintTiles(selection.start, selection.current, paintMode));
+      }
+
       dragPaintRef.current = false;
       lastPaintedTileRef.current = null;
     };
 
     const handlePointerLeave = () => {
+      dragSelectionRef.current = null;
       dragPaintRef.current = false;
       lastPaintedTileRef.current = null;
       setHoverTile(null);
@@ -251,7 +298,7 @@ export function OfficeCanvas({
       canvas.removeEventListener("pointerup", handlePointerUp);
       canvas.removeEventListener("pointerleave", handlePointerLeave);
     };
-  }, [editMode, layout.cols, layout.rows, onAssignSeatToTile, onPaintTile, selectedSeatAgentId]);
+  }, [editMode, layout.cols, layout.rows, onAssignSeatToTile, onPaintTile, onPaintTiles, paintMode, selectedSeatAgentId]);
 
   useEffect(() => {
     if (editMode) {
@@ -282,7 +329,20 @@ export function OfficeCanvas({
 
       advanceAgents(agentsRef.current, deltaSeconds);
       updateIdleIntent(agentsRef.current, agents, timestamp, layout, spawnPoint, walkableGrid);
-      drawOffice(ctx, agents, agentsRef.current, timestamp, layout, editMode, selectedTool, tilesetRef.current, selectedSeatAgentId, hoverTile);
+      drawOffice(
+        ctx,
+        agents,
+        agentsRef.current,
+        timestamp,
+        layout,
+        editMode,
+        selectedTool,
+        paintMode,
+        tilesetRef.current,
+        selectedSeatAgentId,
+        hoverTile,
+        dragSelectionRef.current
+      );
       animationFrameRef.current = window.requestAnimationFrame(tick);
     };
 
@@ -296,7 +356,7 @@ export function OfficeCanvas({
       animationFrameRef.current = null;
       lastTickRef.current = null;
     };
-  }, [agents, editMode, hoverTile, layout, selectedSeatAgentId, selectedTool, spawnPoint, tilesetReady, walkableGrid]);
+  }, [agents, editMode, hoverTile, layout, paintMode, selectedSeatAgentId, selectedTool, spawnPoint, tilesetReady, walkableGrid]);
 
   return (
     <canvas
@@ -315,9 +375,11 @@ function drawOffice(
   layout: OfficeLayout,
   editMode: boolean,
   selectedTool: LayoutTool,
+  paintMode: LayoutPaintMode,
   tileset: LoadedTileset | null,
   selectedSeatAgentId: string | null,
-  hoverTile: HoverTile | null
+  hoverTile: HoverTile | null,
+  dragSelection: DragSelection | null
 ) {
   const width = layout.cols * TILE_SIZE;
   const height = layout.rows * TILE_SIZE;
@@ -329,8 +391,8 @@ function drawOffice(
   drawTiles(ctx, layout, tileset);
   drawGrid(ctx, layout);
   if (editMode) {
-    drawEditorBadge(ctx, selectedTool, selectedSeatAgentId);
-    drawHoverPreview(ctx, layout, hoverTile, selectedTool, selectedSeatAgentId);
+    drawEditorBadge(ctx, selectedTool, paintMode, selectedSeatAgentId);
+    drawHoverPreview(ctx, layout, hoverTile, selectedTool, paintMode, selectedSeatAgentId, dragSelection);
   }
   drawAgents(ctx, agents, sprites, timestampMs, layout);
 }
@@ -521,28 +583,51 @@ function drawHoverPreview(
   layout: OfficeLayout,
   hoverTile: HoverTile | null,
   selectedTool: LayoutTool,
-  selectedSeatAgentId: string | null
+  paintMode: LayoutPaintMode,
+  selectedSeatAgentId: string | null,
+  dragSelection: DragSelection | null
 ) {
-  if (!hoverTile) {
+  const previewTiles =
+    dragSelection && !selectedSeatAgentId
+      ? getPaintTiles(dragSelection.start, dragSelection.current, paintMode)
+      : hoverTile
+        ? [hoverTile]
+        : [];
+
+  if (previewTiles.length === 0) {
     return;
   }
 
-  if (hoverTile.tileX < 0 || hoverTile.tileY < 0 || hoverTile.tileX >= layout.cols || hoverTile.tileY >= layout.rows) {
+  const anchorTile = previewTiles[previewTiles.length - 1];
+  if (!anchorTile) {
     return;
   }
 
-  const x = hoverTile.tileX * TILE_SIZE;
-  const y = hoverTile.tileY * TILE_SIZE;
+  const x = anchorTile.tileX * TILE_SIZE;
+  const y = anchorTile.tileY * TILE_SIZE;
   const isSeatMode = selectedSeatAgentId !== null;
-  const previewLabel = isSeatMode ? `Desk for ${selectedSeatAgentId}` : selectedTool === "erase" ? "Erase" : `Paint ${selectedTool}`;
+  const previewLabel = isSeatMode
+    ? `Desk for ${selectedSeatAgentId}`
+    : selectedTool === "erase"
+      ? `${paintMode} erase`
+      : `${paintMode} ${selectedTool}`;
   const labelWidth = Math.max(68, previewLabel.length * 7);
   const labelY = Math.max(4, y - 18);
 
   ctx.fillStyle = isSeatMode ? "rgba(240, 181, 106, 0.18)" : "rgba(144, 200, 255, 0.18)";
-  ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
   ctx.strokeStyle = isSeatMode ? "#f0b56a" : "#8fd0ff";
   ctx.lineWidth = 2;
-  ctx.strokeRect(x + 1, y + 1, TILE_SIZE - 2, TILE_SIZE - 2);
+
+  for (const tile of previewTiles) {
+    if (tile.tileX < 0 || tile.tileY < 0 || tile.tileX >= layout.cols || tile.tileY >= layout.rows) {
+      continue;
+    }
+
+    const tileCanvasX = tile.tileX * TILE_SIZE;
+    const tileCanvasY = tile.tileY * TILE_SIZE;
+    ctx.fillRect(tileCanvasX, tileCanvasY, TILE_SIZE, TILE_SIZE);
+    ctx.strokeRect(tileCanvasX + 1, tileCanvasY + 1, TILE_SIZE - 2, TILE_SIZE - 2);
+  }
 
   ctx.fillStyle = "rgba(20, 16, 13, 0.92)";
   ctx.fillRect(x + 2, labelY, labelWidth, 16);
@@ -550,6 +635,64 @@ function drawHoverPreview(
   ctx.font = "11px sans-serif";
   ctx.textAlign = "left";
   ctx.fillText(previewLabel, x + 6, labelY + 12);
+}
+
+function getPaintTiles(start: HoverTile, end: HoverTile, paintMode: LayoutPaintMode) {
+  if (paintMode === "line") {
+    return buildLineTiles(start, end);
+  }
+
+  if (paintMode === "rect") {
+    return buildRectTiles(start, end);
+  }
+
+  return [end];
+}
+
+function buildRectTiles(start: HoverTile, end: HoverTile) {
+  const minX = Math.min(start.tileX, end.tileX);
+  const maxX = Math.max(start.tileX, end.tileX);
+  const minY = Math.min(start.tileY, end.tileY);
+  const maxY = Math.max(start.tileY, end.tileY);
+  const tiles: HoverTile[] = [];
+
+  for (let y = minY; y <= maxY; y += 1) {
+    for (let x = minX; x <= maxX; x += 1) {
+      tiles.push({ tileX: x, tileY: y });
+    }
+  }
+
+  return tiles;
+}
+
+function buildLineTiles(start: HoverTile, end: HoverTile) {
+  const tiles: HoverTile[] = [];
+  const dx = Math.abs(end.tileX - start.tileX);
+  const dy = Math.abs(end.tileY - start.tileY);
+  const sx = start.tileX < end.tileX ? 1 : -1;
+  const sy = start.tileY < end.tileY ? 1 : -1;
+  let x = start.tileX;
+  let y = start.tileY;
+  let error = dx - dy;
+
+  while (true) {
+    tiles.push({ tileX: x, tileY: y });
+    if (x === end.tileX && y === end.tileY) {
+      break;
+    }
+
+    const doubleError = error * 2;
+    if (doubleError > -dy) {
+      error -= dy;
+      x += sx;
+    }
+    if (doubleError < dx) {
+      error += dx;
+      y += sy;
+    }
+  }
+
+  return tiles;
 }
 
 function drawGrid(ctx: CanvasRenderingContext2D, layout: OfficeLayout) {
@@ -734,13 +877,19 @@ function updateIdleIntent(
   }
 }
 
-function drawEditorBadge(ctx: CanvasRenderingContext2D, tool: LayoutTool, selectedSeatAgentId: string | null) {
+function drawEditorBadge(
+  ctx: CanvasRenderingContext2D,
+  tool: LayoutTool,
+  paintMode: LayoutPaintMode,
+  selectedSeatAgentId: string | null
+) {
+  const label = selectedSeatAgentId ? `Assigning: ${selectedSeatAgentId}` : `Tool: ${tool} (${paintMode})`;
   ctx.fillStyle = "rgba(25, 21, 18, 0.88)";
-  ctx.fillRect(12, 12, selectedSeatAgentId ? 220 : 122, 24);
+  ctx.fillRect(12, 12, Math.max(122, label.length * 7 + 24), 24);
   ctx.fillStyle = "#f0dfc4";
   ctx.font = "12px sans-serif";
   ctx.textAlign = "left";
-  ctx.fillText(selectedSeatAgentId ? `Assigning: ${selectedSeatAgentId}` : `Tool: ${tool}`, 20, 28);
+  ctx.fillText(label, 20, 28);
 }
 
 function findCouchTile(layout: OfficeLayout) {

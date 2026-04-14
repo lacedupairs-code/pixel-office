@@ -4,7 +4,7 @@ import { Toolbar } from "./components/Toolbar";
 import { LayoutEditor } from "./editor/LayoutEditor";
 import { useAgentSocket } from "./hooks/useAgentSocket";
 import { OfficeCanvas } from "./office/OfficeCanvas";
-import type { LayoutTile, LayoutTool, OfficeLayout } from "./office/types";
+import type { LayoutPaintMode, LayoutTile, LayoutTool, OfficeLayout } from "./office/types";
 import { useOfficeStore } from "./store/officeStore";
 
 export default function App() {
@@ -18,6 +18,7 @@ export default function App() {
   const [futureLayouts, setFutureLayouts] = useState<OfficeLayout[]>([]);
   const [editMode, setEditMode] = useState(false);
   const [selectedTool, setSelectedTool] = useState<LayoutTool>("floor");
+  const [selectedPaintMode, setSelectedPaintMode] = useState<LayoutPaintMode>("brush");
   const [selectedSeatAgentId, setSelectedSeatAgentId] = useState<string | null>(null);
   const knownAgentIds = Array.from(new Set([...layout.agents.map((seat) => seat.agentId), ...agents.map((agent) => agent.id)])).sort();
 
@@ -26,25 +27,33 @@ export default function App() {
   }, []);
 
   function handlePaintTile(tileX: number, tileY: number) {
+    handlePaintTiles([{ x: tileX, y: tileY }]);
+  }
+
+  function handlePaintTiles(points: Array<{ x: number; y: number }>) {
     commitLayout((current) => {
-      const existingIndex = current.tiles.findIndex((tile) => tile.x === tileX && tile.y === tileY);
       const nextTiles = [...current.tiles];
+      const uniquePoints = new Map(points.map((point) => [`${point.x},${point.y}`, point]));
 
-      if (selectedTool === "erase") {
-        if (existingIndex >= 0) {
-          nextTiles.splice(existingIndex, 1);
-        }
-      } else {
-        const nextTile: LayoutTile = {
-          x: tileX,
-          y: tileY,
-          type: selectedTool
-        };
+      for (const point of uniquePoints.values()) {
+        const existingIndex = nextTiles.findIndex((tile) => tile.x === point.x && tile.y === point.y);
 
-        if (existingIndex >= 0) {
-          nextTiles[existingIndex] = nextTile;
+        if (selectedTool === "erase") {
+          if (existingIndex >= 0) {
+            nextTiles.splice(existingIndex, 1);
+          }
         } else {
-          nextTiles.push(nextTile);
+          const nextTile: LayoutTile = {
+            x: point.x,
+            y: point.y,
+            type: selectedTool
+          };
+
+          if (existingIndex >= 0) {
+            nextTiles[existingIndex] = nextTile;
+          } else {
+            nextTiles.push(nextTile);
+          }
         }
       }
 
@@ -183,7 +192,9 @@ export default function App() {
           layout={layout}
           editMode={editMode}
           selectedTool={selectedTool}
+          paintMode={selectedPaintMode}
           onPaintTile={handlePaintTile}
+          onPaintTiles={handlePaintTiles}
           selectedSeatAgentId={selectedSeatAgentId}
           onAssignSeatToTile={handleAssignSeatToTile}
         />
@@ -192,9 +203,11 @@ export default function App() {
         <LayoutEditor
           layout={layout}
           selectedTool={selectedTool}
+          selectedPaintMode={selectedPaintMode}
           agentIds={knownAgentIds}
           selectedSeatAgentId={selectedSeatAgentId}
           onSelectTool={setSelectedTool}
+          onSelectPaintMode={setSelectedPaintMode}
           onAssignSeat={handleAssignSeat}
           onSelectSeatAgent={setSelectedSeatAgentId}
         />

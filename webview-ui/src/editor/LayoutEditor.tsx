@@ -1,24 +1,29 @@
 import type { CSSProperties } from "react";
-import type { LayoutAgentSeat, LayoutTool, OfficeLayout } from "../office/types";
+import type { LayoutAgentSeat, LayoutPaintMode, LayoutTool, OfficeLayout } from "../office/types";
 
 interface LayoutEditorProps {
   layout: OfficeLayout;
   selectedTool: LayoutTool;
+  selectedPaintMode: LayoutPaintMode;
   agentIds: string[];
   selectedSeatAgentId: string | null;
   onSelectTool: (tool: LayoutTool) => void;
+  onSelectPaintMode: (mode: LayoutPaintMode) => void;
   onAssignSeat: (agentId: string, value: string) => void;
   onSelectSeatAgent: (agentId: string | null) => void;
 }
 
 const tools: LayoutTool[] = ["floor", "wall", "desk", "coffee", "couch", "erase"];
+const paintModes: LayoutPaintMode[] = ["brush", "line", "rect"];
 
 export function LayoutEditor({
   layout,
   selectedTool,
+  selectedPaintMode,
   agentIds,
   selectedSeatAgentId,
   onSelectTool,
+  onSelectPaintMode,
   onAssignSeat,
   onSelectSeatAgent
 }: LayoutEditorProps) {
@@ -51,6 +56,25 @@ export function LayoutEditor({
           </button>
         ))}
       </div>
+      <section style={styles.assignmentSection}>
+        <div style={styles.assignmentHeading}>Paint Mode</div>
+        <div style={styles.modeGrid}>
+          {paintModes.map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => onSelectPaintMode(mode)}
+              style={{
+                ...styles.toolButton,
+                ...(selectedPaintMode === mode ? styles.toolButtonActive : null)
+              }}
+            >
+              {mode}
+            </button>
+          ))}
+        </div>
+        <p style={styles.note}>`brush` paints continuously, `line` draws between click and release, and `rect` fills a dragged box.</p>
+      </section>
       <section style={styles.assignmentSection}>
         <div style={styles.assignmentHeading}>Seat Assignments</div>
         <p style={styles.note}>
@@ -159,6 +183,11 @@ const styles: Record<string, CSSProperties> = {
     fontSize: "13px",
     fontWeight: 700,
     color: "#f0dfc4"
+  },
+  modeGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+    gap: "8px"
   },
   assignmentRow: {
     display: "grid",
