@@ -13,7 +13,7 @@ import {
 import { buildWalkableGrid, findPath, toCanvasPoint, toTilePoint, type TilePoint } from "./pathfinding";
 import { drawAgentSprite, drawDeskActivity } from "./renderer";
 import { resolveAgentIntent } from "./stateMachine";
-import type { AgentMotionTarget, LayoutTool, OfficeLayout } from "./types";
+import type { AgentMotionTarget, LayoutTileType, LayoutTool, OfficeLayout } from "./types";
 import { loadOfficeTileset, type LoadedTileset } from "./tileset";
 import type { OfficeAgent } from "../store/officeStore";
 
@@ -41,6 +41,11 @@ interface AgentSprite {
   bubbleText?: string;
 }
 
+interface HoverTile {
+  tileX: number;
+  tileY: number;
+}
+
 export function OfficeCanvas({
   agents,
   layout,
@@ -58,6 +63,7 @@ export function OfficeCanvas({
   const dragPaintRef = useRef(false);
   const lastPaintedTileRef = useRef<string | null>(null);
   const [tilesetReady, setTilesetReady] = useState(false);
+  const [hoverTile, setHoverTile] = useState<HoverTile | null>(null);
   const spawnPoint = useMemo(() => ({ x: TILE_SIZE * 2.5, y: TILE_SIZE * (layout.rows - 2.2) }), [layout.rows]);
   const walkableGrid = useMemo(() => buildWalkableGrid(layout), [layout]);
 
@@ -196,6 +202,8 @@ export function OfficeCanvas({
         return;
       }
 
+      setHoverTile(tile);
+
       if (selectedSeatAgentId) {
         onAssignSeatToTile?.(tile.tileX, tile.tileY);
         return;
@@ -207,10 +215,13 @@ export function OfficeCanvas({
 
     const handlePointerMove = (event: PointerEvent) => {
       if (!dragPaintRef.current || selectedSeatAgentId) {
+        const tile = resolveTile(event);
+        setHoverTile(tile);
         return;
       }
 
       const tile = resolveTile(event);
+      setHoverTile(tile);
       if (!tile) {
         return;
       }
@@ -223,18 +234,32 @@ export function OfficeCanvas({
       lastPaintedTileRef.current = null;
     };
 
+    const handlePointerLeave = () => {
+      dragPaintRef.current = false;
+      lastPaintedTileRef.current = null;
+      setHoverTile(null);
+    };
+
     canvas.addEventListener("pointerdown", handlePointerDown);
     canvas.addEventListener("pointermove", handlePointerMove);
     canvas.addEventListener("pointerup", handlePointerUp);
-    canvas.addEventListener("pointerleave", handlePointerUp);
+    canvas.addEventListener("pointerleave", handlePointerLeave);
 
     return () => {
       canvas.removeEventListener("pointerdown", handlePointerDown);
       canvas.removeEventListener("pointermove", handlePointerMove);
       canvas.removeEventListener("pointerup", handlePointerUp);
-      canvas.removeEventListener("pointerleave", handlePointerUp);
+      canvas.removeEventListener("pointerleave", handlePointerLeave);
     };
   }, [editMode, layout.cols, layout.rows, onAssignSeatToTile, onPaintTile, selectedSeatAgentId]);
+
+  useEffect(() => {
+    if (editMode) {
+      return;
+    }
+
+    setHoverTile(null);
+  }, [editMode]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -257,7 +282,7 @@ export function OfficeCanvas({
 
       advanceAgents(agentsRef.current, deltaSeconds);
       updateIdleIntent(agentsRef.current, agents, timestamp, layout, spawnPoint, walkableGrid);
-      drawOffice(ctx, agents, agentsRef.current, timestamp, layout, editMode, selectedTool, tilesetRef.current, selectedSeatAgentId);
+      drawOffice(ctx, agents, agentsRef.current, timestamp, layout, editMode, selectedTool, tilesetRef.current, selectedSeatAgentId, hoverTile);
       animationFrameRef.current = window.requestAnimationFrame(tick);
     };
 
@@ -271,7 +296,7 @@ export function OfficeCanvas({
       animationFrameRef.current = null;
       lastTickRef.current = null;
     };
-  }, [agents, editMode, layout, selectedSeatAgentId, selectedTool, spawnPoint, tilesetReady, walkableGrid]);
+  }, [agents, editMode, hoverTile, layout, selectedSeatAgentId, selectedTool, spawnPoint, tilesetReady, walkableGrid]);
 
   return (
     <canvas
@@ -291,7 +316,8 @@ function drawOffice(
   editMode: boolean,
   selectedTool: LayoutTool,
   tileset: LoadedTileset | null,
-  selectedSeatAgentId: string | null
+  selectedSeatAgentId: string | null,
+  hoverTile: HoverTile | null
 ) {
   const width = layout.cols * TILE_SIZE;
   const height = layout.rows * TILE_SIZE;
@@ -304,20 +330,20 @@ function drawOffice(
   drawGrid(ctx, layout);
   if (editMode) {
     drawEditorBadge(ctx, selectedTool, selectedSeatAgentId);
+    drawHoverPreview(ctx, layout, hoverTile, selectedTool, selectedSeatAgentId);
   }
   drawAgents(ctx, agents, sprites, timestampMs, layout);
 }
 
 function drawTiles(ctx: CanvasRenderingContext2D, layout: OfficeLayout, tileset: LoadedTileset | null) {
-  const tileMap = new Map(layout.tiles.map((tile) => [`${tile.x},${tile.y}`, tile]));
+  const tileMap = buildResolvedTileMap(layout);
 
   for (let y = 0; y < layout.rows; y += 1) {
     for (let x = 0; x < layout.cols; x += 1) {
-      const isBorder = x === 0 || y === 0 || x === layout.cols - 1 || y === layout.rows - 1;
-      const tile = tileMap.get(`${x},${y}`);
-      const tileType = tile?.type ?? (isBorder ? "wall" : "floor");
+      const tileType = tileMap.get(`${x},${y}`) ?? "floor";
 
       drawTileSprite(ctx, tileset, tileType, x, y);
+      drawAutoTileAccents(ctx, tileMap, tileType, x, y);
 
       if (tileType === "desk") {
         const isBossDesk = layout.agents.some((seat) => seat.agentId === "main" && seat.deskX === x && seat.deskY === y);
@@ -407,6 +433,123 @@ function drawFallbackDecor(ctx: CanvasRenderingContext2D, layout: OfficeLayout) 
 
     ctx.strokeRect(tile.x * TILE_SIZE + 6, tile.y * TILE_SIZE + 6, TILE_SIZE - 12, TILE_SIZE - 12);
   }
+}
+
+function buildResolvedTileMap(layout: OfficeLayout) {
+  const tileMap = new Map<string, LayoutTileType>();
+
+  for (let y = 0; y < layout.rows; y += 1) {
+    for (let x = 0; x < layout.cols; x += 1) {
+      const isBorder = x === 0 || y === 0 || x === layout.cols - 1 || y === layout.rows - 1;
+      tileMap.set(`${x},${y}`, isBorder ? "wall" : "floor");
+    }
+  }
+
+  for (const tile of layout.tiles) {
+    tileMap.set(`${tile.x},${tile.y}`, tile.type);
+  }
+
+  return tileMap;
+}
+
+function drawAutoTileAccents(
+  ctx: CanvasRenderingContext2D,
+  tileMap: Map<string, LayoutTileType>,
+  tileType: LayoutTileType,
+  tileX: number,
+  tileY: number
+) {
+  const x = tileX * TILE_SIZE;
+  const y = tileY * TILE_SIZE;
+  const top = getTileType(tileMap, tileX, tileY - 1);
+  const right = getTileType(tileMap, tileX + 1, tileY);
+  const bottom = getTileType(tileMap, tileX, tileY + 1);
+  const left = getTileType(tileMap, tileX - 1, tileY);
+
+  if (tileType === "wall") {
+    ctx.fillStyle = "rgba(255, 248, 232, 0.08)";
+    if (top !== "wall") {
+      ctx.fillRect(x, y, TILE_SIZE, 3);
+    }
+    if (left !== "wall") {
+      ctx.fillRect(x, y, 3, TILE_SIZE);
+    }
+
+    ctx.fillStyle = "rgba(23, 17, 13, 0.18)";
+    if (right !== "wall") {
+      ctx.fillRect(x + TILE_SIZE - 4, y, 4, TILE_SIZE);
+    }
+    if (bottom !== "wall") {
+      ctx.fillRect(x, y + TILE_SIZE - 4, TILE_SIZE, 4);
+    }
+    return;
+  }
+
+  if (tileType === "floor") {
+    ctx.fillStyle = "rgba(255, 240, 216, 0.06)";
+    if (top === "wall") {
+      ctx.fillRect(x, y, TILE_SIZE, 4);
+    }
+    if (left === "wall") {
+      ctx.fillRect(x, y, 4, TILE_SIZE);
+    }
+    return;
+  }
+
+  if (tileType === "desk") {
+    ctx.strokeStyle = right === "desk" ? "rgba(255, 229, 188, 0.12)" : "rgba(49, 32, 20, 0.22)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x + TILE_SIZE - 1, y + 6);
+    ctx.lineTo(x + TILE_SIZE - 1, y + TILE_SIZE - 6);
+    ctx.stroke();
+    return;
+  }
+
+  if (tileType === "couch") {
+    ctx.fillStyle = right === "couch" ? "rgba(255,255,255,0.08)" : "rgba(17, 24, 27, 0.18)";
+    ctx.fillRect(x + TILE_SIZE - 4, y + 6, 4, TILE_SIZE - 8);
+  }
+}
+
+function getTileType(tileMap: Map<string, LayoutTileType>, tileX: number, tileY: number) {
+  return tileMap.get(`${tileX},${tileY}`) ?? null;
+}
+
+function drawHoverPreview(
+  ctx: CanvasRenderingContext2D,
+  layout: OfficeLayout,
+  hoverTile: HoverTile | null,
+  selectedTool: LayoutTool,
+  selectedSeatAgentId: string | null
+) {
+  if (!hoverTile) {
+    return;
+  }
+
+  if (hoverTile.tileX < 0 || hoverTile.tileY < 0 || hoverTile.tileX >= layout.cols || hoverTile.tileY >= layout.rows) {
+    return;
+  }
+
+  const x = hoverTile.tileX * TILE_SIZE;
+  const y = hoverTile.tileY * TILE_SIZE;
+  const isSeatMode = selectedSeatAgentId !== null;
+  const previewLabel = isSeatMode ? `Desk for ${selectedSeatAgentId}` : selectedTool === "erase" ? "Erase" : `Paint ${selectedTool}`;
+  const labelWidth = Math.max(68, previewLabel.length * 7);
+  const labelY = Math.max(4, y - 18);
+
+  ctx.fillStyle = isSeatMode ? "rgba(240, 181, 106, 0.18)" : "rgba(144, 200, 255, 0.18)";
+  ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+  ctx.strokeStyle = isSeatMode ? "#f0b56a" : "#8fd0ff";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x + 1, y + 1, TILE_SIZE - 2, TILE_SIZE - 2);
+
+  ctx.fillStyle = "rgba(20, 16, 13, 0.92)";
+  ctx.fillRect(x + 2, labelY, labelWidth, 16);
+  ctx.fillStyle = "#f0dfc4";
+  ctx.font = "11px sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText(previewLabel, x + 6, labelY + 12);
 }
 
 function drawGrid(ctx: CanvasRenderingContext2D, layout: OfficeLayout) {
