@@ -1,6 +1,10 @@
-import { useEffect, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
+import defaultLayoutJson from "./assets/default-layout.json";
+import { Toolbar } from "./components/Toolbar";
+import { LayoutEditor } from "./editor/LayoutEditor";
 import { useAgentSocket } from "./hooks/useAgentSocket";
 import { OfficeCanvas } from "./office/OfficeCanvas";
+import type { LayoutTile, LayoutTool, OfficeLayout } from "./office/types";
 import { useOfficeStore } from "./store/officeStore";
 
 export default function App() {
@@ -8,10 +12,53 @@ export default function App() {
 
   const agents = useOfficeStore((state) => state.agents);
   const connectionState = useOfficeStore((state) => state.connectionState);
+  const [layout, setLayout] = useState<OfficeLayout>(defaultLayoutJson as OfficeLayout);
+  const [editMode, setEditMode] = useState(false);
+  const [selectedTool, setSelectedTool] = useState<LayoutTool>("floor");
 
   useEffect(() => {
     document.title = "Pixel Office";
   }, []);
+
+  function handlePaintTile(tileX: number, tileY: number) {
+    setLayout((current) => {
+      const existingIndex = current.tiles.findIndex((tile) => tile.x === tileX && tile.y === tileY);
+      const nextTiles = [...current.tiles];
+
+      if (selectedTool === "erase") {
+        if (existingIndex >= 0) {
+          nextTiles.splice(existingIndex, 1);
+        }
+      } else {
+        const nextTile: LayoutTile = {
+          x: tileX,
+          y: tileY,
+          type: selectedTool
+        };
+
+        if (existingIndex >= 0) {
+          nextTiles[existingIndex] = nextTile;
+        } else {
+          nextTiles.push(nextTile);
+        }
+      }
+
+      return {
+        ...current,
+        tiles: nextTiles
+      };
+    });
+  }
+
+  function handleExportLayout() {
+    const blob = new Blob([JSON.stringify(layout, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "pixel-office-layout.json";
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
 
   return (
     <main style={styles.page}>
@@ -20,8 +67,8 @@ export default function App() {
           <p style={styles.kicker}>OpenClaw Live View</p>
           <h1 style={styles.title}>Pixel Office</h1>
           <p style={styles.copy}>
-            The office scene is live now. This first canvas milestone renders a static room, landmark furniture, and
-            live agent markers driven by the standalone WebSocket feed.
+            The office now supports a first editor foundation, generated sprite-sheet rendering, and richer idle scene
+            behavior like coffee breaks.
           </p>
         </div>
         <div style={styles.badgeRow}>
@@ -29,9 +76,22 @@ export default function App() {
           <span style={styles.badge}>Agents: {agents.length}</span>
         </div>
       </section>
+      <Toolbar
+        editMode={editMode}
+        onToggleEditMode={() => setEditMode((value) => !value)}
+        onResetLayout={() => setLayout(defaultLayoutJson as OfficeLayout)}
+        onExportLayout={handleExportLayout}
+      />
       <section style={styles.stage}>
-        <OfficeCanvas agents={agents} />
+        <OfficeCanvas
+          agents={agents}
+          layout={layout}
+          editMode={editMode}
+          selectedTool={selectedTool}
+          onPaintTile={handlePaintTile}
+        />
       </section>
+      {editMode ? <LayoutEditor layout={layout} selectedTool={selectedTool} onSelectTool={setSelectedTool} /> : null}
       <section style={styles.panel}>
         <h2 style={styles.sectionTitle}>Live Agent Feed</h2>
         <ul style={styles.list}>

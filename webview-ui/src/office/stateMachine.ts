@@ -1,6 +1,7 @@
 import type { OfficeAgent } from "../store/officeStore";
 import type { AgentIntent, LayoutAgentSeat, OfficeLayout } from "./types";
 import type { TilePoint } from "./pathfinding";
+import { TILE_SIZE } from "./constants";
 
 interface AgentSpriteStateLike {
   idleVariant: number;
@@ -44,9 +45,12 @@ export function resolveAgentIntent({
 
   if (agent.state === "idle") {
     const idleTile = pickIdleTile(homeSeat, sprite.idleVariant, walkableGrid, layout);
+    const coffeeTile = findTile(layout, "coffee");
+    const takingCoffeeBreak = sprite.idleVariant % 4 === 2 && coffeeTile;
     return {
-      tile: idleTile,
-      point: toPoint(idleTile)
+      tile: takingCoffeeBreak ? coffeeTile : idleTile,
+      point: toPoint(takingCoffeeBreak ? coffeeTile : idleTile),
+      bubbleText: takingCoffeeBreak ? "Coffee break" : undefined
     };
   }
 
@@ -95,7 +99,19 @@ function pickIdleTile(
 
 function toPoint(tile: TilePoint) {
   return {
-    x: tile.x * 32 + 16,
-    y: tile.y * 32 + 24
+    x: tile.x * TILE_SIZE + TILE_SIZE / 2,
+    y: tile.y * TILE_SIZE + TILE_SIZE / 2 + 8
+  };
+}
+
+function findTile(layout: OfficeLayout, type: "coffee" | "couch"): TilePoint | undefined {
+  const tile = layout.tiles.find((item) => item.type === type);
+  if (!tile) {
+    return undefined;
+  }
+
+  return {
+    x: tile.x,
+    y: tile.y
   };
 }

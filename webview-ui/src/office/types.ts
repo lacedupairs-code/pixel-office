@@ -10,12 +10,16 @@ export interface OfficeLayout {
   version: number;
   cols: number;
   rows: number;
-  tiles: Array<{
-    x: number;
-    y: number;
-    type: string;
-  }>;
+  tiles: LayoutTile[];
   agents: LayoutAgentSeat[];
+}
+
+export type LayoutTileType = "floor" | "wall" | "desk" | "coffee" | "couch";
+
+export interface LayoutTile {
+  x: number;
+  y: number;
+  type: LayoutTileType;
 }
 
 export interface Point {
@@ -41,3 +45,5 @@ export interface AgentIntent {
 }
 
 export type Facing = "up" | "down" | "left" | "right";
+
+export type LayoutTool = LayoutTileType | "erase";
