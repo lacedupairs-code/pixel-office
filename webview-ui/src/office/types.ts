@@ -22,3 +22,11 @@ export interface Point {
   x: number;
   y: number;
 }
+
+export interface AgentMotionTarget {
+  point: Point;
+  tile: {
+    x: number;
+    y: number;
+  };
+}

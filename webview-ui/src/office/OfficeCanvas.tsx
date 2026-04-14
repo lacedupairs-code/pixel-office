@@ -11,12 +11,14 @@ import {
   COFFEE_COLOR,
   COUCH_COLOR
 } from "./constants";
-import type { OfficeLayout, Point } from "./types";
+import { buildWalkableGrid, findPath, toCanvasPoint, toTilePoint, type TilePoint } from "./pathfinding";
+import type { AgentMotionTarget, OfficeLayout, Point } from "./types";
 import type { OfficeAgent } from "../store/officeStore";
 
 const layout = layoutJson as OfficeLayout;
 const spawnPoint = { x: TILE_SIZE * 2.5, y: TILE_SIZE * (layout.rows - 2.2) };
 const couchPoint = { x: TILE_SIZE * (layout.cols - 4), y: TILE_SIZE * (layout.rows - 2.7) };
+const walkableGrid = buildWalkableGrid(layout);
 
 interface OfficeCanvasProps {
   agents: OfficeAgent[];
@@ -28,6 +30,8 @@ interface AgentSprite {
   y: number;
   targetX: number;
   targetY: number;
+  path: TilePoint[];
+  pathIndex: number;
 }
 
 export function OfficeCanvas({ agents }: OfficeCanvasProps) {
@@ -70,18 +74,21 @@ export function OfficeCanvas({ agents }: OfficeCanvasProps) {
       const target = resolveTargetPoint(agent, seatMap, agents);
 
       if (!sprite) {
+        const spawnTile = toTilePoint(spawnPoint, TILE_SIZE);
+        const initialPath = findPath(walkableGrid, spawnTile, target.tile);
         sprites.set(agent.id, {
           id: agent.id,
           x: spawnPoint.x,
           y: spawnPoint.y,
-          targetX: target.x,
-          targetY: target.y
+          targetX: spawnPoint.x,
+          targetY: spawnPoint.y,
+          path: initialPath,
+          pathIndex: 0
         });
         continue;
       }
 
-      sprite.targetX = target.x;
-      sprite.targetY = target.y;
+      syncSpritePath(sprite, target);
     }
 
     for (const [id, sprite] of sprites) {
@@ -89,8 +96,10 @@ export function OfficeCanvas({ agents }: OfficeCanvasProps) {
         continue;
       }
 
-      sprite.targetX = spawnPoint.x;
-      sprite.targetY = spawnPoint.y;
+      syncSpritePath(sprite, {
+        point: spawnPoint,
+        tile: toTilePoint(spawnPoint, TILE_SIZE)
+      });
       if (distance(sprite.x, sprite.y, spawnPoint.x, spawnPoint.y) < 6) {
         sprites.delete(id);
       }
@@ -210,7 +219,9 @@ function drawAgents(ctx: CanvasRenderingContext2D, agents: OfficeAgent[], sprite
       x: spawnPoint.x + index * 12,
       y: spawnPoint.y,
       targetX: spawnPoint.x + index * 12,
-      targetY: spawnPoint.y
+      targetY: spawnPoint.y,
+      path: [],
+      pathIndex: 0
     };
 
     const centerX = sprite.x;
@@ -263,6 +274,16 @@ function getAgentColor(state: OfficeAgent["state"]) {
 function advanceAgents(sprites: Map<string, AgentSprite>, deltaSeconds: number) {
   const maxStep = AGENT_MOVE_SPEED * deltaSeconds;
   for (const sprite of sprites.values()) {
+    if (distance(sprite.x, sprite.y, sprite.targetX, sprite.targetY) <= 1 && sprite.pathIndex < sprite.path.length) {
+      const nextTile = sprite.path[sprite.pathIndex];
+      if (nextTile) {
+        const nextPoint = toCanvasPoint(nextTile, TILE_SIZE);
+        sprite.targetX = nextPoint.x;
+        sprite.targetY = nextPoint.y;
+        sprite.pathIndex += 1;
+      }
+    }
+
     const dx = sprite.targetX - sprite.x;
     const dy = sprite.targetY - sprite.y;
     const dist = Math.hypot(dx, dy);
@@ -282,19 +303,35 @@ function buildSeatMap() {
   return new Map(layout.agents.map((seat) => [seat.agentId, seat]));
 }
 
-function resolveTargetPoint(agent: OfficeAgent, seatMap: Map<string, OfficeLayout["agents"][number]>, agents: OfficeAgent[]): Point {
+function resolveTargetPoint(
+  agent: OfficeAgent,
+  seatMap: Map<string, OfficeLayout["agents"][number]>,
+  agents: OfficeAgent[]
+): AgentMotionTarget {
   if (agent.state === "sleeping") {
-    return couchPoint;
+    return {
+      point: couchPoint,
+      tile: { x: layout.cols - 4, y: layout.rows - 3 }
+    };
   }
 
   if (agent.state === "offline") {
-    return spawnPoint;
+    return {
+      point: spawnPoint,
+      tile: toTilePoint(spawnPoint, TILE_SIZE)
+    };
   }
 
   const seat = seatMap.get(agent.id) ?? getFallbackSeat(agent.id, agents.findIndex((item) => item.id === agent.id));
   return {
-    x: seat.deskX * TILE_SIZE + TILE_SIZE,
-    y: seat.deskY * TILE_SIZE + TILE_SIZE + 8
+    point: {
+      x: seat.deskX * TILE_SIZE + TILE_SIZE,
+      y: seat.deskY * TILE_SIZE + TILE_SIZE + 8
+    },
+    tile: {
+      x: seat.deskX + 1,
+      y: seat.deskY + 1
+    }
   };
 }
 
@@ -308,6 +345,26 @@ function getFallbackSeat(agentId: string, index: number) {
 
 function distance(ax: number, ay: number, bx: number, by: number) {
   return Math.hypot(ax - bx, ay - by);
+}
+
+function syncSpritePath(sprite: AgentSprite, target: AgentMotionTarget) {
+  const currentTile = toTilePoint({ x: sprite.x, y: sprite.y }, TILE_SIZE);
+  const nextPath = findPath(walkableGrid, currentTile, target.tile).slice(1);
+
+  sprite.path = nextPath;
+  sprite.pathIndex = 0;
+
+  if (nextPath.length === 0) {
+    sprite.targetX = target.point.x;
+    sprite.targetY = target.point.y;
+    return;
+  }
+
+  const firstStep = nextPath[0];
+  const nextPoint = toCanvasPoint(firstStep, TILE_SIZE);
+  sprite.targetX = nextPoint.x;
+  sprite.targetY = nextPoint.y;
+  sprite.pathIndex = 1;
 }
 
 const styles = {
