@@ -30,3 +30,12 @@ export interface AgentMotionTarget {
     y: number;
   };
 }
+
+export interface AgentIntent {
+  tile: {
+    x: number;
+    y: number;
+  };
+  point: Point;
+  bubbleText?: string;
+}

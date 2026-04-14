@@ -4,6 +4,7 @@ import {
   TILE_SIZE,
   AGENT_MOVE_SPEED,
   AGENT_RADIUS,
+  IDLE_RETARGET_MS,
   GRID_LINE_COLOR,
   FLOOR_COLOR,
   WALL_COLOR,
@@ -12,7 +13,8 @@ import {
   COUCH_COLOR
 } from "./constants";
 import { buildWalkableGrid, findPath, toCanvasPoint, toTilePoint, type TilePoint } from "./pathfinding";
-import type { AgentMotionTarget, OfficeLayout, Point } from "./types";
+import { resolveAgentIntent } from "./stateMachine";
+import type { AgentMotionTarget, OfficeLayout } from "./types";
 import type { OfficeAgent } from "../store/officeStore";
 
 const layout = layoutJson as OfficeLayout;
@@ -32,6 +34,10 @@ interface AgentSprite {
   targetY: number;
   path: TilePoint[];
   pathIndex: number;
+  lastKnownState: OfficeAgent["state"];
+  idleVariant: number;
+  nextRetargetAt: number;
+  bubbleText?: string;
 }
 
 export function OfficeCanvas({ agents }: OfficeCanvasProps) {
@@ -69,9 +75,10 @@ export function OfficeCanvas({ agents }: OfficeCanvasProps) {
     const nextIds = new Set(agents.map((agent) => agent.id));
     const sprites = agentsRef.current;
 
+    const now = Date.now();
     for (const agent of agents) {
       const sprite = sprites.get(agent.id);
-      const target = resolveTargetPoint(agent, seatMap, agents);
+      const target = resolveTargetPoint(agent, seatMap, agents, sprite, now);
 
       if (!sprite) {
         const spawnTile = toTilePoint(spawnPoint, TILE_SIZE);
@@ -83,12 +90,18 @@ export function OfficeCanvas({ agents }: OfficeCanvasProps) {
           targetX: spawnPoint.x,
           targetY: spawnPoint.y,
           path: initialPath,
-          pathIndex: 0
+          pathIndex: 0,
+          lastKnownState: agent.state,
+          idleVariant: 0,
+          nextRetargetAt: now + IDLE_RETARGET_MS,
+          bubbleText: target.bubbleText
         });
         continue;
       }
 
       syncSpritePath(sprite, target);
+      sprite.lastKnownState = agent.state;
+      sprite.bubbleText = target.bubbleText;
     }
 
     for (const [id, sprite] of sprites) {
@@ -126,6 +139,7 @@ export function OfficeCanvas({ agents }: OfficeCanvasProps) {
       lastTickRef.current = timestamp;
 
       advanceAgents(agentsRef.current, deltaSeconds);
+      updateIdleIntent(agentsRef.current, agents, timestamp);
       drawOffice(ctx, agents, agentsRef.current);
       animationFrameRef.current = window.requestAnimationFrame(tick);
     };
@@ -243,12 +257,13 @@ function drawAgents(ctx: CanvasRenderingContext2D, agents: OfficeAgent[], sprite
     ctx.textAlign = "center";
     ctx.fillText(agent.id.slice(0, 8), centerX, centerY - 16);
 
-    if (agent.taskHint) {
+    const bubbleText = sprite.bubbleText;
+    if (bubbleText) {
       ctx.fillStyle = "rgba(255, 248, 232, 0.92)";
       ctx.fillRect(centerX - 40, centerY - 42, 80, 16);
       ctx.fillStyle = "#2b2622";
       ctx.font = "10px sans-serif";
-      ctx.fillText(agent.taskHint.slice(0, 14), centerX, centerY - 30);
+      ctx.fillText(bubbleText.slice(0, 14), centerX, centerY - 30);
     }
   });
 }
@@ -306,33 +321,31 @@ function buildSeatMap() {
 function resolveTargetPoint(
   agent: OfficeAgent,
   seatMap: Map<string, OfficeLayout["agents"][number]>,
-  agents: OfficeAgent[]
+  agents: OfficeAgent[],
+  sprite: AgentSprite | undefined,
+  now: number
 ): AgentMotionTarget {
-  if (agent.state === "sleeping") {
-    return {
-      point: couchPoint,
-      tile: { x: layout.cols - 4, y: layout.rows - 3 }
-    };
-  }
-
-  if (agent.state === "offline") {
-    return {
-      point: spawnPoint,
-      tile: toTilePoint(spawnPoint, TILE_SIZE)
-    };
-  }
-
   const seat = seatMap.get(agent.id) ?? getFallbackSeat(agent.id, agents.findIndex((item) => item.id === agent.id));
-  return {
-    point: {
-      x: seat.deskX * TILE_SIZE + TILE_SIZE,
-      y: seat.deskY * TILE_SIZE + TILE_SIZE + 8
+  const idleVariant = sprite?.lastKnownState === "idle" ? sprite.idleVariant : 0;
+
+  const intent = resolveAgentIntent({
+    agent,
+    layout,
+    homeSeat: seat,
+    spawnTile: toTilePoint(spawnPoint, TILE_SIZE),
+    couchTile: { x: layout.cols - 4, y: layout.rows - 3 },
+    sprite: {
+      idleVariant
     },
-    tile: {
-      x: seat.deskX + 1,
-      y: seat.deskY + 1
-    }
-  };
+    walkableGrid
+  });
+
+  if (sprite && agent.state === "idle" && agent.state !== sprite.lastKnownState) {
+    sprite.idleVariant = Math.floor(now / IDLE_RETARGET_MS) % 4;
+    sprite.nextRetargetAt = now + IDLE_RETARGET_MS;
+  }
+
+  return intent;
 }
 
 function getFallbackSeat(agentId: string, index: number) {
@@ -365,6 +378,31 @@ function syncSpritePath(sprite: AgentSprite, target: AgentMotionTarget) {
   sprite.targetX = nextPoint.x;
   sprite.targetY = nextPoint.y;
   sprite.pathIndex = 1;
+}
+
+function updateIdleIntent(sprites: Map<string, AgentSprite>, agents: OfficeAgent[], nowMs: number) {
+  const seatMap = buildSeatMap();
+
+  for (const agent of agents) {
+    if (agent.state !== "idle") {
+      continue;
+    }
+
+    const sprite = sprites.get(agent.id);
+    if (!sprite || nowMs < sprite.nextRetargetAt) {
+      continue;
+    }
+
+    if (distance(sprite.x, sprite.y, sprite.targetX, sprite.targetY) > 4 || sprite.pathIndex < sprite.path.length) {
+      continue;
+    }
+
+    sprite.idleVariant = (sprite.idleVariant + 1) % 4;
+    sprite.nextRetargetAt = nowMs + IDLE_RETARGET_MS;
+    const target = resolveTargetPoint(agent, seatMap, agents, sprite, nowMs);
+    sprite.bubbleText = target.bubbleText;
+    syncSpritePath(sprite, target);
+  }
 }
 
 const styles = {

@@ -1,6 +1,7 @@
 export const TILE_SIZE = 32;
 export const AGENT_RADIUS = 11;
 export const AGENT_MOVE_SPEED = 88;
+export const IDLE_RETARGET_MS = 3200;
 export const GRID_LINE_COLOR = "rgba(58, 52, 44, 0.65)";
 export const FLOOR_COLOR = "#201b17";
 export const WALL_COLOR = "#4f4439";
