@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   TILE_SIZE,
   AGENT_MOVE_SPEED,
@@ -14,6 +14,7 @@ import { buildWalkableGrid, findPath, toCanvasPoint, toTilePoint, type TilePoint
 import { drawAgentSprite, drawDeskActivity } from "./renderer";
 import { resolveAgentIntent } from "./stateMachine";
 import type { AgentMotionTarget, LayoutTool, OfficeLayout } from "./types";
+import { loadOfficeTileset, type LoadedTileset } from "./tileset";
 import type { OfficeAgent } from "../store/officeStore";
 
 interface OfficeCanvasProps {
@@ -43,8 +44,27 @@ export function OfficeCanvas({ agents, layout, editMode = false, selectedTool = 
   const agentsRef = useRef<Map<string, AgentSprite>>(new Map());
   const animationFrameRef = useRef<number | null>(null);
   const lastTickRef = useRef<number | null>(null);
+  const tilesetRef = useRef<LoadedTileset | null>(null);
+  const [tilesetReady, setTilesetReady] = useState(false);
   const spawnPoint = useMemo(() => ({ x: TILE_SIZE * 2.5, y: TILE_SIZE * (layout.rows - 2.2) }), [layout.rows]);
   const walkableGrid = useMemo(() => buildWalkableGrid(layout), [layout]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    loadOfficeTileset().then((tileset) => {
+      if (cancelled) {
+        return;
+      }
+
+      tilesetRef.current = tileset;
+      setTilesetReady(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -169,7 +189,7 @@ export function OfficeCanvas({ agents, layout, editMode = false, selectedTool = 
 
       advanceAgents(agentsRef.current, deltaSeconds);
       updateIdleIntent(agentsRef.current, agents, timestamp, layout, spawnPoint, walkableGrid);
-      drawOffice(ctx, agents, agentsRef.current, timestamp, layout, editMode, selectedTool);
+      drawOffice(ctx, agents, agentsRef.current, timestamp, layout, editMode, selectedTool, tilesetRef.current);
       animationFrameRef.current = window.requestAnimationFrame(tick);
     };
 
@@ -183,7 +203,7 @@ export function OfficeCanvas({ agents, layout, editMode = false, selectedTool = 
       animationFrameRef.current = null;
       lastTickRef.current = null;
     };
-  }, [agents, editMode, layout, selectedTool, spawnPoint, walkableGrid]);
+  }, [agents, editMode, layout, selectedTool, spawnPoint, tilesetReady, walkableGrid]);
 
   return <canvas ref={canvasRef} style={{ ...styles.canvas, cursor: editMode ? "crosshair" : "default" }} aria-label="Pixel Office canvas" />;
 }
@@ -195,7 +215,8 @@ function drawOffice(
   timestampMs: number,
   layout: OfficeLayout,
   editMode: boolean,
-  selectedTool: LayoutTool
+  selectedTool: LayoutTool,
+  tileset: LoadedTileset | null
 ) {
   const width = layout.cols * TILE_SIZE;
   const height = layout.rows * TILE_SIZE;
@@ -204,8 +225,7 @@ function drawOffice(
   ctx.fillStyle = FLOOR_COLOR;
   ctx.fillRect(0, 0, width, height);
 
-  drawRoomShell(ctx, layout);
-  drawLandmarks(ctx, layout);
+  drawTiles(ctx, layout, tileset);
   drawGrid(ctx, layout);
   if (editMode) {
     drawEditorBadge(ctx, selectedTool);
@@ -213,52 +233,105 @@ function drawOffice(
   drawAgents(ctx, agents, sprites, timestampMs, layout);
 }
 
-function drawRoomShell(ctx: CanvasRenderingContext2D, layout: OfficeLayout) {
-  ctx.fillStyle = WALL_COLOR;
-  ctx.fillRect(0, 0, layout.cols * TILE_SIZE, TILE_SIZE);
-  ctx.fillRect(0, (layout.rows - 1) * TILE_SIZE, layout.cols * TILE_SIZE, TILE_SIZE);
-  ctx.fillRect(0, 0, TILE_SIZE, layout.rows * TILE_SIZE);
-  ctx.fillRect((layout.cols - 1) * TILE_SIZE, 0, TILE_SIZE, layout.rows * TILE_SIZE);
-}
+function drawTiles(ctx: CanvasRenderingContext2D, layout: OfficeLayout, tileset: LoadedTileset | null) {
+  const tileMap = new Map(layout.tiles.map((tile) => [`${tile.x},${tile.y}`, tile]));
 
-function drawLandmarks(ctx: CanvasRenderingContext2D, layout: OfficeLayout) {
-  for (const tile of layout.tiles) {
-    if (tile.type === "desk") {
-      const isBossDesk = layout.agents.some((seat) => seat.agentId === "main" && seat.deskX === tile.x && seat.deskY === tile.y);
-      drawDesk(ctx, tile.x, tile.y, isBossDesk);
-      continue;
-    }
+  for (let y = 0; y < layout.rows; y += 1) {
+    for (let x = 0; x < layout.cols; x += 1) {
+      const isBorder = x === 0 || y === 0 || x === layout.cols - 1 || y === layout.rows - 1;
+      const tile = tileMap.get(`${x},${y}`);
+      const tileType = tile?.type ?? (isBorder ? "wall" : "floor");
 
-    if (tile.type === "coffee") {
-      ctx.fillStyle = COFFEE_COLOR;
-      ctx.fillRect(tile.x * TILE_SIZE + 6, tile.y * TILE_SIZE + 6, TILE_SIZE - 12, TILE_SIZE - 12);
-      continue;
-    }
+      drawTileSprite(ctx, tileset, tileType, x, y);
 
-    if (tile.type === "couch") {
-      ctx.fillStyle = COUCH_COLOR;
-      ctx.fillRect(tile.x * TILE_SIZE, tile.y * TILE_SIZE, TILE_SIZE * 2, TILE_SIZE);
-      continue;
+      if (tileType === "desk") {
+        const isBossDesk = layout.agents.some((seat) => seat.agentId === "main" && seat.deskX === x && seat.deskY === y);
+        if (isBossDesk) {
+          ctx.fillStyle = "rgba(222, 165, 96, 0.28)";
+          ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        }
+      }
     }
+  }
 
-    if (tile.type === "wall") {
-      ctx.fillStyle = "#6c5f50";
-      ctx.fillRect(tile.x * TILE_SIZE, tile.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-      continue;
-    }
-
-    if (tile.type === "floor") {
-      ctx.fillStyle = "rgba(255,255,255,0.04)";
-      ctx.fillRect(tile.x * TILE_SIZE + 8, tile.y * TILE_SIZE + 8, TILE_SIZE - 16, TILE_SIZE - 16);
-    }
+  if (tileset?.usingFallbackAtlas) {
+    drawFallbackDecor(ctx, layout);
   }
 }
 
-function drawDesk(ctx: CanvasRenderingContext2D, x: number, y: number, boss: boolean) {
-  ctx.fillStyle = boss ? "#a07148" : DESK_COLOR;
-  ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE * 2, TILE_SIZE);
-  ctx.fillStyle = "#2b2622";
-  ctx.fillRect(x * TILE_SIZE + 6, y * TILE_SIZE + 6, TILE_SIZE - 12, TILE_SIZE - 12);
+function drawTileSprite(
+  ctx: CanvasRenderingContext2D,
+  tileset: LoadedTileset | null,
+  tileType: "floor" | "wall" | "desk" | "coffee" | "couch",
+  tileX: number,
+  tileY: number
+) {
+  if (tileset) {
+    const rect = tileset.manifest.tiles[tileType];
+    const scale = TILE_SIZE / tileset.manifest.tileSize;
+
+    ctx.drawImage(
+      tileset.atlas,
+      rect.x,
+      rect.y,
+      rect.w,
+      rect.h,
+      tileX * TILE_SIZE,
+      tileY * TILE_SIZE,
+      rect.w * scale,
+      rect.h * scale
+    );
+    return;
+  }
+
+  drawPrimitiveTile(ctx, tileType, tileX, tileY);
+}
+
+function drawPrimitiveTile(
+  ctx: CanvasRenderingContext2D,
+  tileType: "floor" | "wall" | "desk" | "coffee" | "couch",
+  tileX: number,
+  tileY: number
+) {
+  const x = tileX * TILE_SIZE;
+  const y = tileY * TILE_SIZE;
+
+  if (tileType === "wall") {
+    ctx.fillStyle = WALL_COLOR;
+    ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+    return;
+  }
+
+  ctx.fillStyle = FLOOR_COLOR;
+  ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+  ctx.fillStyle = "rgba(255,255,255,0.04)";
+  ctx.fillRect(x + 8, y + 8, TILE_SIZE - 16, TILE_SIZE - 16);
+
+  if (tileType === "desk") {
+    ctx.fillStyle = DESK_COLOR;
+    ctx.fillRect(x + 2, y + 4, TILE_SIZE - 4, TILE_SIZE - 8);
+    ctx.fillStyle = "#2b2622";
+    ctx.fillRect(x + 7, y + 7, TILE_SIZE - 14, TILE_SIZE - 14);
+  } else if (tileType === "coffee") {
+    ctx.fillStyle = COFFEE_COLOR;
+    ctx.fillRect(x + 6, y + 6, TILE_SIZE - 12, TILE_SIZE - 12);
+  } else if (tileType === "couch") {
+    ctx.fillStyle = COUCH_COLOR;
+    ctx.fillRect(x + 2, y + 8, TILE_SIZE - 4, TILE_SIZE - 10);
+  }
+}
+
+function drawFallbackDecor(ctx: CanvasRenderingContext2D, layout: OfficeLayout) {
+  ctx.strokeStyle = "rgba(255, 235, 205, 0.08)";
+  ctx.lineWidth = 1;
+
+  for (const tile of layout.tiles) {
+    if (tile.type !== "floor") {
+      continue;
+    }
+
+    ctx.strokeRect(tile.x * TILE_SIZE + 6, tile.y * TILE_SIZE + 6, TILE_SIZE - 12, TILE_SIZE - 12);
+  }
 }
 
 function drawGrid(ctx: CanvasRenderingContext2D, layout: OfficeLayout) {
@@ -471,4 +544,3 @@ const styles = {
     boxShadow: "0 24px 60px rgba(0, 0, 0, 0.35)"
   }
 };
-
