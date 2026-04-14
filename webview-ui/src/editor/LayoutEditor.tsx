@@ -1,19 +1,26 @@
 import type { CSSProperties } from "react";
-import type { LayoutTool, OfficeLayout } from "../office/types";
+import type { LayoutAgentSeat, LayoutTool, OfficeLayout } from "../office/types";
 
 interface LayoutEditorProps {
   layout: OfficeLayout;
   selectedTool: LayoutTool;
+  agentIds: string[];
   onSelectTool: (tool: LayoutTool) => void;
+  onAssignSeat: (agentId: string, value: string) => void;
 }
 
 const tools: LayoutTool[] = ["floor", "wall", "desk", "coffee", "couch", "erase"];
 
-export function LayoutEditor({ layout, selectedTool, onSelectTool }: LayoutEditorProps) {
+export function LayoutEditor({ layout, selectedTool, agentIds, onSelectTool, onAssignSeat }: LayoutEditorProps) {
+  const desks = layout.tiles
+    .filter((tile) => tile.type === "desk")
+    .sort((left, right) => left.y - right.y || left.x - right.x);
+  const seatMap = new Map(layout.agents.map((seat) => [seat.agentId, seat]));
+
   return (
     <aside style={styles.panel}>
       <h2 style={styles.title}>Layout Editor</h2>
-      <p style={styles.copy}>Click the office grid to paint tiles. This is the first foundation layer for the editor workflow.</p>
+      <p style={styles.copy}>Click the office grid to paint tiles, then assign agents to desks from the current layout.</p>
       <div style={styles.metaBox}>
         <div>Grid: {layout.cols} x {layout.rows}</div>
         <div>Tiles: {layout.tiles.length}</div>
@@ -34,9 +41,38 @@ export function LayoutEditor({ layout, selectedTool, onSelectTool }: LayoutEdito
           </button>
         ))}
       </div>
-      <p style={styles.note}>This first editor pass supports tile painting and erasing. Seat assignment, undo, and auto-tiling can build on it next.</p>
+      <section style={styles.assignmentSection}>
+        <div style={styles.assignmentHeading}>Seat Assignments</div>
+        {agentIds.length === 0 ? <p style={styles.note}>No live agents yet. Once the socket feed is active, desk assignment options will appear here.</p> : null}
+        {agentIds.map((agentId) => (
+          <label key={agentId} style={styles.assignmentRow}>
+            <span style={styles.agentLabel}>{agentId}</span>
+            <select
+              value={serializeSeat(seatMap.get(agentId))}
+              onChange={(event) => onAssignSeat(agentId, event.target.value)}
+              style={styles.select}
+            >
+              <option value="">Unassigned</option>
+              {desks.map((desk) => (
+                <option key={`${desk.x}-${desk.y}`} value={`${desk.x},${desk.y}`}>
+                  Desk {desk.x}, {desk.y}
+                </option>
+              ))}
+            </select>
+          </label>
+        ))}
+      </section>
+      <p style={styles.note}>Undo and redo are now available from the toolbar. Auto-tiling and drag editing can build on this next.</p>
     </aside>
   );
+}
+
+function serializeSeat(seat: LayoutAgentSeat | undefined) {
+  if (!seat) {
+    return "";
+  }
+
+  return `${seat.deskX},${seat.deskY}`;
 }
 
 const styles: Record<string, CSSProperties> = {
@@ -87,6 +123,33 @@ const styles: Record<string, CSSProperties> = {
     color: "#241a12",
     fontWeight: 700
   },
+  assignmentSection: {
+    display: "grid",
+    gap: "10px",
+    padding: "14px",
+    borderRadius: "12px",
+    background: "rgba(255,255,255,0.04)"
+  },
+  assignmentHeading: {
+    fontSize: "13px",
+    fontWeight: 700,
+    color: "#f0dfc4"
+  },
+  assignmentRow: {
+    display: "grid",
+    gap: "6px"
+  },
+  agentLabel: {
+    fontSize: "12px",
+    color: "#d8c3a3"
+  },
+  select: {
+    borderRadius: "10px",
+    padding: "10px 12px",
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(22,18,15,0.85)",
+    color: "#f0dfc4"
+  },
   note: {
     margin: 0,
     fontSize: "12px",
@@ -94,4 +157,3 @@ const styles: Record<string, CSSProperties> = {
     lineHeight: 1.5
   }
 };
-

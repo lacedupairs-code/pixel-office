@@ -2,16 +2,45 @@ import type { CSSProperties } from "react";
 
 interface ToolbarProps {
   editMode: boolean;
+  canUndo: boolean;
+  canRedo: boolean;
   onToggleEditMode: () => void;
+  onUndo: () => void;
+  onRedo: () => void;
   onResetLayout: () => void;
   onExportLayout: () => void;
 }
 
-export function Toolbar({ editMode, onToggleEditMode, onResetLayout, onExportLayout }: ToolbarProps) {
+export function Toolbar({
+  editMode,
+  canUndo,
+  canRedo,
+  onToggleEditMode,
+  onUndo,
+  onRedo,
+  onResetLayout,
+  onExportLayout
+}: ToolbarProps) {
   return (
     <div style={styles.row}>
       <button type="button" style={styles.primaryButton} onClick={onToggleEditMode}>
         {editMode ? "Close Editor" : "Edit Layout"}
+      </button>
+      <button
+        type="button"
+        style={{ ...styles.button, ...(!canUndo ? styles.disabledButton : null) }}
+        onClick={onUndo}
+        disabled={!canUndo}
+      >
+        Undo
+      </button>
+      <button
+        type="button"
+        style={{ ...styles.button, ...(!canRedo ? styles.disabledButton : null) }}
+        onClick={onRedo}
+        disabled={!canRedo}
+      >
+        Redo
       </button>
       <button type="button" style={styles.button} onClick={onResetLayout}>
         Reset Layout
@@ -43,6 +72,10 @@ const styles: Record<string, CSSProperties> = {
     background: "rgba(255,255,255,0.06)",
     color: "#f0dfc4"
   },
+  disabledButton: {
+    opacity: 0.45,
+    cursor: "not-allowed"
+  },
   primaryButton: {
     ...baseButton,
     background: "#f0b56a",
@@ -50,4 +83,3 @@ const styles: Record<string, CSSProperties> = {
     fontWeight: 700
   }
 };
-

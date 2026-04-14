@@ -12,16 +12,20 @@ export default function App() {
 
   const agents = useOfficeStore((state) => state.agents);
   const connectionState = useOfficeStore((state) => state.connectionState);
-  const [layout, setLayout] = useState<OfficeLayout>(defaultLayoutJson as OfficeLayout);
+  const defaultLayout = sanitizeLayout(defaultLayoutJson as OfficeLayout);
+  const [layout, setLayout] = useState<OfficeLayout>(defaultLayout);
+  const [layoutHistory, setLayoutHistory] = useState<OfficeLayout[]>([]);
+  const [futureLayouts, setFutureLayouts] = useState<OfficeLayout[]>([]);
   const [editMode, setEditMode] = useState(false);
   const [selectedTool, setSelectedTool] = useState<LayoutTool>("floor");
+  const knownAgentIds = Array.from(new Set([...layout.agents.map((seat) => seat.agentId), ...agents.map((agent) => agent.id)])).sort();
 
   useEffect(() => {
     document.title = "Pixel Office";
   }, []);
 
   function handlePaintTile(tileX: number, tileY: number) {
-    setLayout((current) => {
+    commitLayout((current) => {
       const existingIndex = current.tiles.findIndex((tile) => tile.x === tileX && tile.y === tileY);
       const nextTiles = [...current.tiles];
 
@@ -46,6 +50,77 @@ export default function App() {
       return {
         ...current,
         tiles: nextTiles
+      };
+    });
+  }
+
+  function commitLayout(recipe: (current: OfficeLayout) => OfficeLayout) {
+    setLayout((current) => {
+      const nextLayout = sanitizeLayout(recipe(current));
+      if (JSON.stringify(current) === JSON.stringify(nextLayout)) {
+        return current;
+      }
+
+      setLayoutHistory((history) => [...history, current]);
+      setFutureLayouts([]);
+      return nextLayout;
+    });
+  }
+
+  function handleUndo() {
+    setLayoutHistory((history) => {
+      const previous = history[history.length - 1];
+      if (!previous) {
+        return history;
+      }
+
+      setFutureLayouts((future) => [layout, ...future]);
+      setLayout(previous);
+      return history.slice(0, -1);
+    });
+  }
+
+  function handleRedo() {
+    setFutureLayouts((future) => {
+      const [next, ...rest] = future;
+      if (!next) {
+        return future;
+      }
+
+      setLayoutHistory((history) => [...history, layout]);
+      setLayout(next);
+      return rest;
+    });
+  }
+
+  function handleResetLayout() {
+    commitLayout(() => defaultLayout);
+  }
+
+  function handleAssignSeat(agentId: string, value: string) {
+    commitLayout((current) => {
+      const nextAgents = current.agents.filter((seat) => seat.agentId !== agentId);
+      if (!value) {
+        return {
+          ...current,
+          agents: nextAgents
+        };
+      }
+
+      const [deskXText, deskYText] = value.split(",");
+      const deskX = Number(deskXText);
+      const deskY = Number(deskYText);
+      const deskExists = current.tiles.some((tile) => tile.type === "desk" && tile.x === deskX && tile.y === deskY);
+      if (!deskExists) {
+        return current;
+      }
+
+      return {
+        ...current,
+        agents: [
+          ...nextAgents.filter((seat) => !(seat.deskX === deskX && seat.deskY === deskY)),
+          { agentId, deskX, deskY }
+        ]
       };
     });
   }
@@ -78,8 +153,12 @@ export default function App() {
       </section>
       <Toolbar
         editMode={editMode}
+        canUndo={layoutHistory.length > 0}
+        canRedo={futureLayouts.length > 0}
         onToggleEditMode={() => setEditMode((value) => !value)}
-        onResetLayout={() => setLayout(defaultLayoutJson as OfficeLayout)}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        onResetLayout={handleResetLayout}
         onExportLayout={handleExportLayout}
       />
       <section style={styles.stage}>
@@ -91,7 +170,15 @@ export default function App() {
           onPaintTile={handlePaintTile}
         />
       </section>
-      {editMode ? <LayoutEditor layout={layout} selectedTool={selectedTool} onSelectTool={setSelectedTool} /> : null}
+      {editMode ? (
+        <LayoutEditor
+          layout={layout}
+          selectedTool={selectedTool}
+          agentIds={knownAgentIds}
+          onSelectTool={setSelectedTool}
+          onAssignSeat={handleAssignSeat}
+        />
+      ) : null}
       <section style={styles.panel}>
         <h2 style={styles.sectionTitle}>Live Agent Feed</h2>
         <ul style={styles.list}>
@@ -201,3 +288,36 @@ const styles: Record<string, CSSProperties> = {
     color: "#bda988"
   }
 };
+
+function sanitizeLayout(layout: OfficeLayout): OfficeLayout {
+  const seenTiles = new Map<string, LayoutTile>();
+
+  for (const tile of layout.tiles) {
+    if (tile.x < 0 || tile.y < 0 || tile.x >= layout.cols || tile.y >= layout.rows) {
+      continue;
+    }
+
+    seenTiles.set(`${tile.x},${tile.y}`, tile);
+  }
+
+  const tiles = Array.from(seenTiles.values());
+  const deskKeys = new Set(tiles.filter((tile) => tile.type === "desk").map((tile) => `${tile.x},${tile.y}`));
+  const seatByAgent = new Map<string, OfficeLayout["agents"][number]>();
+  const claimedDeskKeys = new Set<string>();
+
+  for (const seat of layout.agents) {
+    const key = `${seat.deskX},${seat.deskY}`;
+    if (!deskKeys.has(key) || claimedDeskKeys.has(key)) {
+      continue;
+    }
+
+    claimedDeskKeys.add(key);
+    seatByAgent.set(seat.agentId, seat);
+  }
+
+  return {
+    ...layout,
+    tiles: tiles.sort((left, right) => left.y - right.y || left.x - right.x),
+    agents: Array.from(seatByAgent.values()).sort((left, right) => left.agentId.localeCompare(right.agentId))
+  };
+}
