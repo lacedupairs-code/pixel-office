@@ -230,6 +230,11 @@ export function OfficeCanvas({
         return;
       }
 
+      if (paintMode === "fill") {
+        paintTiles(getFillTiles(layout, tile, selectedTool));
+        return;
+      }
+
       if (paintMode !== "brush") {
         dragSelectionRef.current = {
           start: tile,
@@ -647,6 +652,51 @@ function getPaintTiles(start: HoverTile, end: HoverTile, paintMode: LayoutPaintM
   }
 
   return [end];
+}
+
+function getFillTiles(layout: OfficeLayout, start: HoverTile, selectedTool: LayoutTool) {
+  const tileMap = buildResolvedTileMap(layout);
+  const targetType = tileMap.get(`${start.tileX},${start.tileY}`) ?? "floor";
+  const replacementType = selectedTool === "erase" ? "floor" : selectedTool;
+
+  if (targetType === replacementType) {
+    return [start];
+  }
+
+  const result: HoverTile[] = [];
+  const queue: HoverTile[] = [start];
+  const seen = new Set<string>();
+
+  while (queue.length > 0) {
+    const next = queue.shift();
+    if (!next) {
+      continue;
+    }
+
+    const key = `${next.tileX},${next.tileY}`;
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+
+    if (next.tileX < 0 || next.tileY < 0 || next.tileX >= layout.cols || next.tileY >= layout.rows) {
+      continue;
+    }
+
+    const nextType = tileMap.get(key) ?? "floor";
+    if (nextType !== targetType) {
+      continue;
+    }
+
+    result.push(next);
+    queue.push({ tileX: next.tileX + 1, tileY: next.tileY });
+    queue.push({ tileX: next.tileX - 1, tileY: next.tileY });
+    queue.push({ tileX: next.tileX, tileY: next.tileY + 1 });
+    queue.push({ tileX: next.tileX, tileY: next.tileY - 1 });
+  }
+
+  return result;
 }
 
 function buildRectTiles(start: HoverTile, end: HoverTile) {

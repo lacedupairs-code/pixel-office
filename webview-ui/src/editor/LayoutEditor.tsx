@@ -14,7 +14,7 @@ interface LayoutEditorProps {
 }
 
 const tools: LayoutTool[] = ["floor", "wall", "desk", "coffee", "couch", "erase"];
-const paintModes: LayoutPaintMode[] = ["brush", "line", "rect"];
+const paintModes: LayoutPaintMode[] = ["brush", "line", "rect", "fill"];
 
 export function LayoutEditor({
   layout,
@@ -73,7 +73,7 @@ export function LayoutEditor({
             </button>
           ))}
         </div>
-        <p style={styles.note}>`brush` paints continuously, `line` draws between click and release, and `rect` fills a dragged box.</p>
+        <p style={styles.note}>`brush` paints continuously, `line` draws between click and release, `rect` fills a dragged box, and `fill` floods a connected region.</p>
       </section>
       <section style={styles.assignmentSection}>
         <div style={styles.assignmentHeading}>Seat Assignments</div>
@@ -186,7 +186,7 @@ const styles: Record<string, CSSProperties> = {
   },
   modeGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
     gap: "8px"
   },
   assignmentRow: {

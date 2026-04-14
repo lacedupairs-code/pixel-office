@@ -48,4 +48,4 @@ export type Facing = "up" | "down" | "left" | "right";
 
 export type LayoutTool = LayoutTileType | "erase";
 
-export type LayoutPaintMode = "brush" | "line" | "rect";
+export type LayoutPaintMode = "brush" | "line" | "rect" | "fill";
