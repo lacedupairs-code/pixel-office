@@ -33,15 +33,18 @@ export function discoverAgents(): OpenClawDiscovery {
     return { openClawDir, configPath, agents: [] };
   }
 
-  const agents = fs
+  const agentIds = fs
     .readdirSync(agentsDir, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
-    .map((entry, index) => ({
-      id: entry.name,
-      sessionDir: path.join(agentsDir, entry.name, "sessions"),
-      isDefault: index === 0
-    }))
-    .sort((left, right) => left.id.localeCompare(right.id));
+    .map((entry) => entry.name)
+    .sort((left, right) => left.localeCompare(right));
+
+  const defaultAgentId = agentIds.includes("main") ? "main" : agentIds[0];
+  const agents = agentIds.map((id) => ({
+    id,
+    sessionDir: path.join(agentsDir, id, "sessions"),
+    isDefault: id === defaultAgentId
+  }));
 
   return { openClawDir, configPath, agents };
 }
@@ -105,4 +108,3 @@ function safeStat(filePath: string): fs.Stats | null {
     return null;
   }
 }
-

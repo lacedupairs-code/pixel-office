@@ -24,34 +24,60 @@ export function useAgentSocket(): void {
 
   useEffect(() => {
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-    const socket = new WebSocket(`${protocol}://${window.location.host}`);
+    const socketUrl = `${protocol}://${window.location.host}`;
+    let socket: WebSocket | undefined;
+    let reconnectTimer: number | undefined;
+    let disposed = false;
 
-    socket.addEventListener("open", () => {
-      setConnectionState("open");
-    });
-
-    socket.addEventListener("close", () => {
-      setConnectionState("closed");
-    });
-
-    socket.addEventListener("message", (event) => {
-      const message = JSON.parse(event.data) as ServerMessage;
-      if (message.type === "init") {
-        initAgents(message.agents);
+    const connect = () => {
+      if (disposed) {
         return;
       }
 
-      if (message.type === "agentUpdate") {
-        updateAgent({
-          id: message.agentId,
-          state: message.state,
-          taskHint: message.taskHint,
-          isDefault: message.isDefault,
-          sessionPath: message.sessionPath
-        });
-      }
-    });
+      setConnectionState("connecting");
+      socket = new WebSocket(socketUrl);
 
-    return () => socket.close();
+      socket.addEventListener("open", () => {
+        setConnectionState("open");
+      });
+
+      socket.addEventListener("close", () => {
+        if (disposed) {
+          return;
+        }
+
+        setConnectionState("closed");
+        reconnectTimer = window.setTimeout(connect, 1500);
+      });
+
+      socket.addEventListener("message", (event) => {
+        const message = JSON.parse(event.data) as ServerMessage;
+        if (message.type === "init") {
+          initAgents(message.agents);
+          return;
+        }
+
+        if (message.type === "agentUpdate") {
+          updateAgent({
+            id: message.agentId,
+            state: message.state,
+            taskHint: message.taskHint,
+            isDefault: message.isDefault,
+            sessionPath: message.sessionPath
+          });
+        }
+      });
+    };
+
+    connect();
+
+    return () => {
+      disposed = true;
+      if (reconnectTimer) {
+        window.clearTimeout(reconnectTimer);
+      }
+
+      socket?.close();
+    };
   }, [initAgents, setConnectionState, updateAgent]);
 }
