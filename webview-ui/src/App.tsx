@@ -115,6 +115,15 @@ export default function App() {
     stateCounts,
     connectionState
   });
+  const officeNarrative = buildOfficeNarrative({
+    stateCounts,
+    connectionState,
+    focusAgents,
+    blockedAgents,
+    quietAgents,
+    hotspotSummary,
+    currentRoomLabel
+  });
   const roomStatusPills = [
     {
       label: "Connection",
@@ -1183,6 +1192,23 @@ export default function App() {
           ))}
         </div>
       </section>
+      <section style={styles.panel}>
+        <h2 style={styles.sectionTitle}>Office Narrative</h2>
+        <div style={styles.narrativeCard}>
+          <div style={styles.narrativeHeader}>
+            <span style={styles.narrativeLabel}>Current Mood</span>
+            <span style={{ ...styles.narrativeBadge, ...narrativeToneStyle(officeNarrative.tone) }}>{officeNarrative.mood}</span>
+          </div>
+          <p style={styles.narrativeText}>{officeNarrative.summary}</p>
+          <div style={styles.narrativeBullets}>
+            {officeNarrative.bullets.map((bullet) => (
+              <span key={bullet} style={styles.narrativeBullet}>
+                {bullet}
+              </span>
+            ))}
+          </div>
+        </div>
+      </section>
       <input ref={fileInputRef} type="file" accept="application/json" onChange={handleImportFile} style={styles.fileInput} />
       <section style={styles.stage}>
         <OfficeCanvas
@@ -1484,6 +1510,53 @@ const styles: Record<string, CSSProperties> = {
     fontSize: "12px",
     color: "#cdb89b"
   },
+  narrativeCard: {
+    display: "grid",
+    gap: "12px",
+    padding: "16px 18px",
+    borderRadius: "16px",
+    border: "1px solid rgba(255,255,255,0.08)",
+    background: "rgba(255,255,255,0.04)"
+  },
+  narrativeHeader: {
+    display: "flex",
+    gap: "10px",
+    justifyContent: "space-between",
+    alignItems: "center",
+    flexWrap: "wrap"
+  },
+  narrativeLabel: {
+    fontSize: "11px",
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    color: "#c7a97d"
+  },
+  narrativeBadge: {
+    padding: "6px 10px",
+    borderRadius: "999px",
+    fontSize: "12px",
+    fontWeight: 700,
+    border: "1px solid rgba(255,255,255,0.08)"
+  },
+  narrativeText: {
+    margin: 0,
+    lineHeight: 1.6,
+    color: "#f0dfc4",
+    fontSize: "14px"
+  },
+  narrativeBullets: {
+    display: "flex",
+    gap: "8px",
+    flexWrap: "wrap"
+  },
+  narrativeBullet: {
+    padding: "6px 10px",
+    borderRadius: "999px",
+    background: "rgba(255,255,255,0.05)",
+    border: "1px solid rgba(255,255,255,0.08)",
+    color: "#d8c3a3",
+    fontSize: "12px"
+  },
   stage: {
     overflowX: "auto"
   },
@@ -1763,6 +1836,36 @@ function actionToneStyle(tone: "good" | "warm" | "alert" | "muted"): CSSProperti
   }
 }
 
+function narrativeToneStyle(tone: "focused" | "blocked" | "quiet" | "offline"): CSSProperties {
+  switch (tone) {
+    case "focused":
+      return {
+        background: "rgba(98, 151, 111, 0.16)",
+        color: "#e8f5eb",
+        border: "1px solid rgba(143, 208, 167, 0.24)"
+      };
+    case "blocked":
+      return {
+        background: "rgba(164, 88, 88, 0.18)",
+        color: "#ffe4df",
+        border: "1px solid rgba(241, 139, 125, 0.24)"
+      };
+    case "quiet":
+      return {
+        background: "rgba(181, 136, 82, 0.16)",
+        color: "#fff0db",
+        border: "1px solid rgba(240, 181, 106, 0.22)"
+      };
+    case "offline":
+    default:
+      return {
+        background: "rgba(255,255,255,0.06)",
+        color: "#f0dfc4",
+        border: "1px solid rgba(255,255,255,0.1)"
+      };
+  }
+}
+
 function buildRoomReadiness({
   layout,
   knownAgentIds,
@@ -1899,4 +2002,73 @@ function buildRecommendedActions({
   }
 
   return actions.slice(0, 3);
+}
+
+function buildOfficeNarrative({
+  stateCounts,
+  connectionState,
+  focusAgents,
+  blockedAgents,
+  quietAgents,
+  hotspotSummary,
+  currentRoomLabel
+}: {
+  stateCounts: Record<OfficeAgent["state"], number>;
+  connectionState: "connecting" | "open" | "closed";
+  focusAgents: OfficeAgent[];
+  blockedAgents: OfficeAgent[];
+  quietAgents: OfficeAgent[];
+  hotspotSummary: { desks: number; coffee: number; lounge: number };
+  currentRoomLabel: string;
+}) {
+  const focusedCount = stateCounts.working + stateCounts.reading;
+  const quietCount = stateCounts.sleeping + stateCounts.offline;
+  const tone =
+    connectionState === "closed"
+      ? "offline"
+      : stateCounts.waiting > 0
+        ? "blocked"
+        : focusedCount > 0
+          ? "focused"
+          : "quiet";
+  const mood =
+    tone === "offline"
+      ? "Disconnected"
+      : tone === "blocked"
+        ? "Needs Attention"
+        : tone === "focused"
+          ? "Productive"
+          : "Quiet";
+
+  const summary =
+    tone === "offline"
+      ? `${currentRoomLabel} is mostly waiting on the live connection right now, so the office view may feel stale until OpenClaw reconnects.`
+      : tone === "blocked"
+        ? `${currentRoomLabel} has active work underway, but ${stateCounts.waiting} agent${stateCounts.waiting === 1 ? " is" : "s are"} waiting on input, so this is a good moment to clear blockers.`
+        : tone === "focused"
+          ? `${currentRoomLabel} feels productive right now, with ${focusedCount} agent${focusedCount === 1 ? "" : "s"} in focused work or reading routines and the room layout supporting active flow.`
+          : `${currentRoomLabel} is in a quieter stretch, with fewer active work loops and more downtime or background presence across the office.`;
+
+  const bullets = [
+    focusAgents.length > 0
+      ? `Focus: ${focusAgents.map((agent) => agent.id).join(", ")}`
+      : "Focus: no active heads-down work yet",
+    blockedAgents.length > 0
+      ? `Blockers: ${blockedAgents.map((agent) => agent.id).join(", ")}`
+      : "Blockers: none right now",
+    quietAgents.length > 0
+      ? `Quiet: ${quietAgents.map((agent) => agent.id).join(", ")}`
+      : `Spaces: ${hotspotSummary.coffee} coffee, ${hotspotSummary.lounge} lounge`
+  ];
+
+  if (quietCount > focusedCount && quietAgents.length === 0) {
+    bullets[2] = "Quiet: the room is calm overall";
+  }
+
+  return {
+    tone,
+    mood,
+    summary,
+    bullets
+  };
 }
