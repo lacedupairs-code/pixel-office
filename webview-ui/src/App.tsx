@@ -61,6 +61,7 @@ export default function App() {
   const [selectedSeatAgentId, setSelectedSeatAgentId] = useState<string | null>(null);
   const [selectionBounds, setSelectionBounds] = useState<TileSelectionBounds | null>(null);
   const [activeSlot, setActiveSlot] = useState<string | null>(null);
+  const [agentFeedFilter, setAgentFeedFilter] = useState<OfficeAgent["state"] | "all">("all");
   const [slotRecords, setSlotRecords] = useState<LayoutSlotMap>(() => loadStoredSlots());
   const [conflictedSlotIds, setConflictedSlotIds] = useState<string[]>([]);
   const [projectActiveSlotId, setProjectActiveSlotId] = useState<string | null>(null);
@@ -100,6 +101,17 @@ export default function App() {
   const focusAgents = sortedAgents.filter((agent) => agent.state === "working" || agent.state === "reading").slice(0, 3);
   const blockedAgents = sortedAgents.filter((agent) => agent.state === "waiting").slice(0, 3);
   const quietAgents = sortedAgents.filter((agent) => agent.state === "sleeping" || agent.state === "offline").slice(0, 3);
+  const visibleAgents =
+    agentFeedFilter === "all" ? sortedAgents : sortedAgents.filter((agent) => agent.state === agentFeedFilter);
+  const feedFilters: Array<{ key: OfficeAgent["state"] | "all"; label: string; count: number }> = [
+    { key: "all", label: "All", count: sortedAgents.length },
+    { key: "working", label: "Working", count: stateCounts.working },
+    { key: "reading", label: "Reading", count: stateCounts.reading },
+    { key: "waiting", label: "Waiting", count: stateCounts.waiting },
+    { key: "idle", label: "Idle", count: stateCounts.idle },
+    { key: "sleeping", label: "Sleeping", count: stateCounts.sleeping },
+    { key: "offline", label: "Offline", count: stateCounts.offline }
+  ];
   const roomReadiness = buildRoomReadiness({
     layout,
     knownAgentIds,
@@ -1304,9 +1316,24 @@ export default function App() {
       </section>
       <section style={styles.panel}>
         <h2 style={styles.sectionTitle}>Live Agent Feed</h2>
+        <div style={styles.feedFilterRow}>
+          {feedFilters.map((filter) => (
+            <button
+              key={filter.key}
+              type="button"
+              style={{
+                ...styles.feedFilterChip,
+                ...(agentFeedFilter === filter.key ? styles.feedFilterChipActive : null)
+              }}
+              onClick={() => setAgentFeedFilter(filter.key)}
+            >
+              {filter.label} {filter.count}
+            </button>
+          ))}
+        </div>
         <ul style={styles.list}>
-          {sortedAgents.length === 0 ? <li style={styles.item}>No agents discovered yet.</li> : null}
-          {sortedAgents.map((agent) => (
+          {visibleAgents.length === 0 ? <li style={styles.item}>No agents match this filter yet.</li> : null}
+          {visibleAgents.map((agent) => (
             <li key={agent.id} style={styles.item}>
               <div>
                 <strong>{agent.id}</strong>
@@ -1647,6 +1674,26 @@ const styles: Record<string, CSSProperties> = {
     border: "1px solid rgba(255,255,255,0.08)",
     color: "#e7d2ae",
     fontSize: "13px"
+  },
+  feedFilterRow: {
+    display: "flex",
+    gap: "8px",
+    flexWrap: "wrap",
+    marginBottom: "14px"
+  },
+  feedFilterChip: {
+    padding: "7px 10px",
+    borderRadius: "999px",
+    border: "1px solid rgba(255,255,255,0.08)",
+    background: "rgba(255,255,255,0.05)",
+    color: "#d9c5a6",
+    fontSize: "12px",
+    cursor: "pointer"
+  },
+  feedFilterChipActive: {
+    background: "rgba(240, 181, 106, 0.18)",
+    color: "#f7ead3",
+    border: "1px solid rgba(240, 181, 106, 0.28)"
   },
   list: {
     listStyle: "none",
