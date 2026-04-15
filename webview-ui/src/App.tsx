@@ -177,6 +177,86 @@ export default function App() {
     setSelectionBounds(null);
   }
 
+  function handleMoveSelection(deltaX: number, deltaY: number) {
+    if (!selectionBounds || (deltaX === 0 && deltaY === 0)) {
+      return;
+    }
+
+    const nextBounds = {
+      minX: selectionBounds.minX + deltaX,
+      minY: selectionBounds.minY + deltaY,
+      maxX: selectionBounds.maxX + deltaX,
+      maxY: selectionBounds.maxY + deltaY
+    };
+
+    if (nextBounds.minX < 0 || nextBounds.minY < 0 || nextBounds.maxX >= layout.cols || nextBounds.maxY >= layout.rows) {
+      return;
+    }
+
+    commitLayout((current) => {
+      const selectedTiles = current.tiles.filter(
+        (tile) =>
+          tile.x >= selectionBounds.minX &&
+          tile.x <= selectionBounds.maxX &&
+          tile.y >= selectionBounds.minY &&
+          tile.y <= selectionBounds.maxY
+      );
+      const selectedSeats = current.agents.filter(
+        (seat) =>
+          seat.deskX >= selectionBounds.minX &&
+          seat.deskX <= selectionBounds.maxX &&
+          seat.deskY >= selectionBounds.minY &&
+          seat.deskY <= selectionBounds.maxY
+      );
+
+      if (selectedTiles.length === 0 && selectedSeats.length === 0) {
+        return current;
+      }
+
+      const movedTiles = selectedTiles.map((tile) => ({
+        ...tile,
+        x: tile.x + deltaX,
+        y: tile.y + deltaY
+      }));
+      const movedSeats = selectedSeats.map((seat) => ({
+        ...seat,
+        deskX: seat.deskX + deltaX,
+        deskY: seat.deskY + deltaY
+      }));
+
+      return {
+        ...current,
+        tiles: [
+          ...current.tiles.filter(
+            (tile) =>
+              (tile.x < selectionBounds.minX ||
+                tile.x > selectionBounds.maxX ||
+                tile.y < selectionBounds.minY ||
+                tile.y > selectionBounds.maxY) &&
+              (tile.x < nextBounds.minX || tile.x > nextBounds.maxX || tile.y < nextBounds.minY || tile.y > nextBounds.maxY)
+          ),
+          ...movedTiles
+        ],
+        agents: [
+          ...current.agents.filter(
+            (seat) =>
+              (seat.deskX < selectionBounds.minX ||
+                seat.deskX > selectionBounds.maxX ||
+                seat.deskY < selectionBounds.minY ||
+                seat.deskY > selectionBounds.maxY) &&
+              (seat.deskX < nextBounds.minX ||
+                seat.deskX > nextBounds.maxX ||
+                seat.deskY < nextBounds.minY ||
+                seat.deskY > nextBounds.maxY)
+          ),
+          ...movedSeats
+        ]
+      };
+    });
+
+    setSelectionBounds(nextBounds);
+  }
+
   function handleExportLayout() {
     const blob = new Blob([JSON.stringify(layout, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -242,6 +322,7 @@ export default function App() {
           onSelectSeatAgent={setSelectedSeatAgentId}
           onClearSelection={() => setSelectionBounds(null)}
           onDeleteSelection={handleDeleteSelection}
+          onMoveSelection={handleMoveSelection}
         />
       ) : null}
       <section style={styles.panel}>

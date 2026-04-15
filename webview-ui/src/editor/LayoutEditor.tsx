@@ -14,6 +14,7 @@ interface LayoutEditorProps {
   onSelectSeatAgent: (agentId: string | null) => void;
   onClearSelection: () => void;
   onDeleteSelection: () => void;
+  onMoveSelection: (deltaX: number, deltaY: number) => void;
 }
 
 const tools: LayoutTool[] = ["floor", "wall", "desk", "coffee", "couch", "erase"];
@@ -31,7 +32,8 @@ export function LayoutEditor({
   onAssignSeat,
   onSelectSeatAgent,
   onClearSelection,
-  onDeleteSelection
+  onDeleteSelection,
+  onMoveSelection
 }: LayoutEditorProps) {
   const desks = layout.tiles
     .filter((tile) => tile.type === "desk")
@@ -92,6 +94,18 @@ export function LayoutEditor({
           </div>
         </div>
         <div style={styles.modeGrid}>
+          <button type="button" onClick={() => onMoveSelection(0, -1)} style={styles.toolButton} disabled={!selectionBounds}>
+            Up
+          </button>
+          <button type="button" onClick={() => onMoveSelection(0, 1)} style={styles.toolButton} disabled={!selectionBounds}>
+            Down
+          </button>
+          <button type="button" onClick={() => onMoveSelection(-1, 0)} style={styles.toolButton} disabled={!selectionBounds}>
+            Left
+          </button>
+          <button type="button" onClick={() => onMoveSelection(1, 0)} style={styles.toolButton} disabled={!selectionBounds}>
+            Right
+          </button>
           <button type="button" onClick={onDeleteSelection} style={styles.toolButton} disabled={!selectionBounds}>
             Delete
           </button>
