@@ -9,6 +9,7 @@ interface ToolbarProps {
   canRedo: boolean;
   activeSlot: string | null;
   slotRecords: Record<string, LayoutSlotRecord>;
+  conflictedSlotIds: string[];
   projectSaveState: ProjectSaveState;
   projectSavedAt: string | null;
   onToggleEditMode: () => void;
@@ -37,6 +38,7 @@ export function Toolbar({
   canRedo,
   activeSlot,
   slotRecords,
+  conflictedSlotIds,
   projectSaveState,
   projectSavedAt,
   onToggleEditMode,
@@ -110,7 +112,13 @@ export function Toolbar({
       </div>
       <div style={styles.row}>
         {layoutSlots.map((slot) => (
-          <div key={slot.id} style={styles.slotGroup}>
+          <div
+            key={slot.id}
+            style={{
+              ...styles.slotGroup,
+              ...(conflictedSlotIds.includes(slot.id) ? styles.slotGroupConflict : null)
+            }}
+          >
             <div style={styles.thumbFrame}>
               <img
                 src={buildSlotThumbnail(slotRecords[slot.id])}
@@ -122,11 +130,13 @@ export function Toolbar({
               <span style={{ ...styles.slotLabel, ...(activeSlot === slot.id ? styles.slotLabelActive : null) }}>
                 {slotRecords[slot.id]?.name || slot.label}
               </span>
-              <span style={styles.slotStamp}>{formatSlotStamp(slotRecords[slot.id]?.savedAt)}</span>
+              <span style={{ ...styles.slotStamp, ...(conflictedSlotIds.includes(slot.id) ? styles.slotStampConflict : null) }}>
+                {conflictedSlotIds.includes(slot.id) ? "Conflict" : formatSlotStamp(slotRecords[slot.id]?.savedAt)}
+              </span>
               <span style={styles.slotSummary}>{formatSlotSummary(slotRecords[slot.id])}</span>
             </div>
             <button type="button" style={styles.button} onClick={() => onSaveSlot(slot.id)}>
-              Save
+              {conflictedSlotIds.includes(slot.id) ? "Keep" : "Save"}
             </button>
             <button type="button" style={styles.button} onClick={() => onLoadSlot(slot.id)}>
               Load
@@ -197,6 +207,10 @@ const styles: Record<string, CSSProperties> = {
     background: "rgba(255,255,255,0.04)",
     border: "1px solid rgba(255,255,255,0.08)"
   },
+  slotGroupConflict: {
+    border: "1px solid rgba(243, 211, 111, 0.45)",
+    background: "rgba(243, 211, 111, 0.08)"
+  },
   thumbFrame: {
     width: "44px",
     height: "44px",
@@ -225,6 +239,10 @@ const styles: Record<string, CSSProperties> = {
     fontSize: "10px",
     color: "#9d8b71",
     minWidth: "72px"
+  },
+  slotStampConflict: {
+    color: "#f3d36f",
+    fontWeight: 700
   },
   slotSummary: {
     fontSize: "10px",

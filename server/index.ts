@@ -6,7 +6,7 @@ import { AgentRegistry } from "./agentRegistry";
 import { DEFAULT_PORT } from "./constants";
 import {
   isLayoutSaveRequest,
-  isPersistedLayoutSlotRecord,
+  isLayoutSlotSaveRequest,
   readLayoutFile,
   readLayoutSlotsFile,
   writeLayoutFile,
@@ -80,14 +80,32 @@ app.get("/api/layout-slots", async (_request, response) => {
 });
 
 app.put("/api/layout-slots/:slotId", async (request, response) => {
-  if (!isPersistedLayoutSlotRecord(request.body)) {
+  if (!isLayoutSlotSaveRequest(request.body)) {
     response.status(400).json({ error: "Invalid layout slot payload" });
     return;
   }
 
   try {
     const slots = await readLayoutSlotsFile();
-    slots[request.params.slotId] = request.body;
+    const existing = slots[request.params.slotId];
+    const expectedUpdatedAt = request.body.expectedUpdatedAt ?? null;
+    const hasConflict =
+      !request.body.force &&
+      expectedUpdatedAt &&
+      existing &&
+      existing.updatedAt !== expectedUpdatedAt;
+
+    if (hasConflict) {
+      response.status(409).json({
+        error: "Layout slot has changed on disk",
+        slotId: request.params.slotId,
+        record: existing,
+        slots
+      });
+      return;
+    }
+
+    slots[request.params.slotId] = request.body.record;
     response.json(await writeLayoutSlotsFile(slots));
   } catch (error) {
     console.error("Failed to write layout slot", error);
@@ -98,6 +116,20 @@ app.put("/api/layout-slots/:slotId", async (request, response) => {
 app.delete("/api/layout-slots/:slotId", async (request, response) => {
   try {
     const slots = await readLayoutSlotsFile();
+    const existing = slots[request.params.slotId];
+    const expectedUpdatedAt =
+      typeof request.body?.expectedUpdatedAt === "string" ? (request.body.expectedUpdatedAt as string) : null;
+
+    if (existing && expectedUpdatedAt && existing.updatedAt !== expectedUpdatedAt) {
+      response.status(409).json({
+        error: "Layout slot has changed on disk",
+        slotId: request.params.slotId,
+        record: existing,
+        slots
+      });
+      return;
+    }
+
     delete slots[request.params.slotId];
     response.json(await writeLayoutSlotsFile(slots));
   } catch (error) {

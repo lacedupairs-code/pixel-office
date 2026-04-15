@@ -15,6 +15,7 @@ const PROJECT_SYNC_POLL_MS = 10000;
 export interface LayoutSlotRecord {
   layout: OfficeLayout;
   savedAt: string;
+  updatedAt: string;
   name?: string;
 }
 
@@ -26,6 +27,11 @@ interface ProjectLayoutEnvelope {
 }
 
 type LayoutSlotMap = Record<string, LayoutSlotRecord>;
+interface SlotConflictError extends Error {
+  code?: string;
+  slotId?: string;
+  slots?: LayoutSlotMap;
+}
 
 export default function App() {
   useAgentSocket();
@@ -44,6 +50,7 @@ export default function App() {
   const [selectionBounds, setSelectionBounds] = useState<TileSelectionBounds | null>(null);
   const [activeSlot, setActiveSlot] = useState<string | null>(null);
   const [slotRecords, setSlotRecords] = useState<LayoutSlotMap>(() => loadStoredSlots());
+  const [conflictedSlotIds, setConflictedSlotIds] = useState<string[]>([]);
   const [serverLayoutReady, setServerLayoutReady] = useState(false);
   const [projectSaveState, setProjectSaveState] = useState<ProjectSaveState>("loading");
   const [projectSavedAt, setProjectSavedAt] = useState<string | null>(null);
@@ -76,6 +83,7 @@ export default function App() {
       .then((projectSlots) => {
         if (!cancelled && Object.keys(projectSlots).length > 0) {
           setSlotRecords(projectSlots);
+          setConflictedSlotIds([]);
           window.localStorage.setItem(LOCAL_LAYOUT_SLOTS_KEY, JSON.stringify(projectSlots));
         }
       })
@@ -168,8 +176,21 @@ export default function App() {
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify(record)
+      body: JSON.stringify({
+        record,
+        expectedUpdatedAt: slotRecords[slotId]?.updatedAt ?? null,
+        force: conflictedSlotIds.includes(slotId)
+      })
     });
+
+    if (response.status === 409) {
+      const payload = (await response.json()) as { error: string; slotId: string; slots: LayoutSlotMap };
+      const error = new Error(payload.error) as SlotConflictError;
+      error.code = "SLOT_CONFLICT";
+      error.slotId = payload.slotId;
+      error.slots = sanitizeSlotRecords(payload.slots);
+      throw error;
+    }
 
     if (!response.ok) {
       throw new Error(`Failed to save slot: ${response.status}`);
@@ -180,8 +201,23 @@ export default function App() {
 
   async function deleteProjectSlot(slotId: string) {
     const response = await fetch(`/api/layout-slots/${slotId}`, {
-      method: "DELETE"
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        expectedUpdatedAt: slotRecords[slotId]?.updatedAt ?? null
+      })
     });
+
+    if (response.status === 409) {
+      const payload = (await response.json()) as { error: string; slotId: string; slots: LayoutSlotMap };
+      const error = new Error(payload.error) as SlotConflictError;
+      error.code = "SLOT_CONFLICT";
+      error.slotId = payload.slotId;
+      error.slots = sanitizeSlotRecords(payload.slots);
+      throw error;
+    }
 
     if (!response.ok) {
       throw new Error(`Failed to delete slot: ${response.status}`);
@@ -680,9 +716,11 @@ export default function App() {
   }
 
   function handleSaveSlot(slotId: string) {
+    const now = new Date().toISOString();
     const nextRecord: LayoutSlotRecord = {
       layout,
-      savedAt: new Date().toISOString(),
+      savedAt: now,
+      updatedAt: slotRecords[slotId]?.updatedAt ?? now,
       name: slotRecords[slotId]?.name
     };
 
@@ -690,9 +728,22 @@ export default function App() {
       .then((slots) => {
         window.localStorage.setItem(LOCAL_LAYOUT_SLOTS_KEY, JSON.stringify(slots));
         setSlotRecords(slots);
+        setConflictedSlotIds((current) => current.filter((id) => id !== slotId));
         setActiveSlot(slotId);
       })
       .catch((error) => {
+        if ((error as SlotConflictError).code === "SLOT_CONFLICT") {
+          const conflict = error as SlotConflictError;
+          if (conflict.slots) {
+            setSlotRecords(conflict.slots);
+            window.localStorage.setItem(LOCAL_LAYOUT_SLOTS_KEY, JSON.stringify(conflict.slots));
+          }
+          if (conflict.slotId) {
+            setConflictedSlotIds((current) => Array.from(new Set([...current, conflict.slotId!])));
+          }
+          return;
+        }
+
         console.error("Failed to save project layout slot", error);
 
         try {
@@ -709,14 +760,12 @@ export default function App() {
 
   function handleLoadSlot(slotId: string) {
     try {
-      const slots = loadStoredSlots();
-      const slotRecord = slots[slotId];
+      const slotRecord = slotRecords[slotId];
       if (!slotRecord) {
         return;
       }
 
       replaceLayout(slotRecord.layout, slotId);
-      setSlotRecords(slots);
     } catch (error) {
       console.error("Failed to load layout slot", error);
     }
@@ -736,6 +785,7 @@ export default function App() {
 
     const nextRecord = {
       ...current,
+      updatedAt: current.updatedAt,
       name: nextName || undefined
     };
 
@@ -743,8 +793,21 @@ export default function App() {
       .then((slots) => {
         window.localStorage.setItem(LOCAL_LAYOUT_SLOTS_KEY, JSON.stringify(slots));
         setSlotRecords(slots);
+        setConflictedSlotIds((currentIds) => currentIds.filter((id) => id !== slotId));
       })
       .catch((error) => {
+        if ((error as SlotConflictError).code === "SLOT_CONFLICT") {
+          const conflict = error as SlotConflictError;
+          if (conflict.slots) {
+            setSlotRecords(conflict.slots);
+            window.localStorage.setItem(LOCAL_LAYOUT_SLOTS_KEY, JSON.stringify(conflict.slots));
+          }
+          if (conflict.slotId) {
+            setConflictedSlotIds((currentIds) => Array.from(new Set([...currentIds, conflict.slotId!])));
+          }
+          return;
+        }
+
         console.error("Failed to rename project layout slot", error);
 
         try {
@@ -772,11 +835,24 @@ export default function App() {
       .then((slots) => {
         window.localStorage.setItem(LOCAL_LAYOUT_SLOTS_KEY, JSON.stringify(slots));
         setSlotRecords(slots);
+        setConflictedSlotIds((current) => current.filter((id) => id !== slotId));
         if (activeSlot === slotId) {
           setActiveSlot(null);
         }
       })
       .catch((error) => {
+        if ((error as SlotConflictError).code === "SLOT_CONFLICT") {
+          const conflict = error as SlotConflictError;
+          if (conflict.slots) {
+            setSlotRecords(conflict.slots);
+            window.localStorage.setItem(LOCAL_LAYOUT_SLOTS_KEY, JSON.stringify(conflict.slots));
+          }
+          if (conflict.slotId) {
+            setConflictedSlotIds((current) => Array.from(new Set([...current, conflict.slotId!])));
+          }
+          return;
+        }
+
         console.error("Failed to delete project layout slot", error);
 
         try {
@@ -815,6 +891,7 @@ export default function App() {
         canRedo={futureLayouts.length > 0}
         activeSlot={activeSlot}
         slotRecords={slotRecords}
+        conflictedSlotIds={conflictedSlotIds}
         projectSaveState={projectSaveState}
         projectSavedAt={projectSavedAt}
         onToggleEditMode={() => setEditMode((value) => !value)}
@@ -1050,6 +1127,7 @@ function sanitizeSlotRecords(records: LayoutSlotMap): LayoutSlotMap {
       key,
       {
         ...value,
+        updatedAt: typeof value.updatedAt === "string" ? value.updatedAt : value.savedAt,
         layout: sanitizeLayout(value.layout)
       }
     ])

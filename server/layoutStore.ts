@@ -35,10 +35,16 @@ export interface LayoutSaveRequest {
 export interface PersistedLayoutSlotRecord {
   layout: PersistedLayout;
   savedAt: string;
+  updatedAt: string;
   name?: string;
 }
 
 export type PersistedLayoutSlots = Record<string, PersistedLayoutSlotRecord>;
+export interface LayoutSlotSaveRequest {
+  record: PersistedLayoutSlotRecord;
+  expectedUpdatedAt?: string | null;
+  force?: boolean;
+}
 
 export async function readLayoutFile(): Promise<PersistedLayoutRecord | null> {
   try {
@@ -80,7 +86,7 @@ export async function readLayoutSlotsFile(): Promise<PersistedLayoutSlots> {
       return {};
     }
 
-    return parsed;
+    return normalizeLayoutSlots(parsed);
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
     if (code === "ENOENT") {
@@ -94,7 +100,7 @@ export async function readLayoutSlotsFile(): Promise<PersistedLayoutSlots> {
 export async function writeLayoutSlotsFile(slots: PersistedLayoutSlots): Promise<PersistedLayoutSlots> {
   await fs.mkdir(dataDir, { recursive: true });
   await fs.writeFile(slotFilePath, `${JSON.stringify(slots, null, 2)}\n`, "utf8");
-  return slots;
+  return normalizeLayoutSlots(slots);
 }
 
 export function isPersistedLayout(value: unknown): value is PersistedLayout {
@@ -136,6 +142,7 @@ export function isPersistedLayoutSlotRecord(value: unknown): value is PersistedL
   return (
     isPersistedLayout(record.layout) &&
     typeof record.savedAt === "string" &&
+    typeof record.updatedAt === "string" &&
     (record.name === undefined || typeof record.name === "string")
   );
 }
@@ -146,4 +153,31 @@ export function isPersistedLayoutSlots(value: unknown): value is PersistedLayout
   }
 
   return Object.values(value as Record<string, unknown>).every((entry) => isPersistedLayoutSlotRecord(entry));
+}
+
+export function isLayoutSlotSaveRequest(value: unknown): value is LayoutSlotSaveRequest {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const request = value as Partial<LayoutSlotSaveRequest>;
+  return (
+    isPersistedLayoutSlotRecord(request.record) &&
+    (request.expectedUpdatedAt === undefined ||
+      request.expectedUpdatedAt === null ||
+      typeof request.expectedUpdatedAt === "string") &&
+    (request.force === undefined || typeof request.force === "boolean")
+  );
+}
+
+function normalizeLayoutSlots(slots: Record<string, PersistedLayoutSlotRecord | Omit<PersistedLayoutSlotRecord, "updatedAt">>) {
+  return Object.fromEntries(
+    Object.entries(slots).map(([slotId, record]) => [
+      slotId,
+      {
+        ...record,
+        updatedAt: "updatedAt" in record && typeof record.updatedAt === "string" ? record.updatedAt : record.savedAt
+      }
+    ])
+  ) as PersistedLayoutSlots;
 }
