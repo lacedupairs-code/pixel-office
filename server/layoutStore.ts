@@ -4,6 +4,8 @@ import * as path from "node:path";
 const dataDir = path.resolve(process.cwd(), "data");
 const layoutFilePath = path.join(dataDir, "layout.json");
 const slotFilePath = path.join(dataDir, "layout-slots.json");
+const slotMetaFilePath = path.join(dataDir, "layout-slots-meta.json");
+const VALID_TILE_TYPES = new Set(["floor", "wall", "desk", "coffee", "couch"]);
 
 export interface PersistedLayout {
   version: number;
@@ -48,6 +50,10 @@ export interface LayoutSlotSaveRequest {
   force?: boolean;
 }
 
+export interface PersistedLayoutSlotMeta {
+  activeSlotId?: string;
+}
+
 export async function readLayoutFile(): Promise<PersistedLayoutRecord | null> {
   try {
     const [raw, stat] = await Promise.all([fs.readFile(layoutFilePath, "utf8"), fs.stat(layoutFilePath)]);
@@ -71,8 +77,7 @@ export async function readLayoutFile(): Promise<PersistedLayoutRecord | null> {
 }
 
 export async function writeLayoutFile(layout: PersistedLayout): Promise<PersistedLayoutRecord> {
-  await fs.mkdir(dataDir, { recursive: true });
-  await fs.writeFile(layoutFilePath, `${JSON.stringify(layout, null, 2)}\n`, "utf8");
+  await writeJsonFileAtomic(layoutFilePath, layout);
   const stat = await fs.stat(layoutFilePath);
   return {
     layout,
@@ -100,9 +105,32 @@ export async function readLayoutSlotsFile(): Promise<PersistedLayoutSlots> {
 }
 
 export async function writeLayoutSlotsFile(slots: PersistedLayoutSlots): Promise<PersistedLayoutSlots> {
-  await fs.mkdir(dataDir, { recursive: true });
-  await fs.writeFile(slotFilePath, `${JSON.stringify(slots, null, 2)}\n`, "utf8");
+  await writeJsonFileAtomic(slotFilePath, slots);
   return normalizeLayoutSlots(slots);
+}
+
+export async function readLayoutSlotMetaFile(): Promise<PersistedLayoutSlotMeta> {
+  try {
+    const raw = await fs.readFile(slotMetaFilePath, "utf8");
+    const parsed = JSON.parse(raw) as unknown;
+    if (!isPersistedLayoutSlotMeta(parsed)) {
+      return {};
+    }
+
+    return parsed;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") {
+      return {};
+    }
+
+    throw error;
+  }
+}
+
+export async function writeLayoutSlotMetaFile(meta: PersistedLayoutSlotMeta): Promise<PersistedLayoutSlotMeta> {
+  await writeJsonFileAtomic(slotMetaFilePath, meta);
+  return meta;
 }
 
 export function isPersistedLayout(value: unknown): value is PersistedLayout {
@@ -112,11 +140,13 @@ export function isPersistedLayout(value: unknown): value is PersistedLayout {
 
   const layout = value as Partial<PersistedLayout>;
   return (
-    typeof layout.version === "number" &&
-    typeof layout.cols === "number" &&
-    typeof layout.rows === "number" &&
+    isNonNegativeInteger(layout.version) &&
+    isPositiveInteger(layout.cols) &&
+    isPositiveInteger(layout.rows) &&
     Array.isArray(layout.tiles) &&
-    Array.isArray(layout.agents)
+    layout.tiles.every((tile) => isPersistedLayoutTile(tile)) &&
+    Array.isArray(layout.agents) &&
+    layout.agents.every((agent) => isPersistedLayoutAgentSeat(agent))
   );
 }
 
@@ -174,6 +204,15 @@ export function isLayoutSlotSaveRequest(value: unknown): value is LayoutSlotSave
   );
 }
 
+export function isPersistedLayoutSlotMeta(value: unknown): value is PersistedLayoutSlotMeta {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const meta = value as Partial<PersistedLayoutSlotMeta>;
+  return meta.activeSlotId === undefined || typeof meta.activeSlotId === "string";
+}
+
 function normalizeLayoutSlots(slots: Record<string, PersistedLayoutSlotRecord | Omit<PersistedLayoutSlotRecord, "updatedAt">>) {
   return Object.fromEntries(
     Object.entries(slots).map(([slotId, record]) => [
@@ -185,4 +224,59 @@ function normalizeLayoutSlots(slots: Record<string, PersistedLayoutSlotRecord | 
       }
     ])
   ) as PersistedLayoutSlots;
+}
+
+function isPersistedLayoutTile(
+  value: unknown
+): value is {
+  x: number;
+  y: number;
+  type: string;
+} {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const tile = value as Partial<PersistedLayout["tiles"][number]>;
+  return (
+    isNonNegativeInteger(tile.x) &&
+    isNonNegativeInteger(tile.y) &&
+    typeof tile.type === "string" &&
+    VALID_TILE_TYPES.has(tile.type)
+  );
+}
+
+function isPersistedLayoutAgentSeat(
+  value: unknown
+): value is {
+  agentId: string;
+  deskX: number;
+  deskY: number;
+} {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const seat = value as Partial<PersistedLayout["agents"][number]>;
+  return (
+    typeof seat.agentId === "string" &&
+    seat.agentId.trim().length > 0 &&
+    isNonNegativeInteger(seat.deskX) &&
+    isNonNegativeInteger(seat.deskY)
+  );
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
+}
+
+function isPositiveInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value > 0;
+}
+
+async function writeJsonFileAtomic(filePath: string, value: unknown): Promise<void> {
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  const tempPath = `${filePath}.${process.pid}.tmp`;
+  await fs.writeFile(tempPath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+  await fs.rename(tempPath, filePath);
 }

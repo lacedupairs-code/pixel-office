@@ -12,6 +12,7 @@ const LOCAL_LAYOUT_SLOTS_KEY = "pixel-office.layout-slots";
 const LOCAL_FEED_PREFS_KEY = "pixel-office.feed-preferences";
 const PROJECT_SAVE_DEBOUNCE_MS = 500;
 const PROJECT_SYNC_POLL_MS = 10000;
+const RUNTIME_STATUS_POLL_MS = 15000;
 
 export interface LayoutSlotRecord {
   layout: OfficeLayout;
@@ -55,6 +56,15 @@ interface LayoutSlotMeta {
   activeSlotId?: string;
 }
 
+interface RuntimeStatusEnvelope {
+  port: number;
+  openClawDir: string;
+  configPath: string;
+  distReady: boolean;
+  warnings: string[];
+  agentCount: number;
+}
+
 type LayoutSlotMap = Record<string, LayoutSlotRecord>;
 interface SlotConflictError extends Error {
   code?: string;
@@ -86,6 +96,8 @@ export default function App() {
   const [projectSaveState, setProjectSaveState] = useState<ProjectSaveState>("loading");
   const [projectSavedAt, setProjectSavedAt] = useState<string | null>(null);
   const [projectRevision, setProjectRevision] = useState<string | null>(null);
+  const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatusEnvelope | null>(null);
+  const [runtimeStatusError, setRuntimeStatusError] = useState<string | null>(null);
   const skipNextProjectSyncRef = useRef(true);
   const activeRoomFallbackAppliedRef = useRef(false);
   const layoutRef = useRef(layout);
@@ -106,6 +118,7 @@ export default function App() {
   const activeRoomLabel = projectActiveSlotId
     ? slotRecords[projectActiveSlotId]?.name ?? activeSlotLabel(projectActiveSlotId)
     : "No active room";
+  const runtimeWarnings = runtimeStatus?.warnings ?? [];
   const hotspotSummary = {
     desks: layout.tiles.filter((tile) => tile.type === "desk").length,
     coffee: layout.tiles.filter((tile) => tile.type === "coffee").length,
@@ -351,6 +364,15 @@ export default function App() {
     };
   }
 
+  async function fetchRuntimeStatus() {
+    const response = await fetch("/api/runtime-status");
+    if (!response.ok) {
+      throw new Error(`Failed to fetch runtime status: ${response.status}`);
+    }
+
+    return (await response.json()) as RuntimeStatusEnvelope;
+  }
+
   async function saveProjectLayout(nextLayout: OfficeLayout, options?: { force?: boolean }) {
     setProjectSaveState("saving");
 
@@ -516,6 +538,36 @@ export default function App() {
 
     return () => {
       cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const refreshRuntimeStatus = () => {
+      void fetchRuntimeStatus()
+        .then((status) => {
+          if (cancelled) {
+            return;
+          }
+
+          setRuntimeStatus(status);
+          setRuntimeStatusError(null);
+        })
+        .catch((error) => {
+          console.error("Failed to load runtime status", error);
+          if (!cancelled) {
+            setRuntimeStatusError("Runtime diagnostics unavailable");
+          }
+        });
+    };
+
+    refreshRuntimeStatus();
+    const timer = window.setInterval(refreshRuntimeStatus, RUNTIME_STATUS_POLL_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
     };
   }, []);
 
@@ -1298,6 +1350,49 @@ export default function App() {
         </div>
       </section>
       <section style={styles.panel}>
+        <h2 style={styles.sectionTitle}>Runtime Diagnostics</h2>
+        <div style={styles.diagnosticsGrid}>
+          <div style={styles.diagnosticsCard}>
+            <span style={styles.diagnosticsLabel}>OpenClaw Discovery</span>
+            <strong style={styles.diagnosticsValue}>
+              {runtimeStatus ? `${runtimeStatus.agentCount} agent${runtimeStatus.agentCount === 1 ? "" : "s"} found` : "Checking..."}
+            </strong>
+            <span style={styles.diagnosticsMeta}>
+              {runtimeStatus ? `Watching ${runtimeStatus.openClawDir}` : runtimeStatusError ?? "Waiting for server diagnostics"}
+            </span>
+          </div>
+          <div style={styles.diagnosticsCard}>
+            <span style={styles.diagnosticsLabel}>Frontend Bundle</span>
+            <strong style={styles.diagnosticsValue}>
+              {runtimeStatus ? (runtimeStatus.distReady ? "Ready" : "Missing build") : "Checking..."}
+            </strong>
+            <span style={styles.diagnosticsMeta}>
+              {runtimeStatus ? `Config: ${runtimeStatus.configPath}` : "The app will report config and build readiness here."}
+            </span>
+          </div>
+          <div style={styles.diagnosticsCard}>
+            <span style={styles.diagnosticsLabel}>Server Runtime</span>
+            <strong style={styles.diagnosticsValue}>{runtimeStatus ? `Port ${runtimeStatus.port}` : "Waiting..."}</strong>
+            <span style={styles.diagnosticsMeta}>
+              {runtimeWarnings.length > 0
+                ? `${runtimeWarnings.length} warning${runtimeWarnings.length === 1 ? "" : "s"} need attention`
+                : runtimeStatus
+                  ? "No startup warnings reported"
+                  : runtimeStatusError ?? "Runtime checks will update automatically"}
+            </span>
+          </div>
+        </div>
+        {runtimeWarnings.length > 0 ? (
+          <div style={styles.diagnosticsWarningList}>
+            {runtimeWarnings.map((warning) => (
+              <div key={warning} style={styles.diagnosticsWarningItem}>
+                {warning}
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </section>
+      <section style={styles.panel}>
         <h2 style={styles.sectionTitle}>Room Readiness</h2>
         <div style={styles.readinessGrid}>
           {roomReadiness.map((item) => (
@@ -1790,6 +1885,48 @@ const styles: Record<string, CSSProperties> = {
     border: "1px solid rgba(255,255,255,0.08)",
     color: "#f0dfc4",
     fontSize: "12px"
+  },
+  diagnosticsGrid: {
+    display: "grid",
+    gap: "14px",
+    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))"
+  },
+  diagnosticsCard: {
+    display: "grid",
+    gap: "8px",
+    padding: "16px 18px",
+    borderRadius: "16px",
+    border: "1px solid rgba(255,255,255,0.08)",
+    background: "rgba(255,255,255,0.04)"
+  },
+  diagnosticsLabel: {
+    fontSize: "11px",
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    color: "#c7a97d"
+  },
+  diagnosticsValue: {
+    fontSize: "20px",
+    color: "#f3e7d2"
+  },
+  diagnosticsMeta: {
+    fontSize: "12px",
+    color: "#cdb89b",
+    lineHeight: 1.5
+  },
+  diagnosticsWarningList: {
+    display: "grid",
+    gap: "10px",
+    marginTop: "14px"
+  },
+  diagnosticsWarningItem: {
+    padding: "12px 14px",
+    borderRadius: "14px",
+    border: "1px solid rgba(240, 181, 106, 0.2)",
+    background: "rgba(181, 136, 82, 0.12)",
+    color: "#f0dfc4",
+    lineHeight: 1.5,
+    fontSize: "13px"
   },
   highlightGrid: {
     display: "grid",

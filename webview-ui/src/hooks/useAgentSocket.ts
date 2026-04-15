@@ -51,13 +51,14 @@ export function useAgentSocket(): void {
       });
 
       socket.addEventListener("message", (event) => {
-        const message = JSON.parse(event.data) as ServerMessage;
-        if (message.type === "init") {
-          initAgents(message.agents);
+        const message = typeof event.data === "string" ? parseServerMessage(event.data) : null;
+        if (!message) {
           return;
         }
 
-        if (message.type === "agentUpdate") {
+        if (message.type === "init") {
+          initAgents(message.agents);
+        } else {
           updateAgent({
             id: message.agentId,
             state: message.state,
@@ -80,4 +81,38 @@ export function useAgentSocket(): void {
       socket?.close();
     };
   }, [initAgents, setConnectionState, updateAgent]);
+}
+
+function parseServerMessage(raw: string): ServerMessage | null {
+  try {
+    const message = JSON.parse(raw) as Partial<InitMessage & AgentUpdateMessage>;
+    if (message.type === "init" && Array.isArray(message.agents)) {
+      return {
+        type: "init",
+        agents: message.agents as OfficeAgent[]
+      };
+    }
+
+    if (
+      message.type === "agentUpdate" &&
+      typeof message.agentId === "string" &&
+      typeof message.state === "string" &&
+      typeof message.isDefault === "boolean" &&
+      (message.sessionPath === null || typeof message.sessionPath === "string") &&
+      (message.taskHint === undefined || typeof message.taskHint === "string")
+    ) {
+      return {
+        type: "agentUpdate",
+        agentId: message.agentId,
+        state: message.state as OfficeAgent["state"],
+        taskHint: message.taskHint,
+        isDefault: message.isDefault,
+        sessionPath: message.sessionPath
+      };
+    }
+  } catch (error) {
+    console.error("Ignoring invalid socket payload", error);
+  }
+
+  return null;
 }
