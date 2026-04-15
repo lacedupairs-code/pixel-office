@@ -34,6 +34,12 @@ interface FeedPreferences {
   sortMode: "priority" | "name" | "boss-first";
 }
 
+const DEFAULT_FEED_PREFERENCES: FeedPreferences = {
+  filter: "all",
+  searchQuery: "",
+  sortMode: "priority"
+};
+
 type ProjectSaveState = "loading" | "idle" | "saving" | "saved" | "error" | "conflict";
 
 interface ProjectLayoutEnvelope {
@@ -124,6 +130,10 @@ export default function App() {
       (agent.taskHint ?? "").toLowerCase().includes(normalizedAgentSearch)
     );
   });
+  const feedPrefsChanged =
+    feedPreferences.filter !== DEFAULT_FEED_PREFERENCES.filter ||
+    feedPreferences.searchQuery !== DEFAULT_FEED_PREFERENCES.searchQuery ||
+    feedPreferences.sortMode !== DEFAULT_FEED_PREFERENCES.sortMode;
   const feedFilters: Array<{ key: OfficeAgent["state"] | "all"; label: string; count: number }> = [
     { key: "all", label: "All", count: sortedAgents.length },
     { key: "working", label: "Working", count: stateCounts.working },
@@ -1371,6 +1381,14 @@ export default function App() {
             <option value="name">Sort: Name</option>
             <option value="boss-first">Sort: Boss First</option>
           </select>
+          <button
+            type="button"
+            style={{ ...styles.feedResetButton, ...(feedPrefsChanged ? null : styles.disabledButton) }}
+            onClick={() => setFeedPreferences(DEFAULT_FEED_PREFERENCES)}
+            disabled={!feedPrefsChanged}
+          >
+            Reset Feed
+          </button>
         </div>
         <div style={styles.feedFilterRow}>
           {feedFilters.map((filter) => (
@@ -1765,6 +1783,15 @@ const styles: Record<string, CSSProperties> = {
     color: "#f3e7d2",
     fontSize: "13px",
     outline: "none"
+  },
+  feedResetButton: {
+    padding: "10px 12px",
+    borderRadius: "12px",
+    border: "1px solid rgba(255,255,255,0.1)",
+    background: "rgba(255,255,255,0.05)",
+    color: "#f3e7d2",
+    fontSize: "13px",
+    cursor: "pointer"
   },
   feedFilterRow: {
     display: "flex",
