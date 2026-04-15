@@ -1168,7 +1168,8 @@ function resolveTargetPoint(
   spawnPoint: { x: number; y: number },
   walkableGrid: boolean[][]
 ): AgentMotionTarget {
-  const seat = seatMap.get(agent.id) ?? getFallbackSeat(agent.id, agents.findIndex((item) => item.id === agent.id));
+  const seat =
+    seatMap.get(agent.id) ?? getFallbackSeat(agent.id, agents.findIndex((item) => item.id === agent.id), layout);
   const idleVariant =
     sprite && shouldRetargetState(agent.state) && agent.state === sprite.lastKnownState ? sprite.idleVariant : 0;
 
@@ -1192,11 +1193,15 @@ function resolveTargetPoint(
   return intent;
 }
 
-function getFallbackSeat(agentId: string, index: number) {
+function getFallbackSeat(agentId: string, index: number, layout: OfficeLayout) {
+  const usableCols = Math.max(1, layout.cols - 4);
+  const usableRows = Math.max(1, layout.rows - 6);
+  const wrappedIndex = Math.max(0, index) % (usableCols * usableRows);
+
   return {
     agentId,
-    deskX: 4 + (index % 4) * 3,
-    deskY: 9 + Math.floor(index / 4) * 2
+    deskX: 2 + (wrappedIndex % usableCols),
+    deskY: 2 + Math.floor(wrappedIndex / usableCols)
   };
 }
 

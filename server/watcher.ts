@@ -89,8 +89,9 @@ export class OpenClawWatcher {
     this.activeSessionPaths.set(agent.id, sessionPath);
     this.fileOffsets.set(sessionPath, safeStat(sessionPath)?.size ?? 0);
     this.fileRemainders.set(sessionPath, "");
-    this.onStateChange(agent.id, "idle", sessionPath);
-    this.resetTimers(agent.id, sessionPath);
+    const initialSnapshot = readInitialSessionSnapshot(sessionPath);
+    this.onStateChange(agent.id, initialSnapshot.state, sessionPath, initialSnapshot.taskHint);
+    this.resetTimers(agent.id, sessionPath, initialSnapshot.elapsedMs);
 
     const fileWatcher = chokidar.watch(sessionPath, { ignoreInitial: true });
     fileWatcher.on("change", () => {
@@ -158,21 +159,41 @@ export class OpenClawWatcher {
     });
   }
 
-  private resetTimers(agentId: string, sessionPath: string): void {
+  private resetTimers(agentId: string, sessionPath: string, elapsedMs = 0): void {
     clearTimeout(this.idleTimers.get(agentId));
     clearTimeout(this.sleepTimers.get(agentId));
+
+    const remainingIdleMs = Math.max(0, IDLE_AFTER_MS - elapsedMs);
+    const remainingSleepMs = Math.max(0, SLEEP_AFTER_MS - elapsedMs);
+
+    if (elapsedMs >= SLEEP_AFTER_MS) {
+      this.onStateChange(agentId, "sleeping", sessionPath);
+      return;
+    }
+
+    if (elapsedMs >= IDLE_AFTER_MS) {
+      this.onStateChange(agentId, "idle", sessionPath);
+      this.sleepTimers.set(
+        agentId,
+        setTimeout(() => {
+          this.onStateChange(agentId, "sleeping", sessionPath);
+        }, remainingSleepMs)
+      );
+      return;
+    }
 
     this.idleTimers.set(
       agentId,
       setTimeout(() => {
         this.onStateChange(agentId, "idle", sessionPath);
-        this.sleepTimers.set(
-          agentId,
-          setTimeout(() => {
-            this.onStateChange(agentId, "sleeping", sessionPath);
-          }, SLEEP_AFTER_MS)
-        );
-      }, IDLE_AFTER_MS)
+      }, remainingIdleMs)
+    );
+
+    this.sleepTimers.set(
+      agentId,
+      setTimeout(() => {
+        this.onStateChange(agentId, "sleeping", sessionPath);
+      }, remainingSleepMs)
     );
   }
 }
@@ -183,4 +204,68 @@ function safeStat(filePath: string): fs.Stats | null {
   } catch {
     return null;
   }
+}
+
+function readInitialSessionSnapshot(sessionPath: string): {
+  state: AgentState;
+  taskHint?: string;
+  elapsedMs: number;
+} {
+  const stat = safeStat(sessionPath);
+  const elapsedMs = stat ? Math.max(0, Date.now() - stat.mtimeMs) : SLEEP_AFTER_MS;
+
+  try {
+    const content = fs.readFileSync(sessionPath, "utf8");
+    const lines = content
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .slice(-250);
+
+    for (let index = lines.length - 1; index >= 0; index -= 1) {
+      const line = lines[index];
+      if (!line) {
+        continue;
+      }
+
+      const state = parseLineForState(line);
+      if (!state) {
+        continue;
+      }
+
+      if (elapsedMs >= SLEEP_AFTER_MS) {
+        return {
+          state: "sleeping",
+          taskHint: extractTaskHint(line),
+          elapsedMs
+        };
+      }
+
+      if (elapsedMs >= IDLE_AFTER_MS) {
+        return {
+          state: "idle",
+          taskHint: extractTaskHint(line),
+          elapsedMs
+        };
+      }
+
+      return {
+        state,
+        taskHint: extractTaskHint(line),
+        elapsedMs
+      };
+    }
+  } catch {
+    // Fall back to age-based defaults below.
+  }
+
+  if (elapsedMs >= SLEEP_AFTER_MS) {
+    return { state: "sleeping", elapsedMs };
+  }
+
+  if (elapsedMs >= IDLE_AFTER_MS) {
+    return { state: "idle", elapsedMs };
+  }
+
+  return { state: "idle", elapsedMs };
 }
