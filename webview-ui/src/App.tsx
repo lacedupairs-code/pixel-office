@@ -381,6 +381,7 @@ export default function App() {
           selectionBounds={selectionBounds}
           onSelectionChange={setSelectionBounds}
           onMoveSelection={handleMoveSelection}
+          onDuplicateSelection={handleDuplicateSelection}
         />
       </section>
       {editMode ? (

@@ -97,6 +97,7 @@ export function LayoutEditor({
               : "None"}
           </div>
         </div>
+        <p style={styles.note}>Drag a selected block to move it on the canvas. Hold `Alt` while dragging to duplicate it.</p>
         <div style={styles.modeGrid}>
           <button type="button" onClick={() => onMoveSelection(0, -1)} style={styles.toolButton} disabled={!selectionBounds}>
             Up

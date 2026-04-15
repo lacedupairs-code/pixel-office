@@ -30,6 +30,7 @@ interface OfficeCanvasProps {
   selectionBounds?: TileSelectionBounds | null;
   onSelectionChange?: (selection: TileSelectionBounds | null) => void;
   onMoveSelection?: (deltaX: number, deltaY: number) => void;
+  onDuplicateSelection?: (deltaX: number, deltaY: number) => void;
 }
 
 interface AgentSprite {
@@ -60,6 +61,7 @@ interface DragMoveSelection {
   anchor: HoverTile;
   deltaX: number;
   deltaY: number;
+  duplicate: boolean;
 }
 
 export function OfficeCanvas({
@@ -74,7 +76,8 @@ export function OfficeCanvas({
   onAssignSeatToTile,
   selectionBounds = null,
   onSelectionChange,
-  onMoveSelection
+  onMoveSelection,
+  onDuplicateSelection
 }: OfficeCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const agentsRef = useRef<Map<string, AgentSprite>>(new Map());
@@ -253,7 +256,8 @@ export function OfficeCanvas({
           dragMoveSelectionRef.current = {
             anchor: tile,
             deltaX: 0,
-            deltaY: 0
+            deltaY: 0,
+            duplicate: event.altKey
           };
           return;
         }
@@ -319,9 +323,14 @@ export function OfficeCanvas({
     const handlePointerUp = () => {
       if (dragMoveSelectionRef.current) {
         const { deltaX, deltaY } = dragMoveSelectionRef.current;
+        const isDuplicate = dragMoveSelectionRef.current.duplicate;
         dragMoveSelectionRef.current = null;
         if (deltaX !== 0 || deltaY !== 0) {
-          onMoveSelection?.(deltaX, deltaY);
+          if (isDuplicate) {
+            onDuplicateSelection?.(deltaX, deltaY);
+          } else {
+            onMoveSelection?.(deltaX, deltaY);
+          }
         }
       }
 
@@ -358,7 +367,7 @@ export function OfficeCanvas({
       canvas.removeEventListener("pointerup", handlePointerUp);
       canvas.removeEventListener("pointerleave", handlePointerLeave);
     };
-  }, [editMode, layout.cols, layout.rows, onAssignSeatToTile, onMoveSelection, onPaintTile, onPaintTiles, onSelectionChange, paintMode, selectedSeatAgentId, selectionBounds]);
+  }, [editMode, layout.cols, layout.rows, onAssignSeatToTile, onDuplicateSelection, onMoveSelection, onPaintTile, onPaintTiles, onSelectionChange, paintMode, selectedSeatAgentId, selectionBounds]);
 
   useEffect(() => {
     if (editMode) {
@@ -425,7 +434,16 @@ export function OfficeCanvas({
       ref={canvasRef}
       style={{
         ...styles.canvas,
-        cursor: editMode ? (selectedSeatAgentId ? "pointer" : paintMode === "select" ? "grab" : "crosshair") : "default"
+        cursor:
+          editMode
+            ? selectedSeatAgentId
+              ? "pointer"
+              : paintMode === "select"
+                ? dragMoveSelectionRef.current?.duplicate
+                  ? "copy"
+                  : "grab"
+                : "crosshair"
+            : "default"
       }}
       aria-label="Pixel Office canvas"
     />
@@ -458,7 +476,7 @@ function drawOffice(
   drawTiles(ctx, layout, tileset);
   drawGrid(ctx, layout);
   if (editMode) {
-    drawEditorBadge(ctx, selectedTool, paintMode, selectedSeatAgentId);
+    drawEditorBadge(ctx, selectedTool, paintMode, selectedSeatAgentId, dragMoveSelection);
     drawHoverPreview(ctx, layout, hoverTile, selectedTool, paintMode, selectedSeatAgentId, dragSelection);
     drawSelectionBounds(ctx, getDraggedSelectionBounds(selectionBounds, dragMoveSelection));
   }
@@ -1047,9 +1065,16 @@ function drawEditorBadge(
   ctx: CanvasRenderingContext2D,
   tool: LayoutTool,
   paintMode: LayoutPaintMode,
-  selectedSeatAgentId: string | null
+  selectedSeatAgentId: string | null,
+  dragMoveSelection: DragMoveSelection | null
 ) {
-  const label = selectedSeatAgentId ? `Assigning: ${selectedSeatAgentId}` : `Tool: ${tool} (${paintMode})`;
+  const label = selectedSeatAgentId
+    ? `Assigning: ${selectedSeatAgentId}`
+    : dragMoveSelection?.duplicate
+      ? "Tool: select (copy drag)"
+      : paintMode === "select"
+        ? "Tool: select (drag to move, Alt-drag to copy)"
+        : `Tool: ${tool} (${paintMode})`;
   ctx.fillStyle = "rgba(25, 21, 18, 0.88)";
   ctx.fillRect(12, 12, Math.max(122, label.length * 7 + 24), 24);
   ctx.fillStyle = "#f0dfc4";
