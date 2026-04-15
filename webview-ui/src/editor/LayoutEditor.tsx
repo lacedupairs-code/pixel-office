@@ -15,6 +15,7 @@ interface LayoutEditorProps {
   onClearSelection: () => void;
   onDeleteSelection: () => void;
   onMoveSelection: (deltaX: number, deltaY: number) => void;
+  onDuplicateSelection: (deltaX: number, deltaY: number) => void;
 }
 
 const tools: LayoutTool[] = ["floor", "wall", "desk", "coffee", "couch", "erase"];
@@ -33,12 +34,15 @@ export function LayoutEditor({
   onSelectSeatAgent,
   onClearSelection,
   onDeleteSelection,
-  onMoveSelection
+  onMoveSelection,
+  onDuplicateSelection
 }: LayoutEditorProps) {
   const desks = layout.tiles
     .filter((tile) => tile.type === "desk")
     .sort((left, right) => left.y - right.y || left.x - right.x);
   const seatMap = new Map(layout.agents.map((seat) => [seat.agentId, seat]));
+  const selectionWidth = selectionBounds ? selectionBounds.maxX - selectionBounds.minX + 1 : 0;
+  const selectionHeight = selectionBounds ? selectionBounds.maxY - selectionBounds.minY + 1 : 0;
 
   return (
     <aside style={styles.panel}>
@@ -111,6 +115,41 @@ export function LayoutEditor({
           </button>
           <button type="button" onClick={onClearSelection} style={styles.toolButton} disabled={!selectionBounds}>
             Clear
+          </button>
+        </div>
+        <div style={styles.assignmentHeading}>Duplicate</div>
+        <div style={styles.modeGrid}>
+          <button
+            type="button"
+            onClick={() => onDuplicateSelection(0, -selectionHeight)}
+            style={styles.toolButton}
+            disabled={!selectionBounds}
+          >
+            Copy Up
+          </button>
+          <button
+            type="button"
+            onClick={() => onDuplicateSelection(0, selectionHeight)}
+            style={styles.toolButton}
+            disabled={!selectionBounds}
+          >
+            Copy Down
+          </button>
+          <button
+            type="button"
+            onClick={() => onDuplicateSelection(-selectionWidth, 0)}
+            style={styles.toolButton}
+            disabled={!selectionBounds}
+          >
+            Copy Left
+          </button>
+          <button
+            type="button"
+            onClick={() => onDuplicateSelection(selectionWidth, 0)}
+            style={styles.toolButton}
+            disabled={!selectionBounds}
+          >
+            Copy Right
           </button>
         </div>
       </section>
