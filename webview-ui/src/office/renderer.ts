@@ -29,7 +29,10 @@ export function drawAgentSprite(
   const frame = agent.state === "sleeping" ? 1 : moving ? Math.floor(timestampMs / 140) % 3 : 1;
   const frameRect = getFrameRect(direction, frame);
   const scale = getFrameScale();
+  const opacity = agent.state === "offline" ? 0.58 : 1;
 
+  ctx.save();
+  ctx.globalAlpha = opacity;
   ctx.fillStyle = "rgba(0,0,0,0.22)";
   ctx.beginPath();
   ctx.ellipse(sprite.x, sprite.y + AGENT_RADIUS + 6, 10, 4, 0, 0, Math.PI * 2);
@@ -41,6 +44,8 @@ export function drawAgentSprite(
     drawStandingBody(ctx, sheet, frameRect, sprite.x, bodyY, palette);
   }
 
+  drawAgentStateAccent(ctx, agent, sprite, bodyY, direction, timestampMs, moving);
+
   ctx.fillStyle = "#111";
   ctx.font = "bold 10px sans-serif";
   ctx.textAlign = "center";
@@ -49,6 +54,7 @@ export function drawAgentSprite(
   if (sprite.bubbleText) {
     drawBubble(ctx, sprite.x, sprite.y - 44, sprite.bubbleText);
   }
+  ctx.restore();
 }
 
 function drawStandingBody(
@@ -100,6 +106,92 @@ function drawBubble(ctx: CanvasRenderingContext2D, x: number, y: number, text: s
   ctx.closePath();
   ctx.fillStyle = "rgba(255, 248, 232, 0.96)";
   ctx.fill();
+}
+
+function drawAgentStateAccent(
+  ctx: CanvasRenderingContext2D,
+  agent: OfficeAgent,
+  sprite: RenderAgentSprite,
+  y: number,
+  direction: Facing,
+  timestampMs: number,
+  moving: boolean
+) {
+  const x = sprite.x;
+  switch (agent.state) {
+    case "reading":
+      drawBookProp(ctx, x, y + 1, direction, timestampMs);
+      return;
+    case "waiting":
+      drawWaitingHalo(ctx, x, y - 10, timestampMs);
+      return;
+    case "idle":
+      if ((sprite.bubbleText ?? "").toLowerCase().includes("coffee")) {
+        drawCoffeeProp(ctx, x, y + 1, direction, timestampMs);
+      }
+      return;
+    case "working":
+      drawTypingTicks(ctx, x, y - 10, timestampMs, moving);
+      return;
+    case "offline":
+      drawOfflineBadge(ctx, x, y - 10);
+      return;
+    default:
+      return;
+  }
+}
+
+function drawBookProp(ctx: CanvasRenderingContext2D, x: number, y: number, direction: Facing, timestampMs: number) {
+  const offsetX = direction === "left" ? -10 : direction === "right" ? 6 : 0;
+  const wobble = Math.sin(timestampMs / 260) * 0.6;
+  ctx.fillStyle = "#d7e7ff";
+  ctx.fillRect(x - 6 + offsetX, y - 2 + wobble, 12, 8);
+  ctx.fillStyle = "#7ea3cf";
+  ctx.fillRect(x - 1 + offsetX, y - 2 + wobble, 2, 8);
+}
+
+function drawCoffeeProp(ctx: CanvasRenderingContext2D, x: number, y: number, direction: Facing, timestampMs: number) {
+  const offsetX = direction === "left" ? -9 : direction === "right" ? 7 : 5;
+  const steam = Math.sin(timestampMs / 220) * 1.5;
+  ctx.fillStyle = "#dca36b";
+  ctx.fillRect(x - 3 + offsetX, y + 1, 6, 5);
+  ctx.strokeStyle = "#f6d7b7";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x - 1 + offsetX, y + 2, 4, 3);
+  ctx.beginPath();
+  ctx.moveTo(x + offsetX, y - 1);
+  ctx.quadraticCurveTo(x + offsetX - 2, y - 5 + steam, x + offsetX + 1, y - 8);
+  ctx.stroke();
+}
+
+function drawWaitingHalo(ctx: CanvasRenderingContext2D, x: number, y: number, timestampMs: number) {
+  const pulse = 0.45 + (Math.sin(timestampMs / 180) + 1) * 0.18;
+  ctx.strokeStyle = `rgba(255, 230, 153, ${pulse.toFixed(2)})`;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(x, y, 7, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
+function drawTypingTicks(ctx: CanvasRenderingContext2D, x: number, y: number, timestampMs: number, moving: boolean) {
+  if (moving) {
+    return;
+  }
+
+  const pulse = Math.sin(timestampMs / 110) > 0 ? 1 : 0.45;
+  ctx.fillStyle = `rgba(255, 220, 130, ${pulse.toFixed(2)})`;
+  ctx.fillRect(x - 6, y, 2, 4);
+  ctx.fillRect(x - 1, y - 1, 2, 5);
+  ctx.fillRect(x + 4, y, 2, 4);
+}
+
+function drawOfflineBadge(ctx: CanvasRenderingContext2D, x: number, y: number) {
+  ctx.fillStyle = "rgba(20, 18, 17, 0.82)";
+  ctx.fillRect(x - 6, y - 1, 12, 8);
+  ctx.strokeStyle = "rgba(166, 154, 144, 0.75)";
+  ctx.strokeRect(x - 6, y - 1, 12, 8);
+  ctx.fillStyle = "#b8aaa0";
+  ctx.fillRect(x - 3, y + 1, 6, 2);
 }
 
 function getFacing(dx: number, dy: number): Facing {
