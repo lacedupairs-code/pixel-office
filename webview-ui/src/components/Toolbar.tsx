@@ -1,18 +1,24 @@
 import type { CSSProperties } from "react";
 import type { LayoutSlotRecord } from "../App";
 
+type ProjectSaveState = "loading" | "idle" | "saving" | "saved" | "error";
+
 interface ToolbarProps {
   editMode: boolean;
   canUndo: boolean;
   canRedo: boolean;
   activeSlot: string | null;
   slotRecords: Record<string, LayoutSlotRecord>;
+  projectSaveState: ProjectSaveState;
+  projectSavedAt: string | null;
   onToggleEditMode: () => void;
   onUndo: () => void;
   onRedo: () => void;
   onResetLayout: () => void;
   onImportLayout: () => void;
   onExportLayout: () => void;
+  onSaveProject: () => void;
+  onRevertProject: () => void;
   onSaveSlot: (slotId: string) => void;
   onLoadSlot: (slotId: string) => void;
   onRenameSlot: (slotId: string) => void;
@@ -31,12 +37,16 @@ export function Toolbar({
   canRedo,
   activeSlot,
   slotRecords,
+  projectSaveState,
+  projectSavedAt,
   onToggleEditMode,
   onUndo,
   onRedo,
   onResetLayout,
   onImportLayout,
   onExportLayout,
+  onSaveProject,
+  onRevertProject,
   onSaveSlot,
   onLoadSlot,
   onRenameSlot,
@@ -72,6 +82,30 @@ export function Toolbar({
         </button>
         <button type="button" style={styles.button} onClick={onExportLayout}>
           Export JSON
+        </button>
+      </div>
+      <div style={styles.projectRow}>
+        <div style={styles.projectStatusCard}>
+          <span style={styles.projectLabel}>Project Layout</span>
+          <span style={{ ...styles.projectValue, ...projectStateStyle(projectSaveState) }}>
+            {formatProjectSaveState(projectSaveState, projectSavedAt)}
+          </span>
+        </div>
+        <button
+          type="button"
+          style={{ ...styles.button, ...((projectSaveState === "saving" || projectSaveState === "loading") ? styles.disabledButton : null) }}
+          onClick={onSaveProject}
+          disabled={projectSaveState === "saving" || projectSaveState === "loading"}
+        >
+          Save To Project
+        </button>
+        <button
+          type="button"
+          style={{ ...styles.button, ...(projectSaveState === "loading" ? styles.disabledButton : null) }}
+          onClick={onRevertProject}
+          disabled={projectSaveState === "loading"}
+        >
+          Revert From Project
         </button>
       </div>
       <div style={styles.row}>
@@ -128,6 +162,31 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     gap: "10px",
     flexWrap: "wrap"
+  },
+  projectRow: {
+    display: "flex",
+    gap: "10px",
+    flexWrap: "wrap",
+    alignItems: "center"
+  },
+  projectStatusCard: {
+    display: "grid",
+    gap: "2px",
+    minWidth: "220px",
+    padding: "10px 14px",
+    borderRadius: "16px",
+    background: "rgba(255,255,255,0.04)",
+    border: "1px solid rgba(255,255,255,0.08)"
+  },
+  projectLabel: {
+    fontSize: "11px",
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    color: "#a79377"
+  },
+  projectValue: {
+    fontSize: "13px",
+    color: "#f0dfc4"
   },
   slotGroup: {
     display: "flex",
@@ -218,6 +277,64 @@ function formatSlotSummary(record: LayoutSlotRecord | undefined) {
 
   const { layout } = record;
   return `${layout.cols}x${layout.rows}, ${layout.tiles.length} tiles, ${layout.agents.length} seats`;
+}
+
+function formatProjectSaveState(state: ProjectSaveState, savedAt: string | null) {
+  switch (state) {
+    case "loading":
+      return "Loading project layout";
+    case "saving":
+      return "Saving to project";
+    case "saved":
+      return savedAt ? `Saved ${formatRelativeTime(savedAt)}` : "Saved to project";
+    case "error":
+      return "Project sync failed";
+    case "idle":
+    default:
+      return "Local draft only";
+  }
+}
+
+function projectStateStyle(state: ProjectSaveState): CSSProperties {
+  switch (state) {
+    case "saved":
+      return { color: "#8fd0a7" };
+    case "saving":
+    case "loading":
+      return { color: "#f0b56a" };
+    case "error":
+      return { color: "#f18b7d" };
+    case "idle":
+    default:
+      return { color: "#d8c3a3" };
+  }
+}
+
+function formatRelativeTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "recently";
+  }
+
+  const diffMs = Date.now() - date.getTime();
+  if (diffMs < 60_000) {
+    return "just now";
+  }
+
+  const minutes = Math.round(diffMs / 60_000);
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  }
+
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) {
+    return `${hours}h ago`;
+  }
+
+  return date.toLocaleDateString([], {
+    month: "short",
+    day: "numeric"
+  });
 }
 
 function buildSlotThumbnail(record: LayoutSlotRecord | undefined) {
