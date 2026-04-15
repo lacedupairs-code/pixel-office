@@ -76,6 +76,23 @@ export default function App() {
   const matchingSlotIds = Object.entries(slotRecords)
     .filter(([, record]) => areLayoutsEqual(layout, record.layout))
     .map(([slotId]) => slotId);
+  const stateCounts = {
+    working: agents.filter((agent) => agent.state === "working").length,
+    reading: agents.filter((agent) => agent.state === "reading").length,
+    idle: agents.filter((agent) => agent.state === "idle").length,
+    waiting: agents.filter((agent) => agent.state === "waiting").length,
+    sleeping: agents.filter((agent) => agent.state === "sleeping").length,
+    offline: agents.filter((agent) => agent.state === "offline").length
+  };
+  const currentRoomLabel = activeSlot ? slotRecords[activeSlot]?.name ?? activeSlotLabel(activeSlot) : "Unsaved room";
+  const activeRoomLabel = projectActiveSlotId
+    ? slotRecords[projectActiveSlotId]?.name ?? activeSlotLabel(projectActiveSlotId)
+    : "No active room";
+  const hotspotSummary = {
+    desks: layout.tiles.filter((tile) => tile.type === "desk").length,
+    coffee: layout.tiles.filter((tile) => tile.type === "coffee").length,
+    lounge: layout.tiles.filter((tile) => tile.type === "couch").length
+  };
 
   useEffect(() => {
     document.title = "Pixel Office";
@@ -1028,6 +1045,34 @@ export default function App() {
         onSetActiveSlot={handleSetActiveSlot}
         onDeleteSlot={handleDeleteSlot}
       />
+      <section style={styles.summaryGrid}>
+        <div style={styles.summaryCard}>
+          <span style={styles.summaryLabel}>Current Room</span>
+          <strong style={styles.summaryValue}>{currentRoomLabel}</strong>
+          <span style={styles.summaryMeta}>
+            {matchingSlotIds.length > 0 ? `Matches ${matchingSlotIds.length} saved room${matchingSlotIds.length === 1 ? "" : "s"}` : "Local edits in progress"}
+          </span>
+        </div>
+        <div style={styles.summaryCard}>
+          <span style={styles.summaryLabel}>Project Default</span>
+          <strong style={styles.summaryValue}>{activeRoomLabel}</strong>
+          <span style={styles.summaryMeta}>{projectSaveState === "saved" ? "Project sync healthy" : formatProjectSaveState(projectSaveState, projectSavedAt)}</span>
+        </div>
+        <div style={styles.summaryCardWide}>
+          <span style={styles.summaryLabel}>Office Activity</span>
+          <div style={styles.summaryStatRow}>
+            <span style={styles.summaryPill}>Working {stateCounts.working}</span>
+            <span style={styles.summaryPill}>Reading {stateCounts.reading}</span>
+            <span style={styles.summaryPill}>Idle {stateCounts.idle}</span>
+            <span style={styles.summaryPill}>Waiting {stateCounts.waiting}</span>
+            <span style={styles.summaryPill}>Sleeping {stateCounts.sleeping}</span>
+            <span style={styles.summaryPill}>Offline {stateCounts.offline}</span>
+          </div>
+          <span style={styles.summaryMeta}>
+            {hotspotSummary.desks} desks, {hotspotSummary.coffee} coffee spot{hotspotSummary.coffee === 1 ? "" : "s"}, {hotspotSummary.lounge} lounge zone{hotspotSummary.lounge === 1 ? "" : "s"}
+          </span>
+        </div>
+      </section>
       <input ref={fileInputRef} type="file" accept="application/json" onChange={handleImportFile} style={styles.fileInput} />
       <section style={styles.stage}>
         <OfficeCanvas
@@ -1119,6 +1164,57 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: "16px",
     background: "rgba(30, 24, 19, 0.9)",
     boxShadow: "0 20px 60px rgba(0, 0, 0, 0.35)"
+  },
+  summaryGrid: {
+    display: "grid",
+    gap: "14px",
+    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))"
+  },
+  summaryCard: {
+    display: "grid",
+    gap: "6px",
+    padding: "16px 18px",
+    borderRadius: "16px",
+    border: "1px solid rgba(255, 231, 198, 0.12)",
+    background: "rgba(32, 25, 20, 0.82)",
+    boxShadow: "0 14px 36px rgba(0, 0, 0, 0.22)"
+  },
+  summaryCardWide: {
+    display: "grid",
+    gap: "10px",
+    padding: "16px 18px",
+    borderRadius: "16px",
+    border: "1px solid rgba(255, 231, 198, 0.12)",
+    background: "rgba(32, 25, 20, 0.82)",
+    boxShadow: "0 14px 36px rgba(0, 0, 0, 0.22)",
+    gridColumn: "span 2"
+  },
+  summaryLabel: {
+    fontSize: "11px",
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    color: "#c7a97d"
+  },
+  summaryValue: {
+    fontSize: "20px",
+    color: "#f3e7d2"
+  },
+  summaryMeta: {
+    fontSize: "12px",
+    color: "#bda988"
+  },
+  summaryStatRow: {
+    display: "flex",
+    gap: "8px",
+    flexWrap: "wrap"
+  },
+  summaryPill: {
+    padding: "6px 10px",
+    borderRadius: "999px",
+    background: "rgba(255,255,255,0.06)",
+    border: "1px solid rgba(255,255,255,0.08)",
+    color: "#f0dfc4",
+    fontSize: "12px"
   },
   stage: {
     overflowX: "auto"
@@ -1267,4 +1363,20 @@ function sanitizeSlotTags(tags: string[] | undefined) {
     .filter(Boolean);
 
   return normalized.length > 0 ? Array.from(new Set(normalized)) : undefined;
+}
+
+function activeSlotLabel(slotId: string) {
+  if (slotId === "slot-a") {
+    return "Slot A";
+  }
+
+  if (slotId === "slot-b") {
+    return "Slot B";
+  }
+
+  if (slotId === "slot-c") {
+    return "Slot C";
+  }
+
+  return slotId;
 }
