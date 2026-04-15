@@ -107,6 +107,7 @@ export default function App() {
     coffee: layout.tiles.filter((tile) => tile.type === "coffee").length,
     lounge: layout.tiles.filter((tile) => tile.type === "couch").length
   };
+  const seatAssignments = new Map(layout.agents.map((seat) => [seat.agentId, seat] as const));
   const totalSeats = layout.agents.length;
   const assignedSeatIds = new Set(layout.agents.map((seat) => seat.agentId));
   const unassignedAgents = knownAgentIds.filter((agentId) => !assignedSeatIds.has(agentId));
@@ -1417,9 +1418,19 @@ export default function App() {
               <div>
                 <strong>{agent.id}</strong>
                 <div style={styles.meta}>{agent.isDefault ? "Boss desk" : "Employee desk"}</div>
+                <div style={styles.meta}>
+                  {seatAssignments.has(agent.id)
+                    ? `Seat ${formatSeatLabel(seatAssignments.get(agent.id)!.deskX, seatAssignments.get(agent.id)!.deskY)}`
+                    : "No desk assigned"}
+                </div>
                 {agent.taskHint ? <div style={styles.meta}>{agent.taskHint}</div> : null}
               </div>
-              <span style={styles.status}>{agent.state}</span>
+              <div style={styles.feedStatusStack}>
+                <span style={styles.status}>{agent.state}</span>
+                <span style={{ ...styles.assignmentBadge, ...(seatAssignments.has(agent.id) ? styles.assignmentBadgeReady : styles.assignmentBadgeMissing) }}>
+                  {seatAssignments.has(agent.id) ? "Seated" : "Unassigned"}
+                </span>
+              </div>
             </li>
           ))}
         </ul>
@@ -1828,9 +1839,33 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: "10px",
     background: "rgba(255, 255, 255, 0.05)"
   },
+  feedStatusStack: {
+    display: "grid",
+    gap: "6px",
+    justifyItems: "end"
+  },
   status: {
     textTransform: "capitalize",
     color: "#f6b26b"
+  },
+  assignmentBadge: {
+    padding: "5px 8px",
+    borderRadius: "999px",
+    fontSize: "11px",
+    fontWeight: 700,
+    letterSpacing: "0.04em",
+    textTransform: "uppercase",
+    border: "1px solid rgba(255,255,255,0.08)"
+  },
+  assignmentBadgeReady: {
+    background: "rgba(98, 151, 111, 0.16)",
+    color: "#dff5e3",
+    border: "1px solid rgba(143, 208, 167, 0.22)"
+  },
+  assignmentBadgeMissing: {
+    background: "rgba(181, 136, 82, 0.16)",
+    color: "#fff0db",
+    border: "1px solid rgba(240, 181, 106, 0.22)"
   },
   meta: {
     marginTop: "4px",
@@ -1972,6 +2007,10 @@ function activeSlotLabel(slotId: string) {
   }
 
   return slotId;
+}
+
+function formatSeatLabel(deskX: number, deskY: number) {
+  return `${deskX},${deskY}`;
 }
 
 function isFeedFilter(value: unknown): value is FeedPreferences["filter"] {
