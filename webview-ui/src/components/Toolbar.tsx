@@ -10,6 +10,7 @@ interface ToolbarProps {
   activeSlot: string | null;
   slotRecords: Record<string, LayoutSlotRecord>;
   conflictedSlotIds: string[];
+  projectActiveSlotId: string | null;
   projectSaveState: ProjectSaveState;
   projectSavedAt: string | null;
   onToggleEditMode: () => void;
@@ -24,6 +25,7 @@ interface ToolbarProps {
   onLoadSlot: (slotId: string) => void;
   onRenameSlot: (slotId: string) => void;
   onEditSlotDetails: (slotId: string) => void;
+  onSetActiveSlot: (slotId: string) => void;
   onDeleteSlot: (slotId: string) => void;
 }
 
@@ -40,6 +42,7 @@ export function Toolbar({
   activeSlot,
   slotRecords,
   conflictedSlotIds,
+  projectActiveSlotId,
   projectSaveState,
   projectSavedAt,
   onToggleEditMode,
@@ -54,6 +57,7 @@ export function Toolbar({
   onLoadSlot,
   onRenameSlot,
   onEditSlotDetails,
+  onSetActiveSlot,
   onDeleteSlot
 }: ToolbarProps) {
   return (
@@ -132,6 +136,7 @@ export function Toolbar({
               <span style={{ ...styles.slotLabel, ...(activeSlot === slot.id ? styles.slotLabelActive : null) }}>
                 {slotRecords[slot.id]?.name || slot.label}
               </span>
+              {projectActiveSlotId === slot.id ? <span style={styles.activeRoomTag}>Active Room</span> : null}
               <span style={{ ...styles.slotStamp, ...(conflictedSlotIds.includes(slot.id) ? styles.slotStampConflict : null) }}>
                 {conflictedSlotIds.includes(slot.id) ? "Conflict" : formatSlotStamp(slotRecords[slot.id]?.savedAt)}
               </span>
@@ -146,6 +151,9 @@ export function Toolbar({
             </button>
             <button type="button" style={styles.button} onClick={() => onLoadSlot(slot.id)}>
               Load
+            </button>
+            <button type="button" style={styles.button} onClick={() => onSetActiveSlot(slot.id)} disabled={!slotRecords[slot.id]}>
+              {projectActiveSlotId === slot.id ? "Active" : "Make Active"}
             </button>
             <button type="button" style={styles.button} onClick={() => onRenameSlot(slot.id)} disabled={!slotRecords[slot.id]}>
               Rename
@@ -252,6 +260,13 @@ const styles: Record<string, CSSProperties> = {
   slotStampConflict: {
     color: "#f3d36f",
     fontWeight: 700
+  },
+  activeRoomTag: {
+    fontSize: "10px",
+    color: "#8fd0a7",
+    fontWeight: 700,
+    letterSpacing: "0.04em",
+    textTransform: "uppercase"
   },
   slotSummary: {
     fontSize: "10px",

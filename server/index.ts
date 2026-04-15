@@ -8,8 +8,10 @@ import {
   isLayoutSaveRequest,
   isLayoutSlotSaveRequest,
   readLayoutFile,
+  readLayoutSlotMetaFile,
   readLayoutSlotsFile,
   writeLayoutFile,
+  writeLayoutSlotMetaFile,
   writeLayoutSlotsFile
 } from "./layoutStore";
 import { discoverAgents } from "./openclawConfig";
@@ -79,6 +81,44 @@ app.get("/api/layout-slots", async (_request, response) => {
   }
 });
 
+app.get("/api/layout-slots/meta", async (_request, response) => {
+  try {
+    const [meta, slots] = await Promise.all([readLayoutSlotMetaFile(), readLayoutSlotsFile()]);
+    const activeSlotId = meta.activeSlotId && slots[meta.activeSlotId] ? meta.activeSlotId : undefined;
+    if (meta.activeSlotId && !activeSlotId) {
+      await writeLayoutSlotMetaFile({});
+    }
+
+    response.json({ activeSlotId });
+  } catch (error) {
+    console.error("Failed to read layout slot meta file", error);
+    response.status(500).json({ error: "Unable to read layout slot metadata" });
+  }
+});
+
+app.put("/api/layout-slots/meta", async (request, response) => {
+  if (request.body && typeof request.body !== "object") {
+    response.status(400).json({ error: "Invalid layout slot metadata payload" });
+    return;
+  }
+
+  const activeSlotId =
+    typeof request.body?.activeSlotId === "string" ? (request.body.activeSlotId as string) : undefined;
+
+  try {
+    const slots = await readLayoutSlotsFile();
+    if (activeSlotId && !slots[activeSlotId]) {
+      response.status(404).json({ error: "Layout slot not found" });
+      return;
+    }
+
+    response.json(await writeLayoutSlotMetaFile({ activeSlotId }));
+  } catch (error) {
+    console.error("Failed to write layout slot meta file", error);
+    response.status(500).json({ error: "Unable to save layout slot metadata" });
+  }
+});
+
 app.put("/api/layout-slots/:slotId", async (request, response) => {
   if (!isLayoutSlotSaveRequest(request.body)) {
     response.status(400).json({ error: "Invalid layout slot payload" });
@@ -115,7 +155,7 @@ app.put("/api/layout-slots/:slotId", async (request, response) => {
 
 app.delete("/api/layout-slots/:slotId", async (request, response) => {
   try {
-    const slots = await readLayoutSlotsFile();
+    const [slots, meta] = await Promise.all([readLayoutSlotsFile(), readLayoutSlotMetaFile()]);
     const existing = slots[request.params.slotId];
     const expectedUpdatedAt =
       typeof request.body?.expectedUpdatedAt === "string" ? (request.body.expectedUpdatedAt as string) : null;
@@ -131,6 +171,10 @@ app.delete("/api/layout-slots/:slotId", async (request, response) => {
     }
 
     delete slots[request.params.slotId];
+    if (meta.activeSlotId === request.params.slotId) {
+      await writeLayoutSlotMetaFile({});
+    }
+
     response.json(await writeLayoutSlotsFile(slots));
   } catch (error) {
     console.error("Failed to delete layout slot", error);

@@ -28,6 +28,10 @@ interface ProjectLayoutEnvelope {
   updatedAt: string;
 }
 
+interface LayoutSlotMeta {
+  activeSlotId?: string;
+}
+
 type LayoutSlotMap = Record<string, LayoutSlotRecord>;
 interface SlotConflictError extends Error {
   code?: string;
@@ -53,6 +57,7 @@ export default function App() {
   const [activeSlot, setActiveSlot] = useState<string | null>(null);
   const [slotRecords, setSlotRecords] = useState<LayoutSlotMap>(() => loadStoredSlots());
   const [conflictedSlotIds, setConflictedSlotIds] = useState<string[]>([]);
+  const [projectActiveSlotId, setProjectActiveSlotId] = useState<string | null>(null);
   const [serverLayoutReady, setServerLayoutReady] = useState(false);
   const [projectSaveState, setProjectSaveState] = useState<ProjectSaveState>("loading");
   const [projectSavedAt, setProjectSavedAt] = useState<string | null>(null);
@@ -81,16 +86,22 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
 
-    void fetchProjectSlots()
-      .then((projectSlots) => {
-        if (!cancelled && Object.keys(projectSlots).length > 0) {
+    void Promise.all([fetchProjectSlots(), fetchProjectSlotMeta()])
+      .then(([projectSlots, activeSlotId]) => {
+        if (cancelled) {
+          return;
+        }
+
+        if (Object.keys(projectSlots).length > 0) {
           setSlotRecords(projectSlots);
           setConflictedSlotIds([]);
           window.localStorage.setItem(LOCAL_LAYOUT_SLOTS_KEY, JSON.stringify(projectSlots));
         }
+
+        setProjectActiveSlotId(activeSlotId);
       })
       .catch((error) => {
-        console.error("Failed to load project layout slots", error);
+        console.error("Failed to load project room state", error);
       });
 
     return () => {
@@ -170,6 +181,35 @@ export default function App() {
 
     const payload = (await response.json()) as LayoutSlotMap;
     return sanitizeSlotRecords(payload);
+  }
+
+  async function fetchProjectSlotMeta() {
+    const response = await fetch("/api/layout-slots/meta");
+    if (!response.ok) {
+      throw new Error(`Failed to fetch layout slot metadata: ${response.status}`);
+    }
+
+    const payload = (await response.json()) as LayoutSlotMeta;
+    return payload.activeSlotId ?? null;
+  }
+
+  async function saveProjectSlotMeta(activeSlotId: string | null) {
+    const response = await fetch("/api/layout-slots/meta", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        activeSlotId: activeSlotId ?? null
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to save layout slot metadata: ${response.status}`);
+    }
+
+    const payload = (await response.json()) as LayoutSlotMeta;
+    return payload.activeSlotId ?? null;
   }
 
   async function saveProjectSlot(slotId: string, record: LayoutSlotRecord) {
@@ -733,6 +773,9 @@ export default function App() {
         window.localStorage.setItem(LOCAL_LAYOUT_SLOTS_KEY, JSON.stringify(slots));
         setSlotRecords(slots);
         setConflictedSlotIds((current) => current.filter((id) => id !== slotId));
+        if (projectActiveSlotId && !slots[projectActiveSlotId]) {
+          setProjectActiveSlotId(null);
+        }
         setActiveSlot(slotId);
       })
       .catch((error) => {
@@ -879,6 +922,23 @@ export default function App() {
       });
   }
 
+  function handleSetActiveSlot(slotId: string) {
+    const slotRecord = slotRecords[slotId];
+    if (!slotRecord) {
+      return;
+    }
+
+    void saveProjectSlotMeta(slotId)
+      .then((nextActiveSlotId) => {
+        setProjectActiveSlotId(nextActiveSlotId);
+        replaceLayout(slotRecord.layout, slotId);
+        return saveProjectLayout(slotRecord.layout, { force: true });
+      })
+      .catch((error) => {
+        console.error("Failed to set active project room", error);
+      });
+  }
+
   function handleDeleteSlot(slotId: string) {
     if (!slotRecords[slotId]) {
       return;
@@ -894,6 +954,12 @@ export default function App() {
         window.localStorage.setItem(LOCAL_LAYOUT_SLOTS_KEY, JSON.stringify(slots));
         setSlotRecords(slots);
         setConflictedSlotIds((current) => current.filter((id) => id !== slotId));
+        if (projectActiveSlotId === slotId) {
+          setProjectActiveSlotId(null);
+          void saveProjectSlotMeta(null).catch((error) => {
+            console.error("Failed to clear active project room", error);
+          });
+        }
         if (activeSlot === slotId) {
           setActiveSlot(null);
         }
@@ -950,6 +1016,7 @@ export default function App() {
         activeSlot={activeSlot}
         slotRecords={slotRecords}
         conflictedSlotIds={conflictedSlotIds}
+        projectActiveSlotId={projectActiveSlotId}
         projectSaveState={projectSaveState}
         projectSavedAt={projectSavedAt}
         onToggleEditMode={() => setEditMode((value) => !value)}
@@ -964,6 +1031,7 @@ export default function App() {
         onLoadSlot={handleLoadSlot}
         onRenameSlot={handleRenameSlot}
         onEditSlotDetails={handleEditSlotDetails}
+        onSetActiveSlot={handleSetActiveSlot}
         onDeleteSlot={handleDeleteSlot}
       />
       <input ref={fileInputRef} type="file" accept="application/json" onChange={handleImportFile} style={styles.fileInput} />
