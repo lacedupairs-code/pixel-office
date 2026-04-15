@@ -142,6 +142,13 @@ export default function App() {
       (agent.taskHint ?? "").toLowerCase().includes(normalizedAgentSearch)
     );
   });
+  const visibleFeedSummary = {
+    total: visibleAgents.length,
+    seated: visibleAgents.filter((agent) => seatAssignments.has(agent.id)).length,
+    unassigned: visibleAgents.filter((agent) => !seatAssignments.has(agent.id)).length,
+    focused: visibleAgents.filter((agent) => agent.state === "working" || agent.state === "reading").length,
+    waiting: visibleAgents.filter((agent) => agent.state === "waiting").length
+  };
   const feedPrefsChanged =
     feedPreferences.filter !== DEFAULT_FEED_PREFERENCES.filter ||
     feedPreferences.searchQuery !== DEFAULT_FEED_PREFERENCES.searchQuery ||
@@ -1451,6 +1458,13 @@ export default function App() {
             </button>
           ))}
         </div>
+        <div style={styles.feedSummaryRow}>
+          <span style={styles.feedSummaryPill}>Visible {visibleFeedSummary.total}</span>
+          <span style={styles.feedSummaryPill}>Seated {visibleFeedSummary.seated}</span>
+          <span style={styles.feedSummaryPill}>Unassigned {visibleFeedSummary.unassigned}</span>
+          <span style={styles.feedSummaryPill}>Focused {visibleFeedSummary.focused}</span>
+          <span style={styles.feedSummaryPill}>Waiting {visibleFeedSummary.waiting}</span>
+        </div>
         <ul style={styles.list}>
           {visibleAgents.length === 0 ? <li style={styles.item}>No agents match this filter yet.</li> : null}
           {visibleAgents.map((agent) => (
@@ -1856,6 +1870,12 @@ const styles: Record<string, CSSProperties> = {
     flexWrap: "wrap",
     marginBottom: "14px"
   },
+  feedSummaryRow: {
+    display: "flex",
+    gap: "8px",
+    flexWrap: "wrap",
+    marginBottom: "14px"
+  },
   feedFilterChip: {
     padding: "7px 10px",
     borderRadius: "999px",
@@ -1883,6 +1903,14 @@ const styles: Record<string, CSSProperties> = {
     background: "rgba(143, 208, 167, 0.16)",
     color: "#ecf8ef",
     border: "1px solid rgba(143, 208, 167, 0.24)"
+  },
+  feedSummaryPill: {
+    padding: "6px 10px",
+    borderRadius: "999px",
+    border: "1px solid rgba(255,255,255,0.08)",
+    background: "rgba(255,255,255,0.04)",
+    color: "#d8c3a3",
+    fontSize: "12px"
   },
   list: {
     listStyle: "none",
