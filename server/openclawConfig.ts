@@ -13,6 +13,7 @@ export interface OpenClawDiscovery {
   openClawDir: string;
   configPath: string;
   agents: DiscoveredAgent[];
+  warnings: string[];
 }
 
 export function getOpenClawDir(): string {
@@ -22,15 +23,23 @@ export function getOpenClawDir(): string {
 export function discoverAgents(): OpenClawDiscovery {
   const openClawDir = getOpenClawDir();
   const configPath = path.join(openClawDir, "openclaw.json");
-  const configured = readAgentsFromConfig(openClawDir, configPath);
+  const warnings: string[] = [];
+
+  if (!fs.existsSync(openClawDir)) {
+    warnings.push(`OpenClaw directory not found at ${openClawDir}.`);
+    return { openClawDir, configPath, agents: [], warnings };
+  }
+
+  const configured = readAgentsFromConfig(openClawDir, configPath, warnings);
 
   if (configured.length > 0) {
-    return { openClawDir, configPath, agents: configured };
+    return { openClawDir, configPath, agents: configured, warnings };
   }
 
   const agentsDir = path.join(openClawDir, "agents");
   if (!fs.existsSync(agentsDir)) {
-    return { openClawDir, configPath, agents: [] };
+    warnings.push(`Agents directory not found at ${agentsDir}.`);
+    return { openClawDir, configPath, agents: [], warnings };
   }
 
   const agentIds = fs
@@ -46,7 +55,11 @@ export function discoverAgents(): OpenClawDiscovery {
     isDefault: id === defaultAgentId
   }));
 
-  return { openClawDir, configPath, agents };
+  if (agents.length === 0) {
+    warnings.push(`No OpenClaw agents were discovered under ${agentsDir}.`);
+  }
+
+  return { openClawDir, configPath, agents, warnings };
 }
 
 export function getActiveSessionPath(sessionDir: string): string | null {
@@ -69,7 +82,7 @@ export function getActiveSessionPath(sessionDir: string): string | null {
   return latest?.filePath ?? null;
 }
 
-function readAgentsFromConfig(openClawDir: string, configPath: string): DiscoveredAgent[] {
+function readAgentsFromConfig(openClawDir: string, configPath: string, warnings: string[]): DiscoveredAgent[] {
   if (!fs.existsSync(configPath)) {
     return [];
   }
@@ -97,6 +110,7 @@ function readAgentsFromConfig(openClawDir: string, configPath: string): Discover
         isDefault: Boolean(agent.default)
       }));
   } catch {
+    warnings.push(`Unable to parse ${configPath}; falling back to directory discovery.`);
     return [];
   }
 }

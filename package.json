@@ -5,6 +5,7 @@
   "description": "Standalone browser visualizer for OpenClaw agents",
   "scripts": {
     "build": "tsc -p tsconfig.json && npm --prefix webview-ui run build",
+    "prestart": "npm run build",
     "start": "node dist/server/index.js",
     "dev": "concurrently \"ts-node-dev --respawn --transpile-only server/index.ts\" \"npm --prefix webview-ui run dev\"",
     "install:all": "npm install && npm --prefix webview-ui install",
