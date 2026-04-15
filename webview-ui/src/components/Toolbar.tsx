@@ -9,6 +9,7 @@ interface ToolbarProps {
   canRedo: boolean;
   activeSlot: string | null;
   slotRecords: Record<string, LayoutSlotRecord>;
+  matchingSlotIds: string[];
   conflictedSlotIds: string[];
   projectActiveSlotId: string | null;
   projectSaveState: ProjectSaveState;
@@ -41,6 +42,7 @@ export function Toolbar({
   canRedo,
   activeSlot,
   slotRecords,
+  matchingSlotIds,
   conflictedSlotIds,
   projectActiveSlotId,
   projectSaveState,
@@ -232,6 +234,12 @@ export function Toolbar({
               ...(conflictedSlotIds.includes(slot.id) ? styles.slotGroupConflict : null)
             }}
           >
+            {(() => {
+              const isCurrentLayout = matchingSlotIds.includes(slot.id);
+              const isEditedFromSlot = activeSlot === slot.id && !isCurrentLayout;
+
+              return (
+                <>
             <div style={styles.thumbFrame}>
               <img
                 src={buildSlotThumbnail(slotRecords[slot.id])}
@@ -243,9 +251,17 @@ export function Toolbar({
               <span style={{ ...styles.slotLabel, ...(activeSlot === slot.id ? styles.slotLabelActive : null) }}>
                 {slotRecords[slot.id]?.name || slot.label}
               </span>
-              {projectActiveSlotId === slot.id ? <span style={styles.activeRoomTag}>Active Room</span> : null}
+              <div style={styles.slotBadgeRow}>
+                {projectActiveSlotId === slot.id ? <span style={styles.activeRoomTag}>Active Room</span> : null}
+                {isCurrentLayout ? <span style={styles.currentRoomTag}>Current Layout</span> : null}
+                {isEditedFromSlot ? <span style={styles.editedRoomTag}>Edited</span> : null}
+              </div>
               <span style={{ ...styles.slotStamp, ...(conflictedSlotIds.includes(slot.id) ? styles.slotStampConflict : null) }}>
-                {conflictedSlotIds.includes(slot.id) ? "Conflict" : formatSlotStamp(slotRecords[slot.id]?.savedAt)}
+                {conflictedSlotIds.includes(slot.id)
+                  ? "Conflict"
+                  : isEditedFromSlot
+                    ? "Unsaved layout edits"
+                    : formatSlotStamp(slotRecords[slot.id]?.savedAt)}
               </span>
               <span style={styles.slotSummary}>{formatSlotSummary(slotRecords[slot.id])}</span>
               {slotRecords[slot.id]?.description ? <span style={styles.slotDescription}>{slotRecords[slot.id]?.description}</span> : null}
@@ -318,6 +334,9 @@ export function Toolbar({
                 </div>
               </div>
             ) : null}
+                </>
+              );
+            })()}
           </div>
         ))}
         {visibleSlots.length === 0 ? <div style={styles.emptyState}>No saved rooms match that filter yet.</div> : null}
@@ -413,6 +432,12 @@ const styles: Record<string, CSSProperties> = {
     display: "grid",
     gap: "2px"
   },
+  slotBadgeRow: {
+    display: "flex",
+    gap: "6px",
+    flexWrap: "wrap",
+    alignItems: "center"
+  },
   slotEditor: {
     display: "grid",
     gap: "10px",
@@ -439,6 +464,20 @@ const styles: Record<string, CSSProperties> = {
   activeRoomTag: {
     fontSize: "10px",
     color: "#8fd0a7",
+    fontWeight: 700,
+    letterSpacing: "0.04em",
+    textTransform: "uppercase"
+  },
+  currentRoomTag: {
+    fontSize: "10px",
+    color: "#76c9ff",
+    fontWeight: 700,
+    letterSpacing: "0.04em",
+    textTransform: "uppercase"
+  },
+  editedRoomTag: {
+    fontSize: "10px",
+    color: "#f0b56a",
     fontWeight: 700,
     letterSpacing: "0.04em",
     textTransform: "uppercase"

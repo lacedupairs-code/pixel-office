@@ -73,6 +73,9 @@ export default function App() {
   const layoutRef = useRef(layout);
   const projectRevisionRef = useRef<string | null>(null);
   const knownAgentIds = Array.from(new Set([...layout.agents.map((seat) => seat.agentId), ...agents.map((agent) => agent.id)])).sort();
+  const matchingSlotIds = Object.entries(slotRecords)
+    .filter(([, record]) => areLayoutsEqual(layout, record.layout))
+    .map(([slotId]) => slotId);
 
   useEffect(() => {
     document.title = "Pixel Office";
@@ -1005,6 +1008,7 @@ export default function App() {
         canRedo={futureLayouts.length > 0}
         activeSlot={activeSlot}
         slotRecords={slotRecords}
+        matchingSlotIds={matchingSlotIds}
         conflictedSlotIds={conflictedSlotIds}
         projectActiveSlotId={projectActiveSlotId}
         projectSaveState={projectSaveState}
