@@ -124,6 +124,14 @@ export default function App() {
     hotspotSummary,
     currentRoomLabel
   });
+  const attentionItems = buildAttentionItems({
+    blockedAgents,
+    quietAgents,
+    unassignedAgents,
+    projectSaveState,
+    connectionState,
+    hotspotSummary
+  });
   const roomStatusPills = [
     {
       label: "Connection",
@@ -1209,6 +1217,20 @@ export default function App() {
           </div>
         </div>
       </section>
+      <section style={styles.panel}>
+        <h2 style={styles.sectionTitle}>Attention Board</h2>
+        <div style={styles.attentionList}>
+          {attentionItems.map((item) => (
+            <div key={item.title} style={{ ...styles.attentionCard, ...attentionToneStyle(item.tone) }}>
+              <div style={styles.attentionHeader}>
+                <strong style={styles.attentionTitle}>{item.title}</strong>
+                <span style={styles.attentionTag}>{item.tag}</span>
+              </div>
+              <span style={styles.attentionMeta}>{item.detail}</span>
+            </div>
+          ))}
+        </div>
+      </section>
       <input ref={fileInputRef} type="file" accept="application/json" onChange={handleImportFile} style={styles.fileInput} />
       <section style={styles.stage}>
         <OfficeCanvas
@@ -1557,6 +1579,44 @@ const styles: Record<string, CSSProperties> = {
     color: "#d8c3a3",
     fontSize: "12px"
   },
+  attentionList: {
+    display: "grid",
+    gap: "10px"
+  },
+  attentionCard: {
+    display: "grid",
+    gap: "6px",
+    padding: "14px 16px",
+    borderRadius: "14px",
+    border: "1px solid rgba(255,255,255,0.08)",
+    background: "rgba(255,255,255,0.04)"
+  },
+  attentionHeader: {
+    display: "flex",
+    gap: "8px",
+    justifyContent: "space-between",
+    alignItems: "center",
+    flexWrap: "wrap"
+  },
+  attentionTitle: {
+    color: "#f3e7d2",
+    fontSize: "14px"
+  },
+  attentionTag: {
+    padding: "4px 8px",
+    borderRadius: "999px",
+    background: "rgba(0,0,0,0.18)",
+    color: "#f3e7d2",
+    fontSize: "11px",
+    fontWeight: 700,
+    letterSpacing: "0.04em",
+    textTransform: "uppercase"
+  },
+  attentionMeta: {
+    fontSize: "12px",
+    color: "#cdb89b",
+    lineHeight: 1.5
+  },
   stage: {
     overflowX: "auto"
   },
@@ -1866,6 +1926,32 @@ function narrativeToneStyle(tone: "focused" | "blocked" | "quiet" | "offline"): 
   }
 }
 
+function attentionToneStyle(tone: "good" | "warm" | "alert" | "muted"): CSSProperties {
+  switch (tone) {
+    case "good":
+      return {
+        background: "rgba(98, 151, 111, 0.12)",
+        border: "1px solid rgba(143, 208, 167, 0.2)"
+      };
+    case "alert":
+      return {
+        background: "rgba(164, 88, 88, 0.16)",
+        border: "1px solid rgba(241, 139, 125, 0.24)"
+      };
+    case "warm":
+      return {
+        background: "rgba(181, 136, 82, 0.12)",
+        border: "1px solid rgba(240, 181, 106, 0.18)"
+      };
+    case "muted":
+    default:
+      return {
+        background: "rgba(255,255,255,0.04)",
+        border: "1px solid rgba(255,255,255,0.08)"
+      };
+  }
+}
+
 function buildRoomReadiness({
   layout,
   knownAgentIds,
@@ -2071,4 +2157,98 @@ function buildOfficeNarrative({
     summary,
     bullets
   };
+}
+
+function buildAttentionItems({
+  blockedAgents,
+  quietAgents,
+  unassignedAgents,
+  projectSaveState,
+  connectionState,
+  hotspotSummary
+}: {
+  blockedAgents: OfficeAgent[];
+  quietAgents: OfficeAgent[];
+  unassignedAgents: string[];
+  projectSaveState: ProjectSaveState;
+  connectionState: ProjectSaveState | "connecting" | "open" | "closed";
+  hotspotSummary: { desks: number; coffee: number; lounge: number };
+}) {
+  const items: Array<{ title: string; detail: string; tag: string; tone: "good" | "warm" | "alert" | "muted" }> = [];
+
+  if (blockedAgents.length > 0) {
+    items.push({
+      title: "Agents are waiting on input",
+      detail: `${blockedAgents.map((agent) => agent.id).join(", ")} ${blockedAgents.length === 1 ? "is" : "are"} currently blocked and may need prompt follow-up or context.`,
+      tag: "Blocker",
+      tone: "alert"
+    });
+  }
+
+  if (unassignedAgents.length > 0) {
+    items.push({
+      title: "Some agents still have no desk",
+      detail: `${unassignedAgents.join(", ")} ${unassignedAgents.length === 1 ? "has" : "have"} no assigned seat yet, so room routines may feel incomplete until they are placed.`,
+      tag: "Layout",
+      tone: "warm"
+    });
+  }
+
+  if (projectSaveState === "conflict" || projectSaveState === "error") {
+    items.push({
+      title: "Project sync needs attention",
+      detail:
+        projectSaveState === "conflict"
+          ? "The project layout changed elsewhere, so decide whether to keep the local copy or reload from project."
+          : "Recent project persistence failed, so this layout may only exist locally until sync succeeds again.",
+      tag: "Sync",
+      tone: "alert"
+    });
+  }
+
+  if (connectionState !== "open") {
+    items.push({
+      title: "Live connection is not fully open",
+      detail: "OpenClaw updates may lag or stop until the socket reconnects and the office feed becomes live again.",
+      tag: "Live Feed",
+      tone: "alert"
+    });
+  }
+
+  if ((hotspotSummary.coffee === 0 || hotspotSummary.lounge === 0) && items.length < 3) {
+    items.push({
+      title: "Shared spaces are still sparse",
+      detail: "Add coffee and couch landmarks so the richer office routines have places to gather, pause, and rest.",
+      tag: "Atmosphere",
+      tone: "warm"
+    });
+  }
+
+  if (quietAgents.length > 0 && items.length < 3) {
+    items.push({
+      title: "Some agents are in low-activity states",
+      detail: `${quietAgents.map((agent) => agent.id).join(", ")} ${quietAgents.length === 1 ? "is" : "are"} currently sleeping or offline, which is fine unless you expected more activity.`,
+      tag: "Heads Up",
+      tone: "muted"
+    });
+  }
+
+  if (items.length === 0) {
+    items.push(
+      {
+        title: "No urgent issues detected",
+        detail: "The room looks healthy right now, with live updates, saved context, and no obvious blockers or setup gaps.",
+        tag: "Healthy",
+        tone: "good"
+      },
+      {
+        title: "Use this moment for polish work",
+        detail: "Visual polish, richer assets, and additional behaviors are the highest-value next moves from here.",
+        tag: "Next",
+        tone: "muted"
+      }
+    );
+  }
+
+  return items.slice(0, 3);
 }
