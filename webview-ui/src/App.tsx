@@ -8,6 +8,7 @@ import type { LayoutPaintMode, LayoutTile, LayoutTool, OfficeLayout, TileSelecti
 import { useOfficeStore } from "./store/officeStore";
 
 const LOCAL_LAYOUT_KEY = "pixel-office.layout";
+const LOCAL_LAYOUT_SLOTS_KEY = "pixel-office.layout-slots";
 
 export default function App() {
   useAgentSocket();
@@ -24,6 +25,7 @@ export default function App() {
   const [selectedPaintMode, setSelectedPaintMode] = useState<LayoutPaintMode>("brush");
   const [selectedSeatAgentId, setSelectedSeatAgentId] = useState<string | null>(null);
   const [selectionBounds, setSelectionBounds] = useState<TileSelectionBounds | null>(null);
+  const [activeSlot, setActiveSlot] = useState<string | null>(null);
   const knownAgentIds = Array.from(new Set([...layout.agents.map((seat) => seat.agentId), ...agents.map((agent) => agent.id)])).sort();
 
   useEffect(() => {
@@ -115,6 +117,7 @@ export default function App() {
     commitLayout(() => defaultLayout);
     setSelectedSeatAgentId(null);
     setSelectionBounds(null);
+    setActiveSlot(null);
   }
 
   function handleImportLayout() {
@@ -136,6 +139,7 @@ export default function App() {
         setFutureLayouts([]);
         setSelectedSeatAgentId(null);
         setSelectionBounds(null);
+        setActiveSlot(null);
       } catch (error) {
         console.error("Failed to import layout", error);
       } finally {
@@ -375,6 +379,36 @@ export default function App() {
     URL.revokeObjectURL(url);
   }
 
+  function handleSaveSlot(slotId: string) {
+    try {
+      const slots = loadStoredSlots();
+      slots[slotId] = layout;
+      window.localStorage.setItem(LOCAL_LAYOUT_SLOTS_KEY, JSON.stringify(slots));
+      setActiveSlot(slotId);
+    } catch (error) {
+      console.error("Failed to save layout slot", error);
+    }
+  }
+
+  function handleLoadSlot(slotId: string) {
+    try {
+      const slots = loadStoredSlots();
+      const slotLayout = slots[slotId];
+      if (!slotLayout) {
+        return;
+      }
+
+      setLayout(sanitizeLayout(slotLayout));
+      setLayoutHistory([]);
+      setFutureLayouts([]);
+      setSelectedSeatAgentId(null);
+      setSelectionBounds(null);
+      setActiveSlot(slotId);
+    } catch (error) {
+      console.error("Failed to load layout slot", error);
+    }
+  }
+
   return (
     <main style={styles.page}>
       <section style={styles.hero}>
@@ -395,12 +429,15 @@ export default function App() {
         editMode={editMode}
         canUndo={layoutHistory.length > 0}
         canRedo={futureLayouts.length > 0}
+        activeSlot={activeSlot}
         onToggleEditMode={() => setEditMode((value) => !value)}
         onUndo={handleUndo}
         onRedo={handleRedo}
         onResetLayout={handleResetLayout}
         onImportLayout={handleImportLayout}
         onExportLayout={handleExportLayout}
+        onSaveSlot={handleSaveSlot}
+        onLoadSlot={handleLoadSlot}
       />
       <input ref={fileInputRef} type="file" accept="application/json" onChange={handleImportFile} style={styles.fileInput} />
       <section style={styles.stage}>
@@ -562,6 +599,21 @@ function loadStoredLayout(fallback: OfficeLayout) {
   } catch (error) {
     console.error("Failed to load stored layout", error);
     return fallback;
+  }
+}
+
+function loadStoredSlots(): Record<string, OfficeLayout> {
+  try {
+    const raw = window.localStorage.getItem(LOCAL_LAYOUT_SLOTS_KEY);
+    if (!raw) {
+      return {};
+    }
+
+    const parsed = JSON.parse(raw) as Record<string, OfficeLayout>;
+    return Object.fromEntries(Object.entries(parsed).map(([key, value]) => [key, sanitizeLayout(value)]));
+  } catch (error) {
+    console.error("Failed to load layout slots", error);
+    return {};
   }
 }
 
