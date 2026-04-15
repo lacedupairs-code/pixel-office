@@ -30,12 +30,14 @@ export interface LayoutSlotDetailsDraft {
 
 interface FeedPreferences {
   filter: OfficeAgent["state"] | "all";
+  assignmentFilter: "all" | "seated" | "unassigned";
   searchQuery: string;
   sortMode: "priority" | "name" | "boss-first";
 }
 
 const DEFAULT_FEED_PREFERENCES: FeedPreferences = {
   filter: "all",
+  assignmentFilter: "all",
   searchQuery: "",
   sortMode: "priority"
 };
@@ -122,6 +124,15 @@ export default function App() {
       return false;
     }
 
+    const hasSeat = seatAssignments.has(agent.id);
+    const matchesAssignment =
+      feedPreferences.assignmentFilter === "all" ||
+      (feedPreferences.assignmentFilter === "seated" && hasSeat) ||
+      (feedPreferences.assignmentFilter === "unassigned" && !hasSeat);
+    if (!matchesAssignment) {
+      return false;
+    }
+
     if (normalizedAgentSearch.length === 0) {
       return true;
     }
@@ -143,6 +154,15 @@ export default function App() {
     { key: "idle", label: "Idle", count: stateCounts.idle },
     { key: "sleeping", label: "Sleeping", count: stateCounts.sleeping },
     { key: "offline", label: "Offline", count: stateCounts.offline }
+  ];
+  const assignmentFilters: Array<{ key: FeedPreferences["assignmentFilter"]; label: string; count: number }> = [
+    { key: "all", label: "All Seats", count: sortedAgents.length },
+    { key: "seated", label: "Seated", count: sortedAgents.filter((agent) => seatAssignments.has(agent.id)).length },
+    {
+      key: "unassigned",
+      label: "Unassigned",
+      count: sortedAgents.filter((agent) => !seatAssignments.has(agent.id)).length
+    }
   ];
   const roomReadiness = buildRoomReadiness({
     layout,
@@ -1411,6 +1431,26 @@ export default function App() {
             </button>
           ))}
         </div>
+        <div style={styles.feedAssignmentRow}>
+          {assignmentFilters.map((filter) => (
+            <button
+              key={filter.key}
+              type="button"
+              style={{
+                ...styles.feedAssignmentChip,
+                ...(feedPreferences.assignmentFilter === filter.key ? styles.feedAssignmentChipActive : null)
+              }}
+              onClick={() =>
+                setFeedPreferences((current) => ({
+                  ...current,
+                  assignmentFilter: filter.key
+                }))
+              }
+            >
+              {filter.label} {filter.count}
+            </button>
+          ))}
+        </div>
         <ul style={styles.list}>
           {visibleAgents.length === 0 ? <li style={styles.item}>No agents match this filter yet.</li> : null}
           {visibleAgents.map((agent) => (
@@ -1810,6 +1850,12 @@ const styles: Record<string, CSSProperties> = {
     flexWrap: "wrap",
     marginBottom: "14px"
   },
+  feedAssignmentRow: {
+    display: "flex",
+    gap: "8px",
+    flexWrap: "wrap",
+    marginBottom: "14px"
+  },
   feedFilterChip: {
     padding: "7px 10px",
     borderRadius: "999px",
@@ -1823,6 +1869,20 @@ const styles: Record<string, CSSProperties> = {
     background: "rgba(240, 181, 106, 0.18)",
     color: "#f7ead3",
     border: "1px solid rgba(240, 181, 106, 0.28)"
+  },
+  feedAssignmentChip: {
+    padding: "7px 10px",
+    borderRadius: "999px",
+    border: "1px solid rgba(255,255,255,0.08)",
+    background: "rgba(255,255,255,0.03)",
+    color: "#cdb89b",
+    fontSize: "12px",
+    cursor: "pointer"
+  },
+  feedAssignmentChipActive: {
+    background: "rgba(143, 208, 167, 0.16)",
+    color: "#ecf8ef",
+    border: "1px solid rgba(143, 208, 167, 0.24)"
   },
   list: {
     listStyle: "none",
@@ -1916,6 +1976,7 @@ function loadFeedPreferences(): FeedPreferences {
     const parsed = JSON.parse(raw) as Partial<FeedPreferences>;
     return {
       filter: isFeedFilter(parsed.filter) ? parsed.filter : "all",
+      assignmentFilter: isFeedAssignmentFilter(parsed.assignmentFilter) ? parsed.assignmentFilter : "all",
       searchQuery: typeof parsed.searchQuery === "string" ? parsed.searchQuery : "",
       sortMode: isFeedSortMode(parsed.sortMode) ? parsed.sortMode : "priority"
     };
@@ -1923,6 +1984,7 @@ function loadFeedPreferences(): FeedPreferences {
     console.error("Failed to load feed preferences", error);
     return {
       filter: "all",
+      assignmentFilter: "all",
       searchQuery: "",
       sortMode: "priority"
     };
@@ -2015,6 +2077,10 @@ function formatSeatLabel(deskX: number, deskY: number) {
 
 function isFeedFilter(value: unknown): value is FeedPreferences["filter"] {
   return value === "all" || value === "working" || value === "reading" || value === "waiting" || value === "idle" || value === "sleeping" || value === "offline";
+}
+
+function isFeedAssignmentFilter(value: unknown): value is FeedPreferences["assignmentFilter"] {
+  return value === "all" || value === "seated" || value === "unassigned";
 }
 
 function isFeedSortMode(value: unknown): value is FeedPreferences["sortMode"] {
