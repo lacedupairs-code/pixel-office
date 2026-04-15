@@ -41,7 +41,7 @@ export function drawAgentSprite(
   if (agent.state === "sleeping") {
     drawSleepingBody(ctx, sprite.x, bodyY, palette);
   } else {
-    drawStandingBody(ctx, sheet, frameRect, sprite.x, bodyY, palette);
+    drawStandingBody(ctx, sheet, frameRect, sprite.x, bodyY, palette, scale);
   }
 
   drawAgentStateAccent(ctx, agent, sprite, bodyY, direction, timestampMs, moving);
@@ -63,7 +63,8 @@ function drawStandingBody(
   frameRect: ReturnType<typeof getFrameRect>,
   x: number,
   y: number,
-  palette: Palette
+  palette: Palette,
+  scale: number
 ) {
   const destWidth = frameRect.sw * scale;
   const destHeight = frameRect.sh * scale;
