@@ -69,6 +69,7 @@ export default function App() {
   const [projectSavedAt, setProjectSavedAt] = useState<string | null>(null);
   const [projectRevision, setProjectRevision] = useState<string | null>(null);
   const skipNextProjectSyncRef = useRef(true);
+  const activeRoomFallbackAppliedRef = useRef(false);
   const layoutRef = useRef(layout);
   const projectRevisionRef = useRef<string | null>(null);
   const knownAgentIds = Array.from(new Set([...layout.agents.map((seat) => seat.agentId), ...agents.map((agent) => agent.id)])).sort();
@@ -87,6 +88,12 @@ export default function App() {
 
   useEffect(() => {
     projectRevisionRef.current = projectRevision;
+  }, [projectRevision]);
+
+  useEffect(() => {
+    if (projectRevision) {
+      activeRoomFallbackAppliedRef.current = false;
+    }
   }, [projectRevision]);
 
   useEffect(() => {
@@ -386,6 +393,24 @@ export default function App() {
     };
   }, [serverLayoutReady]);
 
+  useEffect(() => {
+    if (!serverLayoutReady || projectSaveState !== "idle" || projectRevision || activeRoomFallbackAppliedRef.current) {
+      return;
+    }
+
+    if (!projectActiveSlotId) {
+      return;
+    }
+
+    const activeRoom = slotRecords[projectActiveSlotId];
+    if (!activeRoom) {
+      return;
+    }
+
+    activeRoomFallbackAppliedRef.current = true;
+    replaceLayout(activeRoom.layout, projectActiveSlotId);
+  }, [projectActiveSlotId, projectRevision, projectSaveState, serverLayoutReady, slotRecords]);
+
   function handlePaintTile(tileX: number, tileY: number) {
     handlePaintTiles([{ x: tileX, y: tileY }]);
   }
@@ -464,10 +489,11 @@ export default function App() {
   }
 
   function handleResetLayout() {
-    commitLayout(() => defaultLayout);
+    const activeRoom = projectActiveSlotId ? slotRecords[projectActiveSlotId] : undefined;
+    commitLayout(() => (activeRoom ? activeRoom.layout : defaultLayout));
     setSelectedSeatAgentId(null);
     setSelectionBounds(null);
-    setActiveSlot(null);
+    setActiveSlot(activeRoom ? projectActiveSlotId : null);
   }
 
   function handleImportLayout() {
@@ -500,6 +526,10 @@ export default function App() {
       if (!nextProjectLayout) {
         setProjectRevision(null);
         setProjectSavedAt(null);
+        const activeRoom = projectActiveSlotId ? slotRecords[projectActiveSlotId] : undefined;
+        if (activeRoom) {
+          replaceLayout(activeRoom.layout, projectActiveSlotId);
+        }
         setProjectSaveState("idle");
         return;
       }
@@ -512,6 +542,19 @@ export default function App() {
       console.error("Failed to reload project layout", error);
       setProjectSaveState("error");
     }
+  }
+
+  function handleLoadActiveRoom() {
+    if (!projectActiveSlotId) {
+      return;
+    }
+
+    const activeRoom = slotRecords[projectActiveSlotId];
+    if (!activeRoom) {
+      return;
+    }
+
+    replaceLayout(activeRoom.layout, projectActiveSlotId);
   }
 
   function handleImportFile(event: ChangeEvent<HTMLInputElement>) {
@@ -970,6 +1013,7 @@ export default function App() {
         onUndo={handleUndo}
         onRedo={handleRedo}
         onResetLayout={handleResetLayout}
+        onLoadActiveRoom={handleLoadActiveRoom}
         onImportLayout={handleImportLayout}
         onExportLayout={handleExportLayout}
         onSaveProject={handleSaveProjectLayout}

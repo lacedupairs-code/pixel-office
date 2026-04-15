@@ -17,6 +17,7 @@ interface ToolbarProps {
   onUndo: () => void;
   onRedo: () => void;
   onResetLayout: () => void;
+  onLoadActiveRoom: () => void;
   onImportLayout: () => void;
   onExportLayout: () => void;
   onSaveProject: () => void;
@@ -48,6 +49,7 @@ export function Toolbar({
   onUndo,
   onRedo,
   onResetLayout,
+  onLoadActiveRoom,
   onImportLayout,
   onExportLayout,
   onSaveProject,
@@ -130,6 +132,9 @@ export function Toolbar({
         </button>
         <button type="button" style={styles.button} onClick={onResetLayout}>
           Reset Layout
+        </button>
+        <button type="button" style={styles.button} onClick={onLoadActiveRoom} disabled={!projectActiveSlotId}>
+          Load Active Room
         </button>
         <button type="button" style={styles.button} onClick={onImportLayout}>
           Import JSON
