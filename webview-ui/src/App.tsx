@@ -9,6 +9,7 @@ import { useOfficeStore, type OfficeAgent } from "./store/officeStore";
 
 const LOCAL_LAYOUT_KEY = "pixel-office.layout";
 const LOCAL_LAYOUT_SLOTS_KEY = "pixel-office.layout-slots";
+const LOCAL_FEED_PREFS_KEY = "pixel-office.feed-preferences";
 const PROJECT_SAVE_DEBOUNCE_MS = 500;
 const PROJECT_SYNC_POLL_MS = 10000;
 
@@ -25,6 +26,12 @@ export interface LayoutSlotDetailsDraft {
   name?: string;
   description?: string;
   tags?: string[];
+}
+
+interface FeedPreferences {
+  filter: OfficeAgent["state"] | "all";
+  searchQuery: string;
+  sortMode: "priority" | "name" | "boss-first";
 }
 
 type ProjectSaveState = "loading" | "idle" | "saving" | "saved" | "error" | "conflict";
@@ -61,9 +68,7 @@ export default function App() {
   const [selectedSeatAgentId, setSelectedSeatAgentId] = useState<string | null>(null);
   const [selectionBounds, setSelectionBounds] = useState<TileSelectionBounds | null>(null);
   const [activeSlot, setActiveSlot] = useState<string | null>(null);
-  const [agentFeedFilter, setAgentFeedFilter] = useState<OfficeAgent["state"] | "all">("all");
-  const [agentSearchQuery, setAgentSearchQuery] = useState("");
-  const [agentSortMode, setAgentSortMode] = useState<"priority" | "name" | "boss-first">("priority");
+  const [feedPreferences, setFeedPreferences] = useState<FeedPreferences>(() => loadFeedPreferences());
   const [slotRecords, setSlotRecords] = useState<LayoutSlotMap>(() => loadStoredSlots());
   const [conflictedSlotIds, setConflictedSlotIds] = useState<string[]>([]);
   const [projectActiveSlotId, setProjectActiveSlotId] = useState<string | null>(null);
@@ -99,13 +104,13 @@ export default function App() {
   const totalSeats = layout.agents.length;
   const assignedSeatIds = new Set(layout.agents.map((seat) => seat.agentId));
   const unassignedAgents = knownAgentIds.filter((agentId) => !assignedSeatIds.has(agentId));
-  const sortedAgents = [...agents].sort((left, right) => compareAgents(left, right, agentSortMode));
+  const sortedAgents = [...agents].sort((left, right) => compareAgents(left, right, feedPreferences.sortMode));
   const focusAgents = sortedAgents.filter((agent) => agent.state === "working" || agent.state === "reading").slice(0, 3);
   const blockedAgents = sortedAgents.filter((agent) => agent.state === "waiting").slice(0, 3);
   const quietAgents = sortedAgents.filter((agent) => agent.state === "sleeping" || agent.state === "offline").slice(0, 3);
-  const normalizedAgentSearch = agentSearchQuery.trim().toLowerCase();
+  const normalizedAgentSearch = feedPreferences.searchQuery.trim().toLowerCase();
   const visibleAgents = sortedAgents.filter((agent) => {
-    const matchesState = agentFeedFilter === "all" || agent.state === agentFeedFilter;
+    const matchesState = feedPreferences.filter === "all" || agent.state === feedPreferences.filter;
     if (!matchesState) {
       return false;
     }
@@ -216,6 +221,10 @@ export default function App() {
   useEffect(() => {
     window.localStorage.setItem(LOCAL_LAYOUT_KEY, JSON.stringify(layout));
   }, [layout]);
+
+  useEffect(() => {
+    window.localStorage.setItem(LOCAL_FEED_PREFS_KEY, JSON.stringify(feedPreferences));
+  }, [feedPreferences]);
 
   useEffect(() => {
     layoutRef.current = layout;
@@ -1335,8 +1344,13 @@ export default function App() {
         <div style={styles.feedSearchRow}>
           <input
             type="search"
-            value={agentSearchQuery}
-            onChange={(event) => setAgentSearchQuery(event.target.value)}
+            value={feedPreferences.searchQuery}
+            onChange={(event) =>
+              setFeedPreferences((current) => ({
+                ...current,
+                searchQuery: event.target.value
+              }))
+            }
             placeholder="Search agents or task hints"
             style={styles.feedSearchInput}
           />
@@ -1344,8 +1358,13 @@ export default function App() {
             {visibleAgents.length} result{visibleAgents.length === 1 ? "" : "s"}
           </span>
           <select
-            value={agentSortMode}
-            onChange={(event) => setAgentSortMode(event.target.value as "priority" | "name" | "boss-first")}
+            value={feedPreferences.sortMode}
+            onChange={(event) =>
+              setFeedPreferences((current) => ({
+                ...current,
+                sortMode: event.target.value as "priority" | "name" | "boss-first"
+              }))
+            }
             style={styles.feedSortSelect}
           >
             <option value="priority">Sort: Priority</option>
@@ -1360,9 +1379,14 @@ export default function App() {
               type="button"
               style={{
                 ...styles.feedFilterChip,
-                ...(agentFeedFilter === filter.key ? styles.feedFilterChipActive : null)
+                ...(feedPreferences.filter === filter.key ? styles.feedFilterChipActive : null)
               }}
-              onClick={() => setAgentFeedFilter(filter.key)}
+              onClick={() =>
+                setFeedPreferences((current) => ({
+                  ...current,
+                  filter: filter.key
+                }))
+              }
             >
               {filter.label} {filter.count}
             </button>
@@ -1816,6 +1840,33 @@ function loadStoredSlots(): LayoutSlotMap {
   }
 }
 
+function loadFeedPreferences(): FeedPreferences {
+  try {
+    const raw = window.localStorage.getItem(LOCAL_FEED_PREFS_KEY);
+    if (!raw) {
+      return {
+        filter: "all",
+        searchQuery: "",
+        sortMode: "priority"
+      };
+    }
+
+    const parsed = JSON.parse(raw) as Partial<FeedPreferences>;
+    return {
+      filter: isFeedFilter(parsed.filter) ? parsed.filter : "all",
+      searchQuery: typeof parsed.searchQuery === "string" ? parsed.searchQuery : "",
+      sortMode: isFeedSortMode(parsed.sortMode) ? parsed.sortMode : "priority"
+    };
+  } catch (error) {
+    console.error("Failed to load feed preferences", error);
+    return {
+      filter: "all",
+      searchQuery: "",
+      sortMode: "priority"
+    };
+  }
+}
+
 function sanitizeLayout(layout: OfficeLayout): OfficeLayout {
   const seenTiles = new Map<string, LayoutTile>();
 
@@ -1894,6 +1945,14 @@ function activeSlotLabel(slotId: string) {
   }
 
   return slotId;
+}
+
+function isFeedFilter(value: unknown): value is FeedPreferences["filter"] {
+  return value === "all" || value === "working" || value === "reading" || value === "waiting" || value === "idle" || value === "sleeping" || value === "offline";
+}
+
+function isFeedSortMode(value: unknown): value is FeedPreferences["sortMode"] {
+  return value === "priority" || value === "name" || value === "boss-first";
 }
 
 function compareAgents(left: OfficeAgent, right: OfficeAgent, mode: "priority" | "name" | "boss-first") {
