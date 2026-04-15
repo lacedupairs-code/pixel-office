@@ -62,6 +62,7 @@ export default function App() {
   const [selectionBounds, setSelectionBounds] = useState<TileSelectionBounds | null>(null);
   const [activeSlot, setActiveSlot] = useState<string | null>(null);
   const [agentFeedFilter, setAgentFeedFilter] = useState<OfficeAgent["state"] | "all">("all");
+  const [agentSearchQuery, setAgentSearchQuery] = useState("");
   const [slotRecords, setSlotRecords] = useState<LayoutSlotMap>(() => loadStoredSlots());
   const [conflictedSlotIds, setConflictedSlotIds] = useState<string[]>([]);
   const [projectActiveSlotId, setProjectActiveSlotId] = useState<string | null>(null);
@@ -101,8 +102,22 @@ export default function App() {
   const focusAgents = sortedAgents.filter((agent) => agent.state === "working" || agent.state === "reading").slice(0, 3);
   const blockedAgents = sortedAgents.filter((agent) => agent.state === "waiting").slice(0, 3);
   const quietAgents = sortedAgents.filter((agent) => agent.state === "sleeping" || agent.state === "offline").slice(0, 3);
-  const visibleAgents =
-    agentFeedFilter === "all" ? sortedAgents : sortedAgents.filter((agent) => agent.state === agentFeedFilter);
+  const normalizedAgentSearch = agentSearchQuery.trim().toLowerCase();
+  const visibleAgents = sortedAgents.filter((agent) => {
+    const matchesState = agentFeedFilter === "all" || agent.state === agentFeedFilter;
+    if (!matchesState) {
+      return false;
+    }
+
+    if (normalizedAgentSearch.length === 0) {
+      return true;
+    }
+
+    return (
+      agent.id.toLowerCase().includes(normalizedAgentSearch) ||
+      (agent.taskHint ?? "").toLowerCase().includes(normalizedAgentSearch)
+    );
+  });
   const feedFilters: Array<{ key: OfficeAgent["state"] | "all"; label: string; count: number }> = [
     { key: "all", label: "All", count: sortedAgents.length },
     { key: "working", label: "Working", count: stateCounts.working },
@@ -1316,6 +1331,18 @@ export default function App() {
       </section>
       <section style={styles.panel}>
         <h2 style={styles.sectionTitle}>Live Agent Feed</h2>
+        <div style={styles.feedSearchRow}>
+          <input
+            type="search"
+            value={agentSearchQuery}
+            onChange={(event) => setAgentSearchQuery(event.target.value)}
+            placeholder="Search agents or task hints"
+            style={styles.feedSearchInput}
+          />
+          <span style={styles.feedSearchMeta}>
+            {visibleAgents.length} result{visibleAgents.length === 1 ? "" : "s"}
+          </span>
+        </div>
         <div style={styles.feedFilterRow}>
           {feedFilters.map((filter) => (
             <button
@@ -1674,6 +1701,27 @@ const styles: Record<string, CSSProperties> = {
     border: "1px solid rgba(255,255,255,0.08)",
     color: "#e7d2ae",
     fontSize: "13px"
+  },
+  feedSearchRow: {
+    display: "flex",
+    gap: "10px",
+    alignItems: "center",
+    flexWrap: "wrap",
+    marginBottom: "12px"
+  },
+  feedSearchInput: {
+    minWidth: "260px",
+    padding: "10px 12px",
+    borderRadius: "12px",
+    border: "1px solid rgba(255,255,255,0.1)",
+    background: "rgba(255,255,255,0.05)",
+    color: "#f3e7d2",
+    fontSize: "13px",
+    outline: "none"
+  },
+  feedSearchMeta: {
+    fontSize: "12px",
+    color: "#bca78b"
   },
   feedFilterRow: {
     display: "flex",
