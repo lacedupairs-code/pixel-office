@@ -4,7 +4,14 @@ import * as path from "node:path";
 import { WebSocket, WebSocketServer } from "ws";
 import { AgentRegistry } from "./agentRegistry";
 import { DEFAULT_PORT } from "./constants";
-import { isLayoutSaveRequest, readLayoutFile, writeLayoutFile } from "./layoutStore";
+import {
+  isLayoutSaveRequest,
+  isPersistedLayoutSlotRecord,
+  readLayoutFile,
+  readLayoutSlotsFile,
+  writeLayoutFile,
+  writeLayoutSlotsFile
+} from "./layoutStore";
 import { discoverAgents } from "./openclawConfig";
 import { OpenClawWatcher } from "./watcher";
 
@@ -60,6 +67,42 @@ app.put("/api/layout", async (request, response) => {
   } catch (error) {
     console.error("Failed to write layout file", error);
     response.status(500).json({ error: "Unable to save layout" });
+  }
+});
+
+app.get("/api/layout-slots", async (_request, response) => {
+  try {
+    response.json(await readLayoutSlotsFile());
+  } catch (error) {
+    console.error("Failed to read layout slots file", error);
+    response.status(500).json({ error: "Unable to read layout slots" });
+  }
+});
+
+app.put("/api/layout-slots/:slotId", async (request, response) => {
+  if (!isPersistedLayoutSlotRecord(request.body)) {
+    response.status(400).json({ error: "Invalid layout slot payload" });
+    return;
+  }
+
+  try {
+    const slots = await readLayoutSlotsFile();
+    slots[request.params.slotId] = request.body;
+    response.json(await writeLayoutSlotsFile(slots));
+  } catch (error) {
+    console.error("Failed to write layout slot", error);
+    response.status(500).json({ error: "Unable to save layout slot" });
+  }
+});
+
+app.delete("/api/layout-slots/:slotId", async (request, response) => {
+  try {
+    const slots = await readLayoutSlotsFile();
+    delete slots[request.params.slotId];
+    response.json(await writeLayoutSlotsFile(slots));
+  } catch (error) {
+    console.error("Failed to delete layout slot", error);
+    response.status(500).json({ error: "Unable to delete layout slot" });
   }
 });
 

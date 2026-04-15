@@ -3,6 +3,7 @@ import * as path from "node:path";
 
 const dataDir = path.resolve(process.cwd(), "data");
 const layoutFilePath = path.join(dataDir, "layout.json");
+const slotFilePath = path.join(dataDir, "layout-slots.json");
 
 export interface PersistedLayout {
   version: number;
@@ -30,6 +31,14 @@ export interface LayoutSaveRequest {
   expectedUpdatedAt?: string | null;
   force?: boolean;
 }
+
+export interface PersistedLayoutSlotRecord {
+  layout: PersistedLayout;
+  savedAt: string;
+  name?: string;
+}
+
+export type PersistedLayoutSlots = Record<string, PersistedLayoutSlotRecord>;
 
 export async function readLayoutFile(): Promise<PersistedLayoutRecord | null> {
   try {
@@ -63,6 +72,31 @@ export async function writeLayoutFile(layout: PersistedLayout): Promise<Persiste
   };
 }
 
+export async function readLayoutSlotsFile(): Promise<PersistedLayoutSlots> {
+  try {
+    const raw = await fs.readFile(slotFilePath, "utf8");
+    const parsed = JSON.parse(raw) as unknown;
+    if (!isPersistedLayoutSlots(parsed)) {
+      return {};
+    }
+
+    return parsed;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") {
+      return {};
+    }
+
+    throw error;
+  }
+}
+
+export async function writeLayoutSlotsFile(slots: PersistedLayoutSlots): Promise<PersistedLayoutSlots> {
+  await fs.mkdir(dataDir, { recursive: true });
+  await fs.writeFile(slotFilePath, `${JSON.stringify(slots, null, 2)}\n`, "utf8");
+  return slots;
+}
+
 export function isPersistedLayout(value: unknown): value is PersistedLayout {
   if (!value || typeof value !== "object") {
     return false;
@@ -91,4 +125,25 @@ export function isLayoutSaveRequest(value: unknown): value is LayoutSaveRequest 
       typeof request.expectedUpdatedAt === "string") &&
     (request.force === undefined || typeof request.force === "boolean")
   );
+}
+
+export function isPersistedLayoutSlotRecord(value: unknown): value is PersistedLayoutSlotRecord {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const record = value as Partial<PersistedLayoutSlotRecord>;
+  return (
+    isPersistedLayout(record.layout) &&
+    typeof record.savedAt === "string" &&
+    (record.name === undefined || typeof record.name === "string")
+  );
+}
+
+export function isPersistedLayoutSlots(value: unknown): value is PersistedLayoutSlots {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+
+  return Object.values(value as Record<string, unknown>).every((entry) => isPersistedLayoutSlotRecord(entry));
 }

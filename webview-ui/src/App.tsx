@@ -25,6 +25,8 @@ interface ProjectLayoutEnvelope {
   updatedAt: string;
 }
 
+type LayoutSlotMap = Record<string, LayoutSlotRecord>;
+
 export default function App() {
   useAgentSocket();
 
@@ -41,7 +43,7 @@ export default function App() {
   const [selectedSeatAgentId, setSelectedSeatAgentId] = useState<string | null>(null);
   const [selectionBounds, setSelectionBounds] = useState<TileSelectionBounds | null>(null);
   const [activeSlot, setActiveSlot] = useState<string | null>(null);
-  const [slotRecords, setSlotRecords] = useState<Record<string, LayoutSlotRecord>>(() => loadStoredSlots());
+  const [slotRecords, setSlotRecords] = useState<LayoutSlotMap>(() => loadStoredSlots());
   const [serverLayoutReady, setServerLayoutReady] = useState(false);
   const [projectSaveState, setProjectSaveState] = useState<ProjectSaveState>("loading");
   const [projectSavedAt, setProjectSavedAt] = useState<string | null>(null);
@@ -66,6 +68,25 @@ export default function App() {
   useEffect(() => {
     projectRevisionRef.current = projectRevision;
   }, [projectRevision]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void fetchProjectSlots()
+      .then((projectSlots) => {
+        if (!cancelled && Object.keys(projectSlots).length > 0) {
+          setSlotRecords(projectSlots);
+          window.localStorage.setItem(LOCAL_LAYOUT_SLOTS_KEY, JSON.stringify(projectSlots));
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to load project layout slots", error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function replaceLayout(nextLayout: OfficeLayout, nextActiveSlot: string | null = null) {
     skipNextProjectSyncRef.current = true;
@@ -129,6 +150,44 @@ export default function App() {
     setProjectSavedAt(saved.updatedAt);
     setProjectSaveState("saved");
     return saved.updatedAt;
+  }
+
+  async function fetchProjectSlots() {
+    const response = await fetch("/api/layout-slots");
+    if (!response.ok) {
+      throw new Error(`Failed to fetch layout slots: ${response.status}`);
+    }
+
+    const payload = (await response.json()) as LayoutSlotMap;
+    return sanitizeSlotRecords(payload);
+  }
+
+  async function saveProjectSlot(slotId: string, record: LayoutSlotRecord) {
+    const response = await fetch(`/api/layout-slots/${slotId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(record)
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to save slot: ${response.status}`);
+    }
+
+    return sanitizeSlotRecords((await response.json()) as LayoutSlotMap);
+  }
+
+  async function deleteProjectSlot(slotId: string) {
+    const response = await fetch(`/api/layout-slots/${slotId}`, {
+      method: "DELETE"
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to delete slot: ${response.status}`);
+    }
+
+    return sanitizeSlotRecords((await response.json()) as LayoutSlotMap);
   }
 
   useEffect(() => {
@@ -621,19 +680,31 @@ export default function App() {
   }
 
   function handleSaveSlot(slotId: string) {
-    try {
-      const slots = loadStoredSlots();
-      slots[slotId] = {
-        layout,
-        savedAt: new Date().toISOString(),
-        name: slots[slotId]?.name
-      };
-      window.localStorage.setItem(LOCAL_LAYOUT_SLOTS_KEY, JSON.stringify(slots));
-      setSlotRecords(slots);
-      setActiveSlot(slotId);
-    } catch (error) {
-      console.error("Failed to save layout slot", error);
-    }
+    const nextRecord: LayoutSlotRecord = {
+      layout,
+      savedAt: new Date().toISOString(),
+      name: slotRecords[slotId]?.name
+    };
+
+    void saveProjectSlot(slotId, nextRecord)
+      .then((slots) => {
+        window.localStorage.setItem(LOCAL_LAYOUT_SLOTS_KEY, JSON.stringify(slots));
+        setSlotRecords(slots);
+        setActiveSlot(slotId);
+      })
+      .catch((error) => {
+        console.error("Failed to save project layout slot", error);
+
+        try {
+          const slots = loadStoredSlots();
+          slots[slotId] = nextRecord;
+          window.localStorage.setItem(LOCAL_LAYOUT_SLOTS_KEY, JSON.stringify(slots));
+          setSlotRecords(slots);
+          setActiveSlot(slotId);
+        } catch (localError) {
+          console.error("Failed to save local layout slot", localError);
+        }
+      });
   }
 
   function handleLoadSlot(slotId: string) {
@@ -658,22 +729,33 @@ export default function App() {
       return;
     }
 
-    try {
-      const slots = loadStoredSlots();
-      const current = slots[slotId];
-      if (!current) {
-        return;
-      }
-
-      slots[slotId] = {
-        ...current,
-        name: nextName || undefined
-      };
-      window.localStorage.setItem(LOCAL_LAYOUT_SLOTS_KEY, JSON.stringify(slots));
-      setSlotRecords(slots);
-    } catch (error) {
-      console.error("Failed to rename layout slot", error);
+    const current = slotRecords[slotId];
+    if (!current) {
+      return;
     }
+
+    const nextRecord = {
+      ...current,
+      name: nextName || undefined
+    };
+
+    void saveProjectSlot(slotId, nextRecord)
+      .then((slots) => {
+        window.localStorage.setItem(LOCAL_LAYOUT_SLOTS_KEY, JSON.stringify(slots));
+        setSlotRecords(slots);
+      })
+      .catch((error) => {
+        console.error("Failed to rename project layout slot", error);
+
+        try {
+          const slots = loadStoredSlots();
+          slots[slotId] = nextRecord;
+          window.localStorage.setItem(LOCAL_LAYOUT_SLOTS_KEY, JSON.stringify(slots));
+          setSlotRecords(slots);
+        } catch (localError) {
+          console.error("Failed to rename local layout slot", localError);
+        }
+      });
   }
 
   function handleDeleteSlot(slotId: string) {
@@ -686,17 +768,29 @@ export default function App() {
       return;
     }
 
-    try {
-      const slots = loadStoredSlots();
-      delete slots[slotId];
-      window.localStorage.setItem(LOCAL_LAYOUT_SLOTS_KEY, JSON.stringify(slots));
-      setSlotRecords(slots);
-      if (activeSlot === slotId) {
-        setActiveSlot(null);
-      }
-    } catch (error) {
-      console.error("Failed to delete layout slot", error);
-    }
+    void deleteProjectSlot(slotId)
+      .then((slots) => {
+        window.localStorage.setItem(LOCAL_LAYOUT_SLOTS_KEY, JSON.stringify(slots));
+        setSlotRecords(slots);
+        if (activeSlot === slotId) {
+          setActiveSlot(null);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to delete project layout slot", error);
+
+        try {
+          const slots = loadStoredSlots();
+          delete slots[slotId];
+          window.localStorage.setItem(LOCAL_LAYOUT_SLOTS_KEY, JSON.stringify(slots));
+          setSlotRecords(slots);
+          if (activeSlot === slotId) {
+            setActiveSlot(null);
+          }
+        } catch (localError) {
+          console.error("Failed to delete local layout slot", localError);
+        }
+      });
   }
 
   return (
@@ -899,23 +993,14 @@ function loadStoredLayout(fallback: OfficeLayout) {
   }
 }
 
-function loadStoredSlots(): Record<string, LayoutSlotRecord> {
+function loadStoredSlots(): LayoutSlotMap {
   try {
     const raw = window.localStorage.getItem(LOCAL_LAYOUT_SLOTS_KEY);
     if (!raw) {
       return {};
     }
 
-    const parsed = JSON.parse(raw) as Record<string, LayoutSlotRecord>;
-    return Object.fromEntries(
-      Object.entries(parsed).map(([key, value]) => [
-        key,
-        {
-          ...value,
-          layout: sanitizeLayout(value.layout)
-        }
-      ])
-    );
+    return sanitizeSlotRecords(JSON.parse(raw) as LayoutSlotMap);
   } catch (error) {
     console.error("Failed to load layout slots", error);
     return {};
@@ -957,4 +1042,16 @@ function sanitizeLayout(layout: OfficeLayout): OfficeLayout {
 
 function areLayoutsEqual(left: OfficeLayout, right: OfficeLayout) {
   return JSON.stringify(sanitizeLayout(left)) === JSON.stringify(sanitizeLayout(right));
+}
+
+function sanitizeSlotRecords(records: LayoutSlotMap): LayoutSlotMap {
+  return Object.fromEntries(
+    Object.entries(records).map(([key, value]) => [
+      key,
+      {
+        ...value,
+        layout: sanitizeLayout(value.layout)
+      }
+    ])
+  );
 }
