@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties } from "react";
 import defaultLayoutJson from "./assets/default-layout.json";
 import { Toolbar } from "./components/Toolbar";
 import { LayoutEditor } from "./editor/LayoutEditor";
@@ -7,13 +7,16 @@ import { OfficeCanvas } from "./office/OfficeCanvas";
 import type { LayoutPaintMode, LayoutTile, LayoutTool, OfficeLayout, TileSelectionBounds } from "./office/types";
 import { useOfficeStore } from "./store/officeStore";
 
+const LOCAL_LAYOUT_KEY = "pixel-office.layout";
+
 export default function App() {
   useAgentSocket();
 
   const agents = useOfficeStore((state) => state.agents);
   const connectionState = useOfficeStore((state) => state.connectionState);
   const defaultLayout = sanitizeLayout(defaultLayoutJson as OfficeLayout);
-  const [layout, setLayout] = useState<OfficeLayout>(defaultLayout);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [layout, setLayout] = useState<OfficeLayout>(() => loadStoredLayout(defaultLayout));
   const [layoutHistory, setLayoutHistory] = useState<OfficeLayout[]>([]);
   const [futureLayouts, setFutureLayouts] = useState<OfficeLayout[]>([]);
   const [editMode, setEditMode] = useState(false);
@@ -26,6 +29,10 @@ export default function App() {
   useEffect(() => {
     document.title = "Pixel Office";
   }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(LOCAL_LAYOUT_KEY, JSON.stringify(layout));
+  }, [layout]);
 
   function handlePaintTile(tileX: number, tileY: number) {
     handlePaintTiles([{ x: tileX, y: tileY }]);
@@ -108,6 +115,33 @@ export default function App() {
     commitLayout(() => defaultLayout);
     setSelectedSeatAgentId(null);
     setSelectionBounds(null);
+  }
+
+  function handleImportLayout() {
+    fileInputRef.current?.click();
+  }
+
+  function handleImportFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    void file.text().then((text) => {
+      try {
+        const parsed = JSON.parse(text) as OfficeLayout;
+        const nextLayout = sanitizeLayout(parsed);
+        setLayout(nextLayout);
+        setLayoutHistory([]);
+        setFutureLayouts([]);
+        setSelectedSeatAgentId(null);
+        setSelectionBounds(null);
+      } catch (error) {
+        console.error("Failed to import layout", error);
+      } finally {
+        event.target.value = "";
+      }
+    });
   }
 
   function handleAssignSeat(agentId: string, value: string) {
@@ -365,8 +399,10 @@ export default function App() {
         onUndo={handleUndo}
         onRedo={handleRedo}
         onResetLayout={handleResetLayout}
+        onImportLayout={handleImportLayout}
         onExportLayout={handleExportLayout}
       />
+      <input ref={fileInputRef} type="file" accept="application/json" onChange={handleImportFile} style={styles.fileInput} />
       <section style={styles.stage}>
         <OfficeCanvas
           agents={agents}
@@ -461,6 +497,9 @@ const styles: Record<string, CSSProperties> = {
   stage: {
     overflowX: "auto"
   },
+  fileInput: {
+    display: "none"
+  },
   title: {
     margin: "0 0 12px",
     fontSize: "36px"
@@ -511,6 +550,20 @@ const styles: Record<string, CSSProperties> = {
     color: "#bda988"
   }
 };
+
+function loadStoredLayout(fallback: OfficeLayout) {
+  try {
+    const raw = window.localStorage.getItem(LOCAL_LAYOUT_KEY);
+    if (!raw) {
+      return fallback;
+    }
+
+    return sanitizeLayout(JSON.parse(raw) as OfficeLayout);
+  } catch (error) {
+    console.error("Failed to load stored layout", error);
+    return fallback;
+  }
+}
 
 function sanitizeLayout(layout: OfficeLayout): OfficeLayout {
   const seenTiles = new Map<string, LayoutTile>();

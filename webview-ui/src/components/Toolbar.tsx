@@ -8,6 +8,7 @@ interface ToolbarProps {
   onUndo: () => void;
   onRedo: () => void;
   onResetLayout: () => void;
+  onImportLayout: () => void;
   onExportLayout: () => void;
 }
 
@@ -19,6 +20,7 @@ export function Toolbar({
   onUndo,
   onRedo,
   onResetLayout,
+  onImportLayout,
   onExportLayout
 }: ToolbarProps) {
   return (
@@ -44,6 +46,9 @@ export function Toolbar({
       </button>
       <button type="button" style={styles.button} onClick={onResetLayout}>
         Reset Layout
+      </button>
+      <button type="button" style={styles.button} onClick={onImportLayout}>
+        Import JSON
       </button>
       <button type="button" style={styles.button} onClick={onExportLayout}>
         Export JSON
