@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 import type { LayoutSlotRecord } from "../App";
 
 type ProjectSaveState = "loading" | "idle" | "saving" | "saved" | "error" | "conflict";
@@ -60,6 +60,28 @@ export function Toolbar({
   onSetActiveSlot,
   onDeleteSlot
 }: ToolbarProps) {
+  const [slotQuery, setSlotQuery] = useState("");
+  const [selectedTag, setSelectedTag] = useState<string>("all");
+  const availableTags = Array.from(
+    new Set(
+      Object.values(slotRecords)
+        .flatMap((record) => record.tags ?? [])
+        .sort((left, right) => left.localeCompare(right))
+    )
+  );
+  const visibleSlots = layoutSlots.filter((slot) => {
+    const record = slotRecords[slot.id];
+    const query = slotQuery.trim().toLowerCase();
+    const matchesQuery =
+      query.length === 0 ||
+      slot.label.toLowerCase().includes(query) ||
+      (record?.name ?? "").toLowerCase().includes(query) ||
+      (record?.description ?? "").toLowerCase().includes(query) ||
+      (record?.tags ?? []).some((tag) => tag.toLowerCase().includes(query));
+    const matchesTag = selectedTag === "all" || (record?.tags ?? []).includes(selectedTag);
+    return matchesQuery && matchesTag;
+  });
+
   return (
     <div style={styles.stack}>
       <div style={styles.row}>
@@ -116,8 +138,25 @@ export function Toolbar({
           Revert From Project
         </button>
       </div>
+      <div style={styles.filterRow}>
+        <input
+          type="search"
+          value={slotQuery}
+          onChange={(event) => setSlotQuery(event.target.value)}
+          placeholder="Search rooms, notes, or tags"
+          style={styles.searchInput}
+        />
+        <select value={selectedTag} onChange={(event) => setSelectedTag(event.target.value)} style={styles.selectInput}>
+          <option value="all">All Tags</option>
+          {availableTags.map((tag) => (
+            <option key={tag} value={tag}>
+              #{tag}
+            </option>
+          ))}
+        </select>
+      </div>
       <div style={styles.row}>
-        {layoutSlots.map((slot) => (
+        {visibleSlots.map((slot) => (
           <div
             key={slot.id}
             style={{
@@ -166,6 +205,7 @@ export function Toolbar({
             </button>
           </div>
         ))}
+        {visibleSlots.length === 0 ? <div style={styles.emptyState}>No saved rooms match that filter yet.</div> : null}
       </div>
     </div>
   );
@@ -189,6 +229,12 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     gap: "10px",
     flexWrap: "wrap"
+  },
+  filterRow: {
+    display: "flex",
+    gap: "10px",
+    flexWrap: "wrap",
+    alignItems: "center"
   },
   projectRow: {
     display: "flex",
@@ -298,6 +344,25 @@ const styles: Record<string, CSSProperties> = {
     background: "rgba(255,255,255,0.06)",
     color: "#f0dfc4"
   },
+  searchInput: {
+    minWidth: "260px",
+    padding: "10px 14px",
+    borderRadius: "999px",
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(255,255,255,0.05)",
+    color: "#f0dfc4",
+    fontSize: "13px",
+    outline: "none"
+  },
+  selectInput: {
+    padding: "10px 14px",
+    borderRadius: "999px",
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "#231c17",
+    color: "#f0dfc4",
+    fontSize: "13px",
+    outline: "none"
+  },
   disabledButton: {
     opacity: 0.45,
     cursor: "not-allowed"
@@ -307,6 +372,13 @@ const styles: Record<string, CSSProperties> = {
     background: "#f0b56a",
     color: "#241a12",
     fontWeight: 700
+  },
+  emptyState: {
+    padding: "14px 18px",
+    borderRadius: "16px",
+    border: "1px dashed rgba(255,255,255,0.14)",
+    color: "#c9b79a",
+    background: "rgba(255,255,255,0.03)"
   }
 };
 
