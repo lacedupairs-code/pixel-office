@@ -4,6 +4,7 @@ import * as path from "node:path";
 import { WebSocket, WebSocketServer } from "ws";
 import { AgentRegistry } from "./agentRegistry";
 import { DEFAULT_PORT } from "./constants";
+import { isPersistedLayout, readLayoutFile, writeLayoutFile } from "./layoutStore";
 import { discoverAgents } from "./openclawConfig";
 import { OpenClawWatcher } from "./watcher";
 
@@ -12,6 +13,38 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 const registry = new AgentRegistry();
+
+app.use(express.json({ limit: "1mb" }));
+
+app.get("/api/layout", async (_request, response) => {
+  try {
+    const layout = await readLayoutFile();
+    if (!layout) {
+      response.status(404).json({ error: "No saved layout" });
+      return;
+    }
+
+    response.json(layout);
+  } catch (error) {
+    console.error("Failed to read layout file", error);
+    response.status(500).json({ error: "Unable to read layout" });
+  }
+});
+
+app.put("/api/layout", async (request, response) => {
+  if (!isPersistedLayout(request.body)) {
+    response.status(400).json({ error: "Invalid layout payload" });
+    return;
+  }
+
+  try {
+    await writeLayoutFile(request.body);
+    response.json({ ok: true });
+  } catch (error) {
+    console.error("Failed to write layout file", error);
+    response.status(500).json({ error: "Unable to save layout" });
+  }
+});
 
 const distDir = path.resolve(process.cwd(), "webview-ui", "dist");
 app.use(express.static(distDir));
@@ -69,4 +102,3 @@ process.on("SIGINT", () => {
   wss.close();
   server.close(() => process.exit(0));
 });
-

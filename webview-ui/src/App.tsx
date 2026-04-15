@@ -33,6 +33,7 @@ export default function App() {
   const [selectionBounds, setSelectionBounds] = useState<TileSelectionBounds | null>(null);
   const [activeSlot, setActiveSlot] = useState<string | null>(null);
   const [slotRecords, setSlotRecords] = useState<Record<string, LayoutSlotRecord>>(() => loadStoredSlots());
+  const [serverLayoutReady, setServerLayoutReady] = useState(false);
   const knownAgentIds = Array.from(new Set([...layout.agents.map((seat) => seat.agentId), ...agents.map((agent) => agent.id)])).sort();
 
   useEffect(() => {
@@ -42,6 +43,74 @@ export default function App() {
   useEffect(() => {
     window.localStorage.setItem(LOCAL_LAYOUT_KEY, JSON.stringify(layout));
   }, [layout]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void fetch("/api/layout")
+      .then(async (response) => {
+        if (response.status === 404) {
+          return null;
+        }
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch layout: ${response.status}`);
+        }
+
+        return (await response.json()) as OfficeLayout;
+      })
+      .then((nextLayout) => {
+        if (cancelled || !nextLayout) {
+          return;
+        }
+
+        setLayout(sanitizeLayout(nextLayout));
+        setLayoutHistory([]);
+        setFutureLayouts([]);
+        setSelectedSeatAgentId(null);
+        setSelectionBounds(null);
+        setActiveSlot(null);
+      })
+      .catch((error) => {
+        console.error("Failed to load server layout", error);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setServerLayoutReady(true);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!serverLayoutReady) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      void fetch("/api/layout", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(layout),
+        signal: controller.signal
+      }).catch((error) => {
+        if ((error as Error).name !== "AbortError") {
+          console.error("Failed to save server layout", error);
+        }
+      });
+    }, 400);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [layout, serverLayoutReady]);
 
   function handlePaintTile(tileX: number, tileY: number) {
     handlePaintTiles([{ x: tileX, y: tileY }]);
