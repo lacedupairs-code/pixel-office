@@ -2526,6 +2526,38 @@ function humanizeAgentState(state: OfficeAgent["state"]) {
   }
 }
 
+function formatProjectSaveState(state: ProjectSaveState, savedAt: string | null) {
+  switch (state) {
+    case "saved":
+      return savedAt ? `Saved ${formatTimestamp(savedAt)}` : "Saved to project";
+    case "saving":
+      return "Saving project layout...";
+    case "loading":
+      return "Loading project layout...";
+    case "conflict":
+      return "Project layout changed elsewhere";
+    case "error":
+      return "Project sync needs attention";
+    case "idle":
+    default:
+      return "Local layout only";
+  }
+}
+
+function formatTimestamp(value: string) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return parsed.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  });
+}
+
 function statusToneStyle(tone: "good" | "warm" | "alert" | "muted"): CSSProperties {
   switch (tone) {
     case "good":
