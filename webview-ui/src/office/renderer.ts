@@ -72,9 +72,13 @@ function drawStandingBody(
 
   ctx.drawImage(sheet, frameRect.sx, frameRect.sy, frameRect.sw, frameRect.sh, destX, destY, destWidth, destHeight);
   tintMask(ctx, destX, destY, destWidth, destHeight, "#ffffff", palette.head);
+  tintMask(ctx, destX, destY, destWidth, destHeight, "#e4c09f", palette.headShadow);
   tintMask(ctx, destX, destY, destWidth, destHeight, "#ff00ff", palette.body);
+  tintMask(ctx, destX, destY, destWidth, destHeight, "#b544a7", palette.bodyShadow);
   tintMask(ctx, destX, destY, destWidth, destHeight, "#00ffff", palette.legs);
+  tintMask(ctx, destX, destY, destWidth, destHeight, "#5f7cff", palette.shoes);
   tintMask(ctx, destX, destY, destWidth, destHeight, "#00ff00", palette.accent);
+  tintMask(ctx, destX, destY, destWidth, destHeight, "#ffd84f", palette.trim);
 }
 
 function drawSleepingBody(ctx: CanvasRenderingContext2D, x: number, y: number, palette: Palette) {
@@ -204,9 +208,13 @@ function getFacing(dx: number, dy: number): Facing {
 
 interface Palette {
   head: string;
+  headShadow: string;
   body: string;
+  bodyShadow: string;
   accent: string;
+  trim: string;
   legs: string;
+  shoes: string;
 }
 
 export function drawDeskActivity(ctx: CanvasRenderingContext2D, agent: OfficeAgent, x: number, y: number, timestampMs: number) {

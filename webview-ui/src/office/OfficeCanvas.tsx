@@ -473,6 +473,7 @@ function drawOffice(
   ctx.fillStyle = FLOOR_COLOR;
   ctx.fillRect(0, 0, width, height);
 
+  drawAtmosphere(ctx, width, height, layout, timestampMs);
   drawTiles(ctx, layout, tileset);
   drawAmbientInteractions(ctx, layout, agents, sprites, timestampMs);
   drawGrid(ctx, layout);
@@ -507,6 +508,51 @@ function drawTiles(ctx: CanvasRenderingContext2D, layout: OfficeLayout, tileset:
   if (tileset?.usingFallbackAtlas) {
     drawFallbackDecor(ctx, layout);
   }
+}
+
+function drawAtmosphere(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  layout: OfficeLayout,
+  timestampMs: number
+) {
+  const pulse = 0.08 + ((Math.sin(timestampMs / 2800) + 1) / 2) * 0.03;
+  const floorGlow = ctx.createLinearGradient(0, 0, 0, height);
+  floorGlow.addColorStop(0, "rgba(255, 226, 184, 0.08)");
+  floorGlow.addColorStop(0.45, "rgba(255, 226, 184, 0)");
+  floorGlow.addColorStop(1, "rgba(12, 10, 9, 0.24)");
+  ctx.fillStyle = floorGlow;
+  ctx.fillRect(0, 0, width, height);
+
+  const deskTiles = layout.tiles.filter((tile) => tile.type === "desk");
+  for (const tile of deskTiles) {
+    const centerX = tile.x * TILE_SIZE + TILE_SIZE / 2;
+    const centerY = tile.y * TILE_SIZE + TILE_SIZE / 2 - 4;
+    const glow = ctx.createRadialGradient(centerX, centerY, 2, centerX, centerY, TILE_SIZE * 1.2);
+    glow.addColorStop(0, `rgba(120, 184, 220, ${(pulse * 1.6).toFixed(3)})`);
+    glow.addColorStop(1, "rgba(120, 184, 220, 0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(centerX - TILE_SIZE * 1.2, centerY - TILE_SIZE * 1.2, TILE_SIZE * 2.4, TILE_SIZE * 2.4);
+  }
+
+  for (const tile of layout.tiles.filter((entry) => entry.type === "coffee" || entry.type === "couch")) {
+    const centerX = tile.x * TILE_SIZE + TILE_SIZE / 2;
+    const centerY = tile.y * TILE_SIZE + TILE_SIZE / 2;
+    const glow = ctx.createRadialGradient(centerX, centerY, 2, centerX, centerY, TILE_SIZE * 1.6);
+    glow.addColorStop(0, tile.type === "coffee" ? "rgba(242, 182, 104, 0.12)" : "rgba(123, 170, 190, 0.12)");
+    glow.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(centerX - TILE_SIZE * 1.6, centerY - TILE_SIZE * 1.6, TILE_SIZE * 3.2, TILE_SIZE * 3.2);
+  }
+
+  const vignette = ctx.createLinearGradient(0, 0, width, height);
+  vignette.addColorStop(0, "rgba(0,0,0,0.18)");
+  vignette.addColorStop(0.22, "rgba(0,0,0,0)");
+  vignette.addColorStop(0.78, "rgba(0,0,0,0)");
+  vignette.addColorStop(1, "rgba(0,0,0,0.2)");
+  ctx.fillStyle = vignette;
+  ctx.fillRect(0, 0, width, height);
 }
 
 function drawTileSprite(
@@ -582,6 +628,9 @@ function drawFallbackDecor(ctx: CanvasRenderingContext2D, layout: OfficeLayout) 
 
     ctx.strokeRect(tile.x * TILE_SIZE + 6, tile.y * TILE_SIZE + 6, TILE_SIZE - 12, TILE_SIZE - 12);
   }
+
+  ctx.fillStyle = "rgba(255, 241, 219, 0.03)";
+  ctx.fillRect(TILE_SIZE, TILE_SIZE, Math.max(0, (layout.cols - 2) * TILE_SIZE), 8);
 }
 
 function drawAmbientInteractions(

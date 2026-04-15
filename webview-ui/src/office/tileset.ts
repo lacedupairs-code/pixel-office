@@ -108,57 +108,83 @@ function createFallbackAtlas(manifest: TilesetManifest): HTMLCanvasElement {
 }
 
 function drawFloorTile(ctx: CanvasRenderingContext2D, rect: TilesetRect) {
-  ctx.fillStyle = "#2a231d";
+  ctx.fillStyle = "#2f261f";
   ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
-  ctx.fillStyle = "#342b23";
-  ctx.fillRect(rect.x, rect.y + rect.h - 3, rect.w, 3);
-  ctx.fillStyle = "rgba(248, 227, 198, 0.08)";
-  ctx.fillRect(rect.x + 2, rect.y + 2, rect.w - 4, rect.h - 7);
-  ctx.fillStyle = "rgba(255, 240, 218, 0.14)";
-  ctx.fillRect(rect.x + 3, rect.y + 3, 2, 2);
-  ctx.fillRect(rect.x + 10, rect.y + 7, 2, 2);
+  ctx.fillStyle = "#3d3128";
+  ctx.fillRect(rect.x, rect.y, rect.w, 1);
+  ctx.fillRect(rect.x, rect.y + rect.h - 2, rect.w, 2);
+  ctx.fillStyle = "#43362c";
+  ctx.fillRect(rect.x + 1, rect.y + 4, rect.w - 2, 1);
+  ctx.fillRect(rect.x + 1, rect.y + 10, rect.w - 2, 1);
+  ctx.fillStyle = "#5d4937";
+  ctx.fillRect(rect.x + 4, rect.y, 1, rect.h);
+  ctx.fillRect(rect.x + 11, rect.y, 1, rect.h);
+  ctx.fillStyle = "rgba(255, 235, 205, 0.18)";
+  ctx.fillRect(rect.x + 2, rect.y + 2, 2, 1);
+  ctx.fillRect(rect.x + 9, rect.y + 6, 2, 1);
+  ctx.fillRect(rect.x + 6, rect.y + 12, 2, 1);
 }
 
 function drawWallTile(ctx: CanvasRenderingContext2D, rect: TilesetRect) {
-  ctx.fillStyle = "#5f5143";
+  ctx.fillStyle = "#6a584a";
   ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
-  ctx.fillStyle = "#4a3f34";
-  ctx.fillRect(rect.x, rect.y, rect.w, 4);
-  ctx.fillStyle = "#7a6a59";
-  ctx.fillRect(rect.x + 2, rect.y + 6, rect.w - 4, 2);
-  ctx.fillRect(rect.x + 2, rect.y + 11, rect.w - 4, 2);
+  ctx.fillStyle = "#4b3f36";
+  ctx.fillRect(rect.x, rect.y, rect.w, 3);
+  ctx.fillRect(rect.x, rect.y + rect.h - 2, rect.w, 2);
+  ctx.fillStyle = "#8a7562";
+  ctx.fillRect(rect.x + 2, rect.y + 5, rect.w - 4, 1);
+  ctx.fillRect(rect.x + 2, rect.y + 9, rect.w - 4, 1);
+  ctx.fillRect(rect.x + 2, rect.y + 13, rect.w - 4, 1);
+  ctx.fillStyle = "rgba(255, 243, 224, 0.18)";
+  ctx.fillRect(rect.x + 3, rect.y + 4, 1, 1);
+  ctx.fillRect(rect.x + 11, rect.y + 8, 1, 1);
 }
 
 function drawDeskTile(ctx: CanvasRenderingContext2D, rect: TilesetRect) {
-  ctx.fillStyle = "#8d694a";
-  ctx.fillRect(rect.x + 1, rect.y + 3, rect.w - 2, rect.h - 4);
-  ctx.fillStyle = "#b4875b";
-  ctx.fillRect(rect.x + 1, rect.y + 3, rect.w - 2, 3);
-  ctx.fillStyle = "#2b2722";
-  ctx.fillRect(rect.x + 4, rect.y + 6, rect.w - 8, rect.h - 8);
-  ctx.fillStyle = "#4c3928";
-  ctx.fillRect(rect.x + 2, rect.y + rect.h - 2, 2, 2);
-  ctx.fillRect(rect.x + rect.w - 4, rect.y + rect.h - 2, 2, 2);
+  ctx.fillStyle = "#6f513a";
+  ctx.fillRect(rect.x + 1, rect.y + 4, rect.w - 2, rect.h - 5);
+  ctx.fillStyle = "#b18057";
+  ctx.fillRect(rect.x + 1, rect.y + 4, rect.w - 2, 2);
+  ctx.fillStyle = "#3a2d24";
+  ctx.fillRect(rect.x + 3, rect.y + 6, rect.w - 6, rect.h - 8);
+  ctx.fillStyle = "#4c6d85";
+  ctx.fillRect(rect.x + 5, rect.y + 7, rect.w - 10, 4);
+  ctx.fillStyle = "#89bfd3";
+  ctx.fillRect(rect.x + 6, rect.y + 8, rect.w - 12, 2);
+  ctx.fillStyle = "#2a201a";
+  ctx.fillRect(rect.x + 2, rect.y + rect.h - 3, 2, 3);
+  ctx.fillRect(rect.x + rect.w - 4, rect.y + rect.h - 3, 2, 3);
+  ctx.fillStyle = "#d5b18a";
+  ctx.fillRect(rect.x + 11, rect.y + 11, 2, 2);
 }
 
 function drawCoffeeTile(ctx: CanvasRenderingContext2D, rect: TilesetRect) {
-  ctx.fillStyle = "#73512b";
-  ctx.fillRect(rect.x + 2, rect.y + 4, rect.w - 4, rect.h - 4);
-  ctx.fillStyle = "#9d7440";
-  ctx.fillRect(rect.x + 3, rect.y + 5, rect.w - 6, rect.h - 7);
-  ctx.fillStyle = "#ece0c2";
-  ctx.fillRect(rect.x + 5, rect.y + 2, 6, 4);
-  ctx.fillStyle = "#5b3820";
+  ctx.fillStyle = "#533820";
+  ctx.fillRect(rect.x + 3, rect.y + 5, rect.w - 6, rect.h - 5);
+  ctx.fillStyle = "#82562f";
+  ctx.fillRect(rect.x + 4, rect.y + 6, rect.w - 8, rect.h - 7);
+  ctx.fillStyle = "#d9d1b7";
+  ctx.fillRect(rect.x + 5, rect.y + 2, 6, 5);
+  ctx.fillStyle = "#6d4c34";
   ctx.fillRect(rect.x + 6, rect.y + 3, 4, 2);
+  ctx.fillStyle = "#f4e7c8";
+  ctx.fillRect(rect.x + 9, rect.y + 3, 1, 2);
+  ctx.fillStyle = "rgba(244, 231, 200, 0.5)";
+  ctx.fillRect(rect.x + 6, rect.y + 1, 1, 2);
+  ctx.fillRect(rect.x + 9, rect.y, 1, 3);
 }
 
 function drawCouchTile(ctx: CanvasRenderingContext2D, rect: TilesetRect) {
-  ctx.fillStyle = "#4f6873";
-  ctx.fillRect(rect.x + 1, rect.y + 5, rect.w - 2, rect.h - 4);
-  ctx.fillStyle = "#6f8891";
-  ctx.fillRect(rect.x + 2, rect.y + 3, rect.w - 4, 4);
-  ctx.fillStyle = "#3c4f57";
+  ctx.fillStyle = "#435861";
+  ctx.fillRect(rect.x + 1, rect.y + 6, rect.w - 2, rect.h - 5);
+  ctx.fillStyle = "#688892";
+  ctx.fillRect(rect.x + 2, rect.y + 3, rect.w - 4, 5);
+  ctx.fillStyle = "#87aab1";
+  ctx.fillRect(rect.x + 3, rect.y + 7, 4, 3);
+  ctx.fillRect(rect.x + 9, rect.y + 7, 4, 3);
+  ctx.fillStyle = "#2d3a40";
   ctx.fillRect(rect.x, rect.y + rect.h - 3, rect.w, 3);
-  ctx.fillStyle = "#8ea3aa";
-  ctx.fillRect(rect.x + 3, rect.y + 7, rect.w - 6, 3);
+  ctx.fillStyle = "#2a3338";
+  ctx.fillRect(rect.x + 2, rect.y + rect.h - 2, 2, 2);
+  ctx.fillRect(rect.x + rect.w - 4, rect.y + rect.h - 2, 2, 2);
 }
