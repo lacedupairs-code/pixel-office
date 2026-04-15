@@ -100,6 +100,13 @@ export default function App() {
   const focusAgents = sortedAgents.filter((agent) => agent.state === "working" || agent.state === "reading").slice(0, 3);
   const blockedAgents = sortedAgents.filter((agent) => agent.state === "waiting").slice(0, 3);
   const quietAgents = sortedAgents.filter((agent) => agent.state === "sleeping" || agent.state === "offline").slice(0, 3);
+  const roomReadiness = buildRoomReadiness({
+    layout,
+    knownAgentIds,
+    unassignedAgents,
+    activeSlot,
+    projectActiveSlotId
+  });
   const roomStatusPills = [
     {
       label: "Connection",
@@ -1142,6 +1149,18 @@ export default function App() {
           </span>
         </div>
       </section>
+      <section style={styles.panel}>
+        <h2 style={styles.sectionTitle}>Room Readiness</h2>
+        <div style={styles.readinessGrid}>
+          {roomReadiness.map((item) => (
+            <div key={item.label} style={{ ...styles.readinessCard, ...readinessToneStyle(item.tone) }}>
+              <span style={styles.readinessLabel}>{item.label}</span>
+              <strong style={styles.readinessValue}>{item.value}</strong>
+              <span style={styles.readinessMeta}>{item.detail}</span>
+            </div>
+          ))}
+        </div>
+      </section>
       <input ref={fileInputRef} type="file" accept="application/json" onChange={handleImportFile} style={styles.fileInput} />
       <section style={styles.stage}>
         <OfficeCanvas
@@ -1379,6 +1398,33 @@ const styles: Record<string, CSSProperties> = {
     fontSize: "12px",
     color: "#9f8d77"
   },
+  readinessGrid: {
+    display: "grid",
+    gap: "12px",
+    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))"
+  },
+  readinessCard: {
+    display: "grid",
+    gap: "6px",
+    padding: "14px 16px",
+    borderRadius: "14px",
+    border: "1px solid rgba(255,255,255,0.08)",
+    background: "rgba(255,255,255,0.04)"
+  },
+  readinessLabel: {
+    fontSize: "11px",
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    color: "#c7a97d"
+  },
+  readinessValue: {
+    fontSize: "18px",
+    color: "#f3e7d2"
+  },
+  readinessMeta: {
+    fontSize: "12px",
+    color: "#cdb89b"
+  },
   stage: {
     overflowX: "auto"
   },
@@ -1609,4 +1655,83 @@ function statusToneStyle(tone: "good" | "warm" | "alert" | "muted"): CSSProperti
         border: "1px solid rgba(255,255,255,0.08)"
       };
   }
+}
+
+function readinessToneStyle(tone: "good" | "warm" | "alert"): CSSProperties {
+  switch (tone) {
+    case "good":
+      return {
+        background: "rgba(98, 151, 111, 0.14)",
+        border: "1px solid rgba(143, 208, 167, 0.2)"
+      };
+    case "alert":
+      return {
+        background: "rgba(164, 88, 88, 0.16)",
+        border: "1px solid rgba(241, 139, 125, 0.24)"
+      };
+    case "warm":
+    default:
+      return {
+        background: "rgba(181, 136, 82, 0.14)",
+        border: "1px solid rgba(240, 181, 106, 0.2)"
+      };
+  }
+}
+
+function buildRoomReadiness({
+  layout,
+  knownAgentIds,
+  unassignedAgents,
+  activeSlot,
+  projectActiveSlotId
+}: {
+  layout: OfficeLayout;
+  knownAgentIds: string[];
+  unassignedAgents: string[];
+  activeSlot: string | null;
+  projectActiveSlotId: string | null;
+}) {
+  const deskCount = layout.tiles.filter((tile) => tile.type === "desk").length;
+  const coffeeCount = layout.tiles.filter((tile) => tile.type === "coffee").length;
+  const couchCount = layout.tiles.filter((tile) => tile.type === "couch").length;
+  const expectedSeats = Math.max(knownAgentIds.length, layout.agents.length);
+
+  return [
+    {
+      label: "Seat Coverage",
+      value: unassignedAgents.length === 0 ? "Ready" : `${unassignedAgents.length} open`,
+      detail:
+        unassignedAgents.length === 0
+          ? `${layout.agents.length} assigned seat${layout.agents.length === 1 ? "" : "s"}`
+          : `Still missing desks for ${unassignedAgents.slice(0, 3).join(", ")}${unassignedAgents.length > 3 ? "..." : ""}`,
+      tone: unassignedAgents.length === 0 ? ("good" as const) : ("warm" as const)
+    },
+    {
+      label: "Shared Spaces",
+      value: coffeeCount > 0 && couchCount > 0 ? "Balanced" : "Needs props",
+      detail:
+        coffeeCount > 0 && couchCount > 0
+          ? `${coffeeCount} coffee spot${coffeeCount === 1 ? "" : "s"} and ${couchCount} lounge zone${couchCount === 1 ? "" : "s"}`
+          : "Add at least one coffee tile and one couch tile for richer routines",
+      tone: coffeeCount > 0 && couchCount > 0 ? ("good" as const) : ("alert" as const)
+    },
+    {
+      label: "Desk Capacity",
+      value: deskCount >= expectedSeats ? "Healthy" : "Tight",
+      detail:
+        deskCount >= expectedSeats
+          ? `${deskCount} desks for ${expectedSeats} active seats`
+          : `${deskCount} desks may be too few for ${expectedSeats} known agents`,
+      tone: deskCount >= expectedSeats ? ("good" as const) : ("warm" as const)
+    },
+    {
+      label: "Saved Context",
+      value: activeSlot || projectActiveSlotId ? "Anchored" : "Unsaved",
+      detail:
+        activeSlot || projectActiveSlotId
+          ? `Current room ${activeSlot ? "is linked to a saved slot" : "inherits the project default"}`
+          : "Save this layout or mark an active room so the project has a stable default",
+      tone: activeSlot || projectActiveSlotId ? ("good" as const) : ("warm" as const)
+    }
+  ];
 }
