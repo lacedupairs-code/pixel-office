@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties } from "react";
+import { Fragment, useEffect, useRef, useState, type ChangeEvent, type CSSProperties, type ReactNode } from "react";
 import defaultLayoutJson from "./assets/default-layout.json";
 import { Toolbar } from "./components/Toolbar";
 import { LayoutEditor } from "./editor/LayoutEditor";
@@ -1470,14 +1470,14 @@ export default function App() {
           {visibleAgents.map((agent) => (
             <li key={agent.id} style={styles.item}>
               <div>
-                <strong>{agent.id}</strong>
+                <strong>{highlightFeedText(agent.id, normalizedAgentSearch)}</strong>
                 <div style={styles.meta}>{agent.isDefault ? "Boss desk" : "Employee desk"}</div>
                 <div style={styles.meta}>
                   {seatAssignments.has(agent.id)
                     ? `Seat ${formatSeatLabel(seatAssignments.get(agent.id)!.deskX, seatAssignments.get(agent.id)!.deskY)}`
                     : "No desk assigned"}
                 </div>
-                {agent.taskHint ? <div style={styles.meta}>{agent.taskHint}</div> : null}
+                {agent.taskHint ? <div style={styles.meta}>{highlightFeedText(agent.taskHint, normalizedAgentSearch)}</div> : null}
               </div>
               <div style={styles.feedStatusStack}>
                 <span style={styles.status}>{agent.state}</span>
@@ -1955,6 +1955,12 @@ const styles: Record<string, CSSProperties> = {
     color: "#fff0db",
     border: "1px solid rgba(240, 181, 106, 0.22)"
   },
+  feedHighlight: {
+    background: "rgba(240, 181, 106, 0.26)",
+    color: "#fff3dd",
+    borderRadius: "4px",
+    padding: "0 2px"
+  },
   meta: {
     marginTop: "4px",
     fontSize: "12px",
@@ -2101,6 +2107,28 @@ function activeSlotLabel(slotId: string) {
 
 function formatSeatLabel(deskX: number, deskY: number) {
   return `${deskX},${deskY}`;
+}
+
+function highlightFeedText(text: string, query: string): ReactNode {
+  if (!query) {
+    return text;
+  }
+
+  const escapedQuery = escapeRegExp(query);
+  const parts = text.split(new RegExp(`(${escapedQuery})`, "gi"));
+  if (parts.length === 1) {
+    return text;
+  }
+
+  return parts.map((part, index) => (
+    <Fragment key={`${part}-${index}`}>
+      {part.toLowerCase() === query.toLowerCase() ? <mark style={styles.feedHighlight}>{part}</mark> : part}
+    </Fragment>
+  ));
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function isFeedFilter(value: unknown): value is FeedPreferences["filter"] {
