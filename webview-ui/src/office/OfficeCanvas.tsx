@@ -474,6 +474,7 @@ function drawOffice(
   ctx.fillRect(0, 0, width, height);
 
   drawTiles(ctx, layout, tileset);
+  drawAmbientInteractions(ctx, layout, agents, sprites, timestampMs);
   drawGrid(ctx, layout);
   if (editMode) {
     drawEditorBadge(ctx, selectedTool, paintMode, selectedSeatAgentId, dragMoveSelection);
@@ -581,6 +582,48 @@ function drawFallbackDecor(ctx: CanvasRenderingContext2D, layout: OfficeLayout) 
 
     ctx.strokeRect(tile.x * TILE_SIZE + 6, tile.y * TILE_SIZE + 6, TILE_SIZE - 12, TILE_SIZE - 12);
   }
+}
+
+function drawAmbientInteractions(
+  ctx: CanvasRenderingContext2D,
+  layout: OfficeLayout,
+  agents: OfficeAgent[],
+  sprites: Map<string, AgentSprite>,
+  timestampMs: number
+) {
+  const coffeeTile = layout.tiles.find((tile) => tile.type === "coffee");
+  const couchTile = layout.tiles.find((tile) => tile.type === "couch");
+
+  if (coffeeTile) {
+    const activeCoffeeUsers = agents.filter((agent) => {
+      const sprite = sprites.get(agent.id);
+      if (!sprite) {
+        return false;
+      }
+
+      const usingCoffeeArea =
+        agent.state === "idle" || agent.state === "waiting" || (sprite.bubbleText ?? "").toLowerCase().includes("coffee");
+      return usingCoffeeArea && isNearTile(sprite, coffeeTile, 1.75);
+    });
+
+    drawCoffeeStation(ctx, coffeeTile.x, coffeeTile.y, timestampMs, activeCoffeeUsers.length);
+  }
+
+  if (couchTile) {
+    const loungeUsers = agents.filter((agent) => {
+      const sprite = sprites.get(agent.id);
+      if (!sprite) {
+        return false;
+      }
+
+      const usingLounge = agent.state === "sleeping" || agent.state === "reading" || agent.state === "idle";
+      return usingLounge && isNearTile(sprite, couchTile, 2);
+    });
+
+    drawLoungeArea(ctx, couchTile.x, couchTile.y, timestampMs, loungeUsers.length);
+  }
+
+  drawDeskPresence(ctx, layout, agents, sprites, timestampMs);
 }
 
 function buildResolvedTileMap(layout: OfficeLayout) {
@@ -877,6 +920,108 @@ function drawSelectionBounds(ctx: CanvasRenderingContext2D, selectionBounds: Til
   ctx.setLineDash([6, 4]);
   ctx.strokeRect(x + 1, y + 1, width - 2, height - 2);
   ctx.setLineDash([]);
+}
+
+function drawCoffeeStation(
+  ctx: CanvasRenderingContext2D,
+  tileX: number,
+  tileY: number,
+  timestampMs: number,
+  activeUsers: number
+) {
+  const x = tileX * TILE_SIZE;
+  const y = tileY * TILE_SIZE;
+  const steamStrength = activeUsers > 0 ? 0.32 : 0.14;
+
+  ctx.fillStyle = `rgba(230, 194, 141, ${activeUsers > 0 ? 0.18 : 0.08})`;
+  ctx.fillRect(x - 8, y - 8, TILE_SIZE + 16, TILE_SIZE + 16);
+
+  for (let plume = 0; plume < 3; plume += 1) {
+    const phase = timestampMs / 420 + plume * 0.9;
+    const plumeX = x + 10 + plume * 6;
+    const plumeY = y + 7 - Math.sin(phase) * 3;
+    ctx.strokeStyle = `rgba(255, 240, 221, ${steamStrength})`;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(plumeX, plumeY + 8);
+    ctx.bezierCurveTo(plumeX - 3, plumeY + 2, plumeX + 4, plumeY - 1, plumeX, plumeY - 10);
+    ctx.stroke();
+  }
+
+  if (activeUsers > 0) {
+    ctx.fillStyle = "rgba(255, 221, 160, 0.2)";
+    ctx.beginPath();
+    ctx.arc(x + TILE_SIZE / 2, y + TILE_SIZE / 2, 18 + Math.sin(timestampMs / 180) * 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawLoungeArea(
+  ctx: CanvasRenderingContext2D,
+  tileX: number,
+  tileY: number,
+  timestampMs: number,
+  loungeUsers: number
+) {
+  const x = tileX * TILE_SIZE;
+  const y = tileY * TILE_SIZE;
+  const glowAlpha = loungeUsers > 0 ? 0.14 : 0.06;
+
+  ctx.fillStyle = `rgba(136, 185, 205, ${glowAlpha})`;
+  ctx.fillRect(x - 10, y - 6, TILE_SIZE + 20, TILE_SIZE + 14);
+
+  ctx.fillStyle = "rgba(240, 248, 255, 0.18)";
+  ctx.fillRect(x + 4, y + 10, 8, 4);
+  ctx.fillRect(x + 16, y + 10, 8, 4);
+
+  if (loungeUsers > 0) {
+    ctx.strokeStyle = `rgba(182, 222, 255, ${0.28 + Math.sin(timestampMs / 240) * 0.06})`;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x - 3, y + 4, TILE_SIZE + 6, TILE_SIZE - 2);
+  }
+}
+
+function drawDeskPresence(
+  ctx: CanvasRenderingContext2D,
+  layout: OfficeLayout,
+  agents: OfficeAgent[],
+  sprites: Map<string, AgentSprite>,
+  timestampMs: number
+) {
+  for (const seat of layout.agents) {
+    const agent = agents.find((item) => item.id === seat.agentId);
+    const sprite = agent ? sprites.get(agent.id) : undefined;
+    if (!agent || !sprite) {
+      continue;
+    }
+
+    const deskTile = { x: seat.deskX, y: seat.deskY };
+    if (!isNearTile(sprite, deskTile, 2.1)) {
+      continue;
+    }
+
+    const x = seat.deskX * TILE_SIZE;
+    const y = seat.deskY * TILE_SIZE;
+    const pulse = 0.18 + (Math.sin(timestampMs / 220) + 1) * 0.08;
+
+    if (agent.state === "working") {
+      ctx.fillStyle = `rgba(255, 219, 145, ${pulse.toFixed(2)})`;
+      ctx.fillRect(x + 7, y + 5, TILE_SIZE - 14, 6);
+    } else if (agent.state === "reading") {
+      ctx.fillStyle = `rgba(177, 216, 255, ${pulse.toFixed(2)})`;
+      ctx.fillRect(x + 8, y + 7, TILE_SIZE - 16, 4);
+      ctx.fillStyle = "rgba(214, 233, 255, 0.6)";
+      ctx.fillRect(x + 10, y + 12, TILE_SIZE - 20, 3);
+    } else if (agent.state === "waiting") {
+      ctx.strokeStyle = `rgba(255, 230, 161, ${pulse.toFixed(2)})`;
+      ctx.strokeRect(x + 5, y + 5, TILE_SIZE - 10, TILE_SIZE - 10);
+    }
+  }
+}
+
+function isNearTile(sprite: Pick<AgentSprite, "x" | "y">, tile: TilePoint, radiusInTiles: number) {
+  const targetPoint = toCanvasPoint(tile, TILE_SIZE);
+  return distance(sprite.x, sprite.y, targetPoint.x, targetPoint.y) <= radiusInTiles * TILE_SIZE;
 }
 
 function drawGrid(ctx: CanvasRenderingContext2D, layout: OfficeLayout) {
