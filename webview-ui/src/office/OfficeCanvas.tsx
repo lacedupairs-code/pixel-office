@@ -397,7 +397,7 @@ export function OfficeCanvas({
       lastTickRef.current = timestamp;
 
       advanceAgents(agentsRef.current, deltaSeconds);
-      updateIdleIntent(agentsRef.current, agents, timestamp, layout, spawnPoint, walkableGrid);
+      updateRoutineIntent(agentsRef.current, agents, timestamp, layout, spawnPoint, walkableGrid);
       drawOffice(
         ctx,
         agents,
@@ -975,7 +975,8 @@ function resolveTargetPoint(
   walkableGrid: boolean[][]
 ): AgentMotionTarget {
   const seat = seatMap.get(agent.id) ?? getFallbackSeat(agent.id, agents.findIndex((item) => item.id === agent.id));
-  const idleVariant = sprite?.lastKnownState === "idle" ? sprite.idleVariant : 0;
+  const idleVariant =
+    sprite && shouldRetargetState(agent.state) && agent.state === sprite.lastKnownState ? sprite.idleVariant : 0;
 
   const intent = resolveAgentIntent({
     agent,
@@ -989,7 +990,7 @@ function resolveTargetPoint(
     walkableGrid
   });
 
-  if (sprite && agent.state === "idle" && agent.state !== sprite.lastKnownState) {
+  if (sprite && shouldRetargetState(agent.state) && agent.state !== sprite.lastKnownState) {
     sprite.idleVariant = Math.floor(now / IDLE_RETARGET_MS) % 4;
     sprite.nextRetargetAt = now + IDLE_RETARGET_MS;
   }
@@ -1029,7 +1030,7 @@ function syncSpritePath(sprite: AgentSprite, target: AgentMotionTarget, walkable
   sprite.pathIndex = 1;
 }
 
-function updateIdleIntent(
+function updateRoutineIntent(
   sprites: Map<string, AgentSprite>,
   agents: OfficeAgent[],
   nowMs: number,
@@ -1040,7 +1041,7 @@ function updateIdleIntent(
   const seatMap = buildSeatMap(layout);
 
   for (const agent of agents) {
-    if (agent.state !== "idle") {
+    if (!shouldRetargetState(agent.state)) {
       continue;
     }
 
@@ -1059,6 +1060,10 @@ function updateIdleIntent(
     sprite.bubbleText = target.bubbleText;
     syncSpritePath(sprite, target, walkableGrid);
   }
+}
+
+function shouldRetargetState(state: OfficeAgent["state"]) {
+  return state === "idle" || state === "reading" || state === "waiting";
 }
 
 function drawEditorBadge(
