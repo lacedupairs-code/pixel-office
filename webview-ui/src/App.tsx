@@ -63,6 +63,7 @@ export default function App() {
   const [activeSlot, setActiveSlot] = useState<string | null>(null);
   const [agentFeedFilter, setAgentFeedFilter] = useState<OfficeAgent["state"] | "all">("all");
   const [agentSearchQuery, setAgentSearchQuery] = useState("");
+  const [agentSortMode, setAgentSortMode] = useState<"priority" | "name" | "boss-first">("priority");
   const [slotRecords, setSlotRecords] = useState<LayoutSlotMap>(() => loadStoredSlots());
   const [conflictedSlotIds, setConflictedSlotIds] = useState<string[]>([]);
   const [projectActiveSlotId, setProjectActiveSlotId] = useState<string | null>(null);
@@ -98,7 +99,7 @@ export default function App() {
   const totalSeats = layout.agents.length;
   const assignedSeatIds = new Set(layout.agents.map((seat) => seat.agentId));
   const unassignedAgents = knownAgentIds.filter((agentId) => !assignedSeatIds.has(agentId));
-  const sortedAgents = [...agents].sort((left, right) => compareAgentPriority(left, right));
+  const sortedAgents = [...agents].sort((left, right) => compareAgents(left, right, agentSortMode));
   const focusAgents = sortedAgents.filter((agent) => agent.state === "working" || agent.state === "reading").slice(0, 3);
   const blockedAgents = sortedAgents.filter((agent) => agent.state === "waiting").slice(0, 3);
   const quietAgents = sortedAgents.filter((agent) => agent.state === "sleeping" || agent.state === "offline").slice(0, 3);
@@ -1342,6 +1343,15 @@ export default function App() {
           <span style={styles.feedSearchMeta}>
             {visibleAgents.length} result{visibleAgents.length === 1 ? "" : "s"}
           </span>
+          <select
+            value={agentSortMode}
+            onChange={(event) => setAgentSortMode(event.target.value as "priority" | "name" | "boss-first")}
+            style={styles.feedSortSelect}
+          >
+            <option value="priority">Sort: Priority</option>
+            <option value="name">Sort: Name</option>
+            <option value="boss-first">Sort: Boss First</option>
+          </select>
         </div>
         <div style={styles.feedFilterRow}>
           {feedFilters.map((filter) => (
@@ -1723,6 +1733,15 @@ const styles: Record<string, CSSProperties> = {
     fontSize: "12px",
     color: "#bca78b"
   },
+  feedSortSelect: {
+    padding: "10px 12px",
+    borderRadius: "12px",
+    border: "1px solid rgba(255,255,255,0.1)",
+    background: "#2a221c",
+    color: "#f3e7d2",
+    fontSize: "13px",
+    outline: "none"
+  },
   feedFilterRow: {
     display: "flex",
     gap: "8px",
@@ -1875,6 +1894,23 @@ function activeSlotLabel(slotId: string) {
   }
 
   return slotId;
+}
+
+function compareAgents(left: OfficeAgent, right: OfficeAgent, mode: "priority" | "name" | "boss-first") {
+  if (mode === "name") {
+    return left.id.localeCompare(right.id);
+  }
+
+  if (mode === "boss-first") {
+    if (left.isDefault !== right.isDefault) {
+      return left.isDefault ? -1 : 1;
+    }
+
+    const stateDelta = compareAgentPriority(left, right);
+    return stateDelta !== 0 ? stateDelta : left.id.localeCompare(right.id);
+  }
+
+  return compareAgentPriority(left, right);
 }
 
 function compareAgentPriority(left: OfficeAgent, right: OfficeAgent) {
