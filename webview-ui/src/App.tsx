@@ -5,7 +5,7 @@ import { LayoutEditor } from "./editor/LayoutEditor";
 import { useAgentSocket } from "./hooks/useAgentSocket";
 import { OfficeCanvas } from "./office/OfficeCanvas";
 import type { LayoutPaintMode, LayoutTile, LayoutTool, OfficeLayout, TileSelectionBounds } from "./office/types";
-import { useOfficeStore } from "./store/officeStore";
+import { useOfficeStore, type OfficeAgent } from "./store/officeStore";
 
 const LOCAL_LAYOUT_KEY = "pixel-office.layout";
 const LOCAL_LAYOUT_SLOTS_KEY = "pixel-office.layout-slots";
@@ -93,6 +93,10 @@ export default function App() {
     coffee: layout.tiles.filter((tile) => tile.type === "coffee").length,
     lounge: layout.tiles.filter((tile) => tile.type === "couch").length
   };
+  const sortedAgents = [...agents].sort((left, right) => compareAgentPriority(left, right));
+  const focusAgents = sortedAgents.filter((agent) => agent.state === "working" || agent.state === "reading").slice(0, 3);
+  const blockedAgents = sortedAgents.filter((agent) => agent.state === "waiting").slice(0, 3);
+  const quietAgents = sortedAgents.filter((agent) => agent.state === "sleeping" || agent.state === "offline").slice(0, 3);
 
   useEffect(() => {
     document.title = "Pixel Office";
@@ -1110,10 +1114,45 @@ export default function App() {
         />
       ) : null}
       <section style={styles.panel}>
+        <h2 style={styles.sectionTitle}>Office Highlights</h2>
+        <div style={styles.highlightGrid}>
+          <div style={styles.highlightCard}>
+            <span style={styles.highlightLabel}>Focus Work</span>
+            {focusAgents.length === 0 ? <span style={styles.highlightEmpty}>No focused agents yet.</span> : null}
+            {focusAgents.map((agent) => (
+              <div key={agent.id} style={styles.highlightRow}>
+                <strong>{agent.id}</strong>
+                <span style={styles.highlightMeta}>{agent.taskHint ?? humanizeAgentState(agent.state)}</span>
+              </div>
+            ))}
+          </div>
+          <div style={styles.highlightCard}>
+            <span style={styles.highlightLabel}>Waiting On</span>
+            {blockedAgents.length === 0 ? <span style={styles.highlightEmpty}>No blockers right now.</span> : null}
+            {blockedAgents.map((agent) => (
+              <div key={agent.id} style={styles.highlightRow}>
+                <strong>{agent.id}</strong>
+                <span style={styles.highlightMeta}>{agent.taskHint ?? "Standing by"}</span>
+              </div>
+            ))}
+          </div>
+          <div style={styles.highlightCard}>
+            <span style={styles.highlightLabel}>Quiet Corners</span>
+            {quietAgents.length === 0 ? <span style={styles.highlightEmpty}>Everyone is active.</span> : null}
+            {quietAgents.map((agent) => (
+              <div key={agent.id} style={styles.highlightRow}>
+                <strong>{agent.id}</strong>
+                <span style={styles.highlightMeta}>{humanizeAgentState(agent.state)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+      <section style={styles.panel}>
         <h2 style={styles.sectionTitle}>Live Agent Feed</h2>
         <ul style={styles.list}>
-          {agents.length === 0 ? <li style={styles.item}>No agents discovered yet.</li> : null}
-          {agents.map((agent) => (
+          {sortedAgents.length === 0 ? <li style={styles.item}>No agents discovered yet.</li> : null}
+          {sortedAgents.map((agent) => (
             <li key={agent.id} style={styles.item}>
               <div>
                 <strong>{agent.id}</strong>
@@ -1215,6 +1254,37 @@ const styles: Record<string, CSSProperties> = {
     border: "1px solid rgba(255,255,255,0.08)",
     color: "#f0dfc4",
     fontSize: "12px"
+  },
+  highlightGrid: {
+    display: "grid",
+    gap: "12px",
+    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))"
+  },
+  highlightCard: {
+    display: "grid",
+    gap: "8px",
+    padding: "14px 16px",
+    borderRadius: "14px",
+    border: "1px solid rgba(255,255,255,0.08)",
+    background: "rgba(255,255,255,0.04)"
+  },
+  highlightLabel: {
+    fontSize: "11px",
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    color: "#c7a97d"
+  },
+  highlightRow: {
+    display: "grid",
+    gap: "2px"
+  },
+  highlightMeta: {
+    fontSize: "12px",
+    color: "#cdb89b"
+  },
+  highlightEmpty: {
+    fontSize: "12px",
+    color: "#9f8d77"
   },
   stage: {
     overflowX: "auto"
@@ -1379,4 +1449,45 @@ function activeSlotLabel(slotId: string) {
   }
 
   return slotId;
+}
+
+function compareAgentPriority(left: OfficeAgent, right: OfficeAgent) {
+  const stateOrder: Record<string, number> = {
+    working: 0,
+    reading: 1,
+    waiting: 2,
+    idle: 3,
+    sleeping: 4,
+    offline: 5
+  };
+
+  const stateDelta = (stateOrder[left.state] ?? 99) - (stateOrder[right.state] ?? 99);
+  if (stateDelta !== 0) {
+    return stateDelta;
+  }
+
+  if (left.isDefault !== right.isDefault) {
+    return left.isDefault ? -1 : 1;
+  }
+
+  return left.id.localeCompare(right.id);
+}
+
+function humanizeAgentState(state: OfficeAgent["state"]) {
+  switch (state) {
+    case "working":
+      return "Heads-down work";
+    case "reading":
+      return "Reading and review";
+    case "waiting":
+      return "Waiting for input";
+    case "idle":
+      return "Roaming the office";
+    case "sleeping":
+      return "Resting";
+    case "offline":
+      return "Offline";
+    default:
+      return state;
+  }
 }
