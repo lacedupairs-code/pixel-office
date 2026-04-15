@@ -73,6 +73,13 @@ export function Toolbar({
       <div style={styles.row}>
         {layoutSlots.map((slot) => (
           <div key={slot.id} style={styles.slotGroup}>
+            <div style={styles.thumbFrame}>
+              <img
+                src={buildSlotThumbnail(slotRecords[slot.id])}
+                alt={`${slot.label} preview`}
+                style={styles.thumbImage}
+              />
+            </div>
             <div style={styles.slotMeta}>
               <span style={{ ...styles.slotLabel, ...(activeSlot === slot.id ? styles.slotLabelActive : null) }}>
                 {slot.label}
@@ -120,6 +127,21 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: "999px",
     background: "rgba(255,255,255,0.04)",
     border: "1px solid rgba(255,255,255,0.08)"
+  },
+  thumbFrame: {
+    width: "44px",
+    height: "44px",
+    borderRadius: "10px",
+    overflow: "hidden",
+    border: "1px solid rgba(255,255,255,0.1)",
+    background: "#171311",
+    flex: "0 0 auto"
+  },
+  thumbImage: {
+    width: "100%",
+    height: "100%",
+    display: "block",
+    imageRendering: "pixelated"
   },
   slotMeta: {
     display: "grid",
@@ -186,4 +208,70 @@ function formatSlotSummary(record: LayoutSlotRecord | undefined) {
 
   const { layout } = record;
   return `${layout.cols}x${layout.rows}, ${layout.tiles.length} tiles, ${layout.agents.length} seats`;
+}
+
+function buildSlotThumbnail(record: LayoutSlotRecord | undefined) {
+  if (!record) {
+    return emptySlotThumbnail();
+  }
+
+  const { layout } = record;
+  const cellSize = 4;
+  const width = Math.max(1, layout.cols * cellSize);
+  const height = Math.max(1, layout.rows * cellSize);
+  const cells: string[] = [];
+
+  for (let y = 0; y < layout.rows; y += 1) {
+    for (let x = 0; x < layout.cols; x += 1) {
+      const isBorder = x === 0 || y === 0 || x === layout.cols - 1 || y === layout.rows - 1;
+      cells.push(
+        `<rect x="${x * cellSize}" y="${y * cellSize}" width="${cellSize}" height="${cellSize}" fill="${
+          isBorder ? "#5b4837" : "#2a211c"
+        }" />`
+      );
+    }
+  }
+
+  for (const tile of layout.tiles) {
+    cells.push(
+      `<rect x="${tile.x * cellSize}" y="${tile.y * cellSize}" width="${cellSize}" height="${cellSize}" fill="${thumbnailColor(tile.type)}" />`
+    );
+  }
+
+  for (const seat of layout.agents) {
+    cells.push(
+      `<rect x="${seat.deskX * cellSize + 1}" y="${seat.deskY * cellSize + 1}" width="${Math.max(1, cellSize - 2)}" height="${Math.max(
+        1,
+        cellSize - 2
+      )}" fill="#f0b56a" />`
+    );
+  }
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" shape-rendering="crispEdges">${cells.join(
+    ""
+  )}</svg>`;
+
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+function emptySlotThumbnail() {
+  const svg =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" shape-rendering="crispEdges"><rect width="44" height="44" fill="#171311"/><rect x="6" y="6" width="32" height="32" rx="6" fill="#231c17" stroke="#3b3028"/><path d="M22 13v18M13 22h18" stroke="#7f6a55" stroke-width="2"/></svg>';
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+function thumbnailColor(type: LayoutSlotRecord["layout"]["tiles"][number]["type"]) {
+  switch (type) {
+    case "wall":
+      return "#7b6550";
+    case "desk":
+      return "#8e6d4f";
+    case "coffee":
+      return "#7aa38c";
+    case "couch":
+      return "#58707c";
+    case "floor":
+    default:
+      return "#2a211c";
+  }
 }
