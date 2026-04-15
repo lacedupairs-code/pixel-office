@@ -13,6 +13,7 @@ const LOCAL_LAYOUT_SLOTS_KEY = "pixel-office.layout-slots";
 export interface LayoutSlotRecord {
   layout: OfficeLayout;
   savedAt: string;
+  name?: string;
 }
 
 export default function App() {
@@ -390,7 +391,8 @@ export default function App() {
       const slots = loadStoredSlots();
       slots[slotId] = {
         layout,
-        savedAt: new Date().toISOString()
+        savedAt: new Date().toISOString(),
+        name: slots[slotId]?.name
       };
       window.localStorage.setItem(LOCAL_LAYOUT_SLOTS_KEY, JSON.stringify(slots));
       setSlotRecords(slots);
@@ -417,6 +419,54 @@ export default function App() {
       setActiveSlot(slotId);
     } catch (error) {
       console.error("Failed to load layout slot", error);
+    }
+  }
+
+  function handleRenameSlot(slotId: string) {
+    const currentName = slotRecords[slotId]?.name ?? "";
+    const nextName = window.prompt("Name this layout slot", currentName)?.trim();
+    if (nextName === undefined) {
+      return;
+    }
+
+    try {
+      const slots = loadStoredSlots();
+      const current = slots[slotId];
+      if (!current) {
+        return;
+      }
+
+      slots[slotId] = {
+        ...current,
+        name: nextName || undefined
+      };
+      window.localStorage.setItem(LOCAL_LAYOUT_SLOTS_KEY, JSON.stringify(slots));
+      setSlotRecords(slots);
+    } catch (error) {
+      console.error("Failed to rename layout slot", error);
+    }
+  }
+
+  function handleDeleteSlot(slotId: string) {
+    if (!slotRecords[slotId]) {
+      return;
+    }
+
+    const confirmed = window.confirm("Delete this saved layout slot?");
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const slots = loadStoredSlots();
+      delete slots[slotId];
+      window.localStorage.setItem(LOCAL_LAYOUT_SLOTS_KEY, JSON.stringify(slots));
+      setSlotRecords(slots);
+      if (activeSlot === slotId) {
+        setActiveSlot(null);
+      }
+    } catch (error) {
+      console.error("Failed to delete layout slot", error);
     }
   }
 
@@ -450,6 +500,8 @@ export default function App() {
         onExportLayout={handleExportLayout}
         onSaveSlot={handleSaveSlot}
         onLoadSlot={handleLoadSlot}
+        onRenameSlot={handleRenameSlot}
+        onDeleteSlot={handleDeleteSlot}
       />
       <input ref={fileInputRef} type="file" accept="application/json" onChange={handleImportFile} style={styles.fileInput} />
       <section style={styles.stage}>

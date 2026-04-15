@@ -15,6 +15,8 @@ interface ToolbarProps {
   onExportLayout: () => void;
   onSaveSlot: (slotId: string) => void;
   onLoadSlot: (slotId: string) => void;
+  onRenameSlot: (slotId: string) => void;
+  onDeleteSlot: (slotId: string) => void;
 }
 
 const layoutSlots = [
@@ -36,7 +38,9 @@ export function Toolbar({
   onImportLayout,
   onExportLayout,
   onSaveSlot,
-  onLoadSlot
+  onLoadSlot,
+  onRenameSlot,
+  onDeleteSlot
 }: ToolbarProps) {
   return (
     <div style={styles.stack}>
@@ -82,7 +86,7 @@ export function Toolbar({
             </div>
             <div style={styles.slotMeta}>
               <span style={{ ...styles.slotLabel, ...(activeSlot === slot.id ? styles.slotLabelActive : null) }}>
-                {slot.label}
+                {slotRecords[slot.id]?.name || slot.label}
               </span>
               <span style={styles.slotStamp}>{formatSlotStamp(slotRecords[slot.id]?.savedAt)}</span>
               <span style={styles.slotSummary}>{formatSlotSummary(slotRecords[slot.id])}</span>
@@ -92,6 +96,12 @@ export function Toolbar({
             </button>
             <button type="button" style={styles.button} onClick={() => onLoadSlot(slot.id)}>
               Load
+            </button>
+            <button type="button" style={styles.button} onClick={() => onRenameSlot(slot.id)} disabled={!slotRecords[slot.id]}>
+              Rename
+            </button>
+            <button type="button" style={styles.button} onClick={() => onDeleteSlot(slot.id)} disabled={!slotRecords[slot.id]}>
+              Clear
             </button>
           </div>
         ))}
