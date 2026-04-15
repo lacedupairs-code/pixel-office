@@ -107,6 +107,14 @@ export default function App() {
     activeSlot,
     projectActiveSlotId
   });
+  const recommendedActions = buildRecommendedActions({
+    unassignedAgents,
+    hotspotSummary,
+    activeSlot,
+    projectActiveSlotId,
+    stateCounts,
+    connectionState
+  });
   const roomStatusPills = [
     {
       label: "Connection",
@@ -1161,6 +1169,20 @@ export default function App() {
           ))}
         </div>
       </section>
+      <section style={styles.panel}>
+        <h2 style={styles.sectionTitle}>Recommended Next Steps</h2>
+        <div style={styles.actionsList}>
+          {recommendedActions.map((action, index) => (
+            <div key={action.title} style={{ ...styles.actionCard, ...actionToneStyle(action.tone) }}>
+              <span style={styles.actionStep}>{index + 1}</span>
+              <div style={styles.actionBody}>
+                <strong style={styles.actionTitle}>{action.title}</strong>
+                <span style={styles.actionMeta}>{action.detail}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
       <input ref={fileInputRef} type="file" accept="application/json" onChange={handleImportFile} style={styles.fileInput} />
       <section style={styles.stage}>
         <OfficeCanvas
@@ -1425,6 +1447,43 @@ const styles: Record<string, CSSProperties> = {
     fontSize: "12px",
     color: "#cdb89b"
   },
+  actionsList: {
+    display: "grid",
+    gap: "10px"
+  },
+  actionCard: {
+    display: "flex",
+    gap: "12px",
+    alignItems: "start",
+    padding: "14px 16px",
+    borderRadius: "14px",
+    border: "1px solid rgba(255,255,255,0.08)",
+    background: "rgba(255,255,255,0.04)"
+  },
+  actionStep: {
+    width: "24px",
+    height: "24px",
+    borderRadius: "999px",
+    background: "rgba(0,0,0,0.22)",
+    color: "#f3e7d2",
+    fontSize: "12px",
+    fontWeight: 700,
+    display: "grid",
+    placeItems: "center",
+    flex: "0 0 auto"
+  },
+  actionBody: {
+    display: "grid",
+    gap: "4px"
+  },
+  actionTitle: {
+    color: "#f3e7d2",
+    fontSize: "14px"
+  },
+  actionMeta: {
+    fontSize: "12px",
+    color: "#cdb89b"
+  },
   stage: {
     overflowX: "auto"
   },
@@ -1678,6 +1737,32 @@ function readinessToneStyle(tone: "good" | "warm" | "alert"): CSSProperties {
   }
 }
 
+function actionToneStyle(tone: "good" | "warm" | "alert" | "muted"): CSSProperties {
+  switch (tone) {
+    case "good":
+      return {
+        background: "rgba(98, 151, 111, 0.12)",
+        border: "1px solid rgba(143, 208, 167, 0.18)"
+      };
+    case "alert":
+      return {
+        background: "rgba(164, 88, 88, 0.14)",
+        border: "1px solid rgba(241, 139, 125, 0.22)"
+      };
+    case "warm":
+      return {
+        background: "rgba(181, 136, 82, 0.12)",
+        border: "1px solid rgba(240, 181, 106, 0.18)"
+      };
+    case "muted":
+    default:
+      return {
+        background: "rgba(255,255,255,0.04)",
+        border: "1px solid rgba(255,255,255,0.08)"
+      };
+  }
+}
+
 function buildRoomReadiness({
   layout,
   knownAgentIds,
@@ -1734,4 +1819,84 @@ function buildRoomReadiness({
       tone: activeSlot || projectActiveSlotId ? ("good" as const) : ("warm" as const)
     }
   ];
+}
+
+function buildRecommendedActions({
+  unassignedAgents,
+  hotspotSummary,
+  activeSlot,
+  projectActiveSlotId,
+  stateCounts,
+  connectionState
+}: {
+  unassignedAgents: string[];
+  hotspotSummary: { desks: number; coffee: number; lounge: number };
+  activeSlot: string | null;
+  projectActiveSlotId: string | null;
+  stateCounts: Record<OfficeAgent["state"], number>;
+  connectionState: "connecting" | "open" | "closed";
+}) {
+  const actions: Array<{ title: string; detail: string; tone: "good" | "warm" | "alert" | "muted" }> = [];
+
+  if (unassignedAgents.length > 0) {
+    actions.push({
+      title: "Assign desks to every known agent",
+      detail: `Use the layout editor to seat ${unassignedAgents.slice(0, 3).join(", ")}${unassignedAgents.length > 3 ? " and the remaining agents" : ""}.`,
+      tone: "warm"
+    });
+  }
+
+  if (hotspotSummary.coffee === 0 || hotspotSummary.lounge === 0) {
+    actions.push({
+      title: "Add shared-space landmarks",
+      detail: "Place at least one coffee tile and one couch tile so the office routines have stronger destinations.",
+      tone: "alert"
+    });
+  }
+
+  if (!activeSlot && !projectActiveSlotId) {
+    actions.push({
+      title: "Anchor this room to a saved slot",
+      detail: "Save the current layout and set an active room so resets and project startup keep a stable default.",
+      tone: "warm"
+    });
+  }
+
+  if (stateCounts.waiting > 0) {
+    actions.push({
+      title: "Check waiting agents for blockers",
+      detail: `${stateCounts.waiting} agent${stateCounts.waiting === 1 ? " is" : "s are"} waiting, so this is a good moment to inspect pending tasks or prompts.`,
+      tone: "alert"
+    });
+  }
+
+  if (connectionState !== "open") {
+    actions.push({
+      title: "Stabilize the live connection",
+      detail: "The socket is not fully open right now, so live office updates may lag until the watcher reconnects.",
+      tone: "alert"
+    });
+  }
+
+  if (actions.length === 0) {
+    actions.push(
+      {
+        title: "Room setup looks healthy",
+        detail: "This office has desks, shared spaces, saved context, and no obvious assignment gaps.",
+        tone: "good"
+      },
+      {
+        title: "Next best move is visual polish",
+        detail: "Keep going with richer tiles, character art, and scene dressing to make the current systems feel production-ready.",
+        tone: "muted"
+      },
+      {
+        title: "Then focus on hardening",
+        detail: "A stabilization pass around sync conflicts, watcher behavior, and editor edge cases would be high value after art polish.",
+        tone: "muted"
+      }
+    );
+  }
+
+  return actions.slice(0, 3);
 }
