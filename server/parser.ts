@@ -9,6 +9,9 @@ export type AgentState =
 type JsonRecord = {
   type?: string;
   role?: string;
+  name?: string;
+  text?: string;
+  message?: string;
   content?: Array<{
     type?: string;
     name?: string;
@@ -30,7 +33,16 @@ export function parseLineForState(line: string): AgentState | null {
       return "working";
     }
 
+    const topLevelToolName = typeof record.name === "string" ? record.name : undefined;
+    if (topLevelToolName) {
+      return READING_TOOLS.has(topLevelToolName.toLowerCase()) ? "reading" : "working";
+    }
+
     if (record.role === "user") {
+      return "working";
+    }
+
+    if (record.role === "tool" || record.type === "tool_result") {
       return "working";
     }
 
@@ -48,6 +60,11 @@ export function parseLineForState(line: string): AgentState | null {
     if (hasText) {
       return "waiting";
     }
+
+    const fallbackText = [record.text, record.message].find((value) => typeof value === "string" && value.trim());
+    if (fallbackText) {
+      return "waiting";
+    }
   } catch {
     return null;
   }
@@ -58,6 +75,10 @@ export function parseLineForState(line: string): AgentState | null {
 export function extractTaskHint(line: string): string | undefined {
   try {
     const record = JSON.parse(line) as JsonRecord;
+    if (typeof record.name === "string" && record.name.trim()) {
+      return record.name.trim();
+    }
+
     const content = Array.isArray(record.content) ? record.content : [];
     const toolUse = content.find((item) => item.type === "tool_use");
     if (toolUse?.name) {
@@ -65,9 +86,13 @@ export function extractTaskHint(line: string): string | undefined {
     }
 
     const text = content.find((item) => item.type === "text" && item.text?.trim());
-    return text?.text?.slice(0, 40).trim() || undefined;
+    if (text?.text?.trim()) {
+      return text.text.slice(0, 40).trim();
+    }
+
+    const fallbackText = [record.text, record.message].find((value) => typeof value === "string" && value.trim());
+    return fallbackText?.slice(0, 40).trim() || undefined;
   } catch {
     return undefined;
   }
 }
-

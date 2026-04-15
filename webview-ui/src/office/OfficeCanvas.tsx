@@ -1102,6 +1102,7 @@ function drawAgents(
   layout: OfficeLayout
 ) {
   const seatMap = buildSeatMap(layout);
+  const occupiedLabelPoints: Array<{ x: number; y: number }> = [];
 
   agents.forEach((agent, index) => {
     const sprite = sprites.get(agent.id) ?? {
@@ -1116,13 +1117,19 @@ function drawAgents(
       idleVariant: 0,
       nextRetargetAt: 0
     };
+    const labelAnchor = { x: sprite.x, y: sprite.y - 18 };
+    const crowded = occupiedLabelPoints.some((point) => distance(point.x, point.y, labelAnchor.x, labelAnchor.y) < 24);
+    const showLabel = agent.isDefault || Boolean(sprite.bubbleText) || !crowded;
+    if (showLabel) {
+      occupiedLabelPoints.push(labelAnchor);
+    }
 
     const seat = seatMap.get(agent.id);
     if (seat) {
       drawDeskActivity(ctx, agent, seat.deskX * TILE_SIZE + TILE_SIZE, seat.deskY * TILE_SIZE + TILE_SIZE, timestampMs);
     }
 
-    drawAgentSprite(ctx, agent, sprite, timestampMs);
+    drawAgentSprite(ctx, agent, { ...sprite, showLabel }, timestampMs);
   });
 }
 
@@ -1194,14 +1201,14 @@ function resolveTargetPoint(
 }
 
 function getFallbackSeat(agentId: string, index: number, layout: OfficeLayout) {
-  const usableCols = Math.max(1, layout.cols - 4);
-  const usableRows = Math.max(1, layout.rows - 6);
-  const wrappedIndex = Math.max(0, index) % (usableCols * usableRows);
+  const slotsPerRow = Math.max(1, Math.floor((layout.cols - 4) / 2));
+  const slotRows = Math.max(1, Math.floor((layout.rows - 4) / 2));
+  const wrappedIndex = Math.max(0, index) % (slotsPerRow * slotRows);
 
   return {
     agentId,
-    deskX: 2 + (wrappedIndex % usableCols),
-    deskY: 2 + Math.floor(wrappedIndex / usableCols)
+    deskX: 2 + (wrappedIndex % slotsPerRow) * 2,
+    deskY: 2 + Math.floor(wrappedIndex / slotsPerRow) * 2
   };
 }
 

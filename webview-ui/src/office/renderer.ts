@@ -10,6 +10,7 @@ interface RenderAgentSprite {
   targetX: number;
   targetY: number;
   bubbleText?: string;
+  showLabel?: boolean;
 }
 
 export function drawAgentSprite(
@@ -46,10 +47,12 @@ export function drawAgentSprite(
 
   drawAgentStateAccent(ctx, agent, sprite, bodyY, direction, timestampMs, moving);
 
-  ctx.fillStyle = "#111";
-  ctx.font = "bold 10px sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillText(agent.id.slice(0, 8), sprite.x, sprite.y - 18);
+  if (sprite.showLabel !== false) {
+    ctx.fillStyle = "#111";
+    ctx.font = "bold 10px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(agent.id.slice(0, 8), sprite.x, sprite.y - 18);
+  }
 
   if (sprite.bubbleText) {
     drawBubble(ctx, sprite.x, sprite.y - 44, sprite.bubbleText);
