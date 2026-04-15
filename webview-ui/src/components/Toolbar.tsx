@@ -62,6 +62,7 @@ export function Toolbar({
 }: ToolbarProps) {
   const [slotQuery, setSlotQuery] = useState("");
   const [selectedTag, setSelectedTag] = useState<string>("all");
+  const [sortMode, setSortMode] = useState<"recent" | "name">("recent");
   const [editingSlotId, setEditingSlotId] = useState<string | null>(null);
   const [editorDraft, setEditorDraft] = useState<LayoutSlotDetailsDraft>({});
   const availableTags = Array.from(
@@ -71,18 +72,21 @@ export function Toolbar({
         .sort((left, right) => left.localeCompare(right))
     )
   );
-  const visibleSlots = layoutSlots.filter((slot) => {
-    const record = slotRecords[slot.id];
-    const query = slotQuery.trim().toLowerCase();
-    const matchesQuery =
-      query.length === 0 ||
-      slot.label.toLowerCase().includes(query) ||
-      (record?.name ?? "").toLowerCase().includes(query) ||
-      (record?.description ?? "").toLowerCase().includes(query) ||
-      (record?.tags ?? []).some((tag) => tag.toLowerCase().includes(query));
-    const matchesTag = selectedTag === "all" || (record?.tags ?? []).includes(selectedTag);
-    return matchesQuery && matchesTag;
-  });
+  const query = slotQuery.trim().toLowerCase();
+  const visibleSlots = layoutSlots
+    .filter((slot) => {
+      const record = slotRecords[slot.id];
+      const matchesQuery =
+        query.length === 0 ||
+        slot.label.toLowerCase().includes(query) ||
+        (record?.name ?? "").toLowerCase().includes(query) ||
+        (record?.description ?? "").toLowerCase().includes(query) ||
+        (record?.tags ?? []).some((tag) => tag.toLowerCase().includes(query));
+      const matchesTag = selectedTag === "all" || (record?.tags ?? []).includes(selectedTag);
+      return matchesQuery && matchesTag;
+    })
+    .sort((left, right) => compareSlots(left.id, right.id, slotRecords, projectActiveSlotId, sortMode));
+  const hasActiveFilters = slotQuery.trim().length > 0 || selectedTag !== "all";
 
   function openSlotEditor(slotId: string) {
     const record = slotRecords[slotId];
@@ -183,7 +187,42 @@ export function Toolbar({
             </option>
           ))}
         </select>
+        <select value={sortMode} onChange={(event) => setSortMode(event.target.value as "recent" | "name")} style={styles.selectInput}>
+          <option value="recent">Sort: Recent</option>
+          <option value="name">Sort: Name</option>
+        </select>
+        <button
+          type="button"
+          style={{ ...styles.button, ...(hasActiveFilters ? null : styles.disabledButton) }}
+          onClick={() => {
+            setSlotQuery("");
+            setSelectedTag("all");
+          }}
+          disabled={!hasActiveFilters}
+        >
+          Clear Filters
+        </button>
       </div>
+      {availableTags.length > 0 ? (
+        <div style={styles.tagRow}>
+          {availableTags.map((tag) => {
+            const isSelected = selectedTag === tag;
+            return (
+              <button
+                key={tag}
+                type="button"
+                style={{
+                  ...styles.tagChip,
+                  ...(isSelected ? styles.tagChipActive : null)
+                }}
+                onClick={() => setSelectedTag(isSelected ? "all" : tag)}
+              >
+                #{tag}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
       <div style={styles.row}>
         {visibleSlots.map((slot) => (
           <div
@@ -312,6 +351,11 @@ const styles: Record<string, CSSProperties> = {
     flexWrap: "wrap",
     alignItems: "center"
   },
+  tagRow: {
+    display: "flex",
+    gap: "8px",
+    flexWrap: "wrap"
+  },
   projectRow: {
     display: "flex",
     gap: "10px",
@@ -428,6 +472,18 @@ const styles: Record<string, CSSProperties> = {
     ...baseButton,
     background: "rgba(255,255,255,0.06)",
     color: "#f0dfc4"
+  },
+  tagChip: {
+    ...baseButton,
+    padding: "8px 12px",
+    background: "rgba(255,255,255,0.04)",
+    color: "#9fcbaf",
+    border: "1px solid rgba(143,208,167,0.18)"
+  },
+  tagChipActive: {
+    background: "rgba(143,208,167,0.18)",
+    color: "#f0dfc4",
+    border: "1px solid rgba(143,208,167,0.5)"
   },
   editorField: {
     display: "grid",
@@ -642,6 +698,37 @@ function emptySlotThumbnail() {
   const svg =
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" shape-rendering="crispEdges"><rect width="44" height="44" fill="#171311"/><rect x="6" y="6" width="32" height="32" rx="6" fill="#231c17" stroke="#3b3028"/><path d="M22 13v18M13 22h18" stroke="#7f6a55" stroke-width="2"/></svg>';
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+function compareSlots(
+  leftId: string,
+  rightId: string,
+  slotRecords: Record<string, LayoutSlotRecord>,
+  projectActiveSlotId: string | null,
+  sortMode: "recent" | "name"
+) {
+  if (projectActiveSlotId === leftId && projectActiveSlotId !== rightId) {
+    return -1;
+  }
+
+  if (projectActiveSlotId === rightId && projectActiveSlotId !== leftId) {
+    return 1;
+  }
+
+  const left = slotRecords[leftId];
+  const right = slotRecords[rightId];
+
+  if (sortMode === "name") {
+    return (left?.name ?? leftId).localeCompare(right?.name ?? rightId);
+  }
+
+  return compareTimestamps(right?.savedAt, left?.savedAt) || leftId.localeCompare(rightId);
+}
+
+function compareTimestamps(left: string | undefined, right: string | undefined) {
+  const leftTime = left ? new Date(left).getTime() : 0;
+  const rightTime = right ? new Date(right).getTime() : 0;
+  return leftTime - rightTime;
 }
 
 function thumbnailColor(type: LayoutSlotRecord["layout"]["tiles"][number]["type"]) {
