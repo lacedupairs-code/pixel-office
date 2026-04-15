@@ -29,6 +29,7 @@ interface OfficeCanvasProps {
   onAssignSeatToTile?: (tileX: number, tileY: number) => void;
   selectionBounds?: TileSelectionBounds | null;
   onSelectionChange?: (selection: TileSelectionBounds | null) => void;
+  onMoveSelection?: (deltaX: number, deltaY: number) => void;
 }
 
 interface AgentSprite {
@@ -55,6 +56,12 @@ interface DragSelection {
   current: HoverTile;
 }
 
+interface DragMoveSelection {
+  anchor: HoverTile;
+  deltaX: number;
+  deltaY: number;
+}
+
 export function OfficeCanvas({
   agents,
   layout,
@@ -66,7 +73,8 @@ export function OfficeCanvas({
   selectedSeatAgentId = null,
   onAssignSeatToTile,
   selectionBounds = null,
-  onSelectionChange
+  onSelectionChange,
+  onMoveSelection
 }: OfficeCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const agentsRef = useRef<Map<string, AgentSprite>>(new Map());
@@ -76,6 +84,7 @@ export function OfficeCanvas({
   const dragPaintRef = useRef(false);
   const lastPaintedTileRef = useRef<string | null>(null);
   const dragSelectionRef = useRef<DragSelection | null>(null);
+  const dragMoveSelectionRef = useRef<DragMoveSelection | null>(null);
   const [tilesetReady, setTilesetReady] = useState(false);
   const [hoverTile, setHoverTile] = useState<HoverTile | null>(null);
   const spawnPoint = useMemo(() => ({ x: TILE_SIZE * 2.5, y: TILE_SIZE * (layout.rows - 2.2) }), [layout.rows]);
@@ -240,6 +249,15 @@ export function OfficeCanvas({
       }
 
       if (paintMode === "select") {
+        if (selectionBounds && isTileWithinSelection(tile, selectionBounds)) {
+          dragMoveSelectionRef.current = {
+            anchor: tile,
+            deltaX: 0,
+            deltaY: 0
+          };
+          return;
+        }
+
         dragSelectionRef.current = {
           start: tile,
           current: tile
@@ -271,6 +289,15 @@ export function OfficeCanvas({
         return;
       }
 
+      if (dragMoveSelectionRef.current) {
+        dragMoveSelectionRef.current = {
+          ...dragMoveSelectionRef.current,
+          deltaX: tile.tileX - dragMoveSelectionRef.current.anchor.tileX,
+          deltaY: tile.tileY - dragMoveSelectionRef.current.anchor.tileY
+        };
+        return;
+      }
+
       if (dragSelectionRef.current) {
         if (paintMode === "select") {
           onSelectionChange?.(normalizeSelectionBounds(dragSelectionRef.current.start, tile));
@@ -290,6 +317,14 @@ export function OfficeCanvas({
     };
 
     const handlePointerUp = () => {
+      if (dragMoveSelectionRef.current) {
+        const { deltaX, deltaY } = dragMoveSelectionRef.current;
+        dragMoveSelectionRef.current = null;
+        if (deltaX !== 0 || deltaY !== 0) {
+          onMoveSelection?.(deltaX, deltaY);
+        }
+      }
+
       if (dragSelectionRef.current) {
         const selection = dragSelectionRef.current;
         dragSelectionRef.current = null;
@@ -306,6 +341,7 @@ export function OfficeCanvas({
 
     const handlePointerLeave = () => {
       dragSelectionRef.current = null;
+      dragMoveSelectionRef.current = null;
       dragPaintRef.current = false;
       lastPaintedTileRef.current = null;
       setHoverTile(null);
@@ -322,7 +358,7 @@ export function OfficeCanvas({
       canvas.removeEventListener("pointerup", handlePointerUp);
       canvas.removeEventListener("pointerleave", handlePointerLeave);
     };
-  }, [editMode, layout.cols, layout.rows, onAssignSeatToTile, onPaintTile, onPaintTiles, onSelectionChange, paintMode, selectedSeatAgentId]);
+  }, [editMode, layout.cols, layout.rows, onAssignSeatToTile, onMoveSelection, onPaintTile, onPaintTiles, onSelectionChange, paintMode, selectedSeatAgentId, selectionBounds]);
 
   useEffect(() => {
     if (editMode) {
@@ -366,7 +402,8 @@ export function OfficeCanvas({
         selectedSeatAgentId,
         hoverTile,
         dragSelectionRef.current,
-        selectionBounds
+        selectionBounds,
+        dragMoveSelectionRef.current
       );
       animationFrameRef.current = window.requestAnimationFrame(tick);
     };
@@ -386,7 +423,10 @@ export function OfficeCanvas({
   return (
     <canvas
       ref={canvasRef}
-      style={{ ...styles.canvas, cursor: editMode ? (selectedSeatAgentId ? "pointer" : "crosshair") : "default" }}
+      style={{
+        ...styles.canvas,
+        cursor: editMode ? (selectedSeatAgentId ? "pointer" : paintMode === "select" ? "grab" : "crosshair") : "default"
+      }}
       aria-label="Pixel Office canvas"
     />
   );
@@ -405,7 +445,8 @@ function drawOffice(
   selectedSeatAgentId: string | null,
   hoverTile: HoverTile | null,
   dragSelection: DragSelection | null,
-  selectionBounds: TileSelectionBounds | null
+  selectionBounds: TileSelectionBounds | null,
+  dragMoveSelection: DragMoveSelection | null
 ) {
   const width = layout.cols * TILE_SIZE;
   const height = layout.rows * TILE_SIZE;
@@ -419,7 +460,7 @@ function drawOffice(
   if (editMode) {
     drawEditorBadge(ctx, selectedTool, paintMode, selectedSeatAgentId);
     drawHoverPreview(ctx, layout, hoverTile, selectedTool, paintMode, selectedSeatAgentId, dragSelection);
-    drawSelectionBounds(ctx, selectionBounds);
+    drawSelectionBounds(ctx, getDraggedSelectionBounds(selectionBounds, dragMoveSelection));
   }
   drawAgents(ctx, agents, sprites, timestampMs, layout);
 }
@@ -774,6 +815,31 @@ function normalizeSelectionBounds(start: HoverTile, end: HoverTile): TileSelecti
     maxX: Math.max(start.tileX, end.tileX),
     maxY: Math.max(start.tileY, end.tileY)
   };
+}
+
+function getDraggedSelectionBounds(
+  selectionBounds: TileSelectionBounds | null,
+  dragMoveSelection: DragMoveSelection | null
+) {
+  if (!selectionBounds || !dragMoveSelection) {
+    return selectionBounds;
+  }
+
+  return {
+    minX: selectionBounds.minX + dragMoveSelection.deltaX,
+    minY: selectionBounds.minY + dragMoveSelection.deltaY,
+    maxX: selectionBounds.maxX + dragMoveSelection.deltaX,
+    maxY: selectionBounds.maxY + dragMoveSelection.deltaY
+  };
+}
+
+function isTileWithinSelection(tile: HoverTile, selectionBounds: TileSelectionBounds) {
+  return (
+    tile.tileX >= selectionBounds.minX &&
+    tile.tileX <= selectionBounds.maxX &&
+    tile.tileY >= selectionBounds.minY &&
+    tile.tileY <= selectionBounds.maxY
+  );
 }
 
 function drawSelectionBounds(ctx: CanvasRenderingContext2D, selectionBounds: TileSelectionBounds | null) {

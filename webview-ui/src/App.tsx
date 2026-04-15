@@ -380,6 +380,7 @@ export default function App() {
           onAssignSeatToTile={handleAssignSeatToTile}
           selectionBounds={selectionBounds}
           onSelectionChange={setSelectionBounds}
+          onMoveSelection={handleMoveSelection}
         />
       </section>
       {editMode ? (
