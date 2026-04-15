@@ -93,10 +93,61 @@ export default function App() {
     coffee: layout.tiles.filter((tile) => tile.type === "coffee").length,
     lounge: layout.tiles.filter((tile) => tile.type === "couch").length
   };
+  const totalSeats = layout.agents.length;
+  const assignedSeatIds = new Set(layout.agents.map((seat) => seat.agentId));
+  const unassignedAgents = knownAgentIds.filter((agentId) => !assignedSeatIds.has(agentId));
   const sortedAgents = [...agents].sort((left, right) => compareAgentPriority(left, right));
   const focusAgents = sortedAgents.filter((agent) => agent.state === "working" || agent.state === "reading").slice(0, 3);
   const blockedAgents = sortedAgents.filter((agent) => agent.state === "waiting").slice(0, 3);
   const quietAgents = sortedAgents.filter((agent) => agent.state === "sleeping" || agent.state === "offline").slice(0, 3);
+  const roomStatusPills = [
+    {
+      label: "Connection",
+      value: connectionState === "open" ? "Live" : connectionState === "connecting" ? "Connecting" : "Offline",
+      tone: connectionState === "open" ? "good" : connectionState === "connecting" ? "warm" : "muted"
+    },
+    {
+      label: "Project Sync",
+      value:
+        projectSaveState === "saved"
+          ? "Saved"
+          : projectSaveState === "saving"
+            ? "Saving"
+            : projectSaveState === "conflict"
+              ? "Conflict"
+              : projectSaveState === "error"
+                ? "Attention"
+                : "Local",
+      tone:
+        projectSaveState === "saved"
+          ? "good"
+          : projectSaveState === "saving" || projectSaveState === "loading"
+            ? "warm"
+            : projectSaveState === "conflict" || projectSaveState === "error"
+              ? "alert"
+              : "muted"
+    },
+    {
+      label: "Seats",
+      value: `${totalSeats}/${knownAgentIds.length || totalSeats} assigned`,
+      tone: unassignedAgents.length === 0 ? "good" : "warm"
+    },
+    {
+      label: "Activity",
+      value:
+        stateCounts.waiting > 0
+          ? `${stateCounts.waiting} blocked`
+          : stateCounts.working + stateCounts.reading > 0
+            ? `${stateCounts.working + stateCounts.reading} focused`
+            : "Calm",
+      tone:
+        stateCounts.waiting > 0
+          ? "alert"
+          : stateCounts.working + stateCounts.reading > 0
+            ? "good"
+            : "muted"
+    }
+  ] as const;
 
   useEffect(() => {
     document.title = "Pixel Office";
@@ -1023,6 +1074,20 @@ export default function App() {
           <span style={styles.badge}>Agents: {agents.length}</span>
         </div>
       </section>
+      <section style={styles.statusStrip}>
+        {roomStatusPills.map((pill) => (
+          <div key={pill.label} style={{ ...styles.statusPill, ...statusToneStyle(pill.tone) }}>
+            <span style={styles.statusPillLabel}>{pill.label}</span>
+            <strong style={styles.statusPillValue}>{pill.value}</strong>
+          </div>
+        ))}
+        {unassignedAgents.length > 0 ? (
+          <div style={{ ...styles.statusPill, ...styles.statusPillWide, ...statusToneStyle("warm") }}>
+            <span style={styles.statusPillLabel}>Unassigned Agents</span>
+            <strong style={styles.statusPillValue}>{unassignedAgents.join(", ")}</strong>
+          </div>
+        ) : null}
+      </section>
       <Toolbar
         editMode={editMode}
         canUndo={layoutHistory.length > 0}
@@ -1203,6 +1268,34 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: "16px",
     background: "rgba(30, 24, 19, 0.9)",
     boxShadow: "0 20px 60px rgba(0, 0, 0, 0.35)"
+  },
+  statusStrip: {
+    display: "flex",
+    gap: "10px",
+    flexWrap: "wrap"
+  },
+  statusPill: {
+    minWidth: "150px",
+    display: "grid",
+    gap: "4px",
+    padding: "12px 14px",
+    borderRadius: "14px",
+    border: "1px solid rgba(255,255,255,0.08)",
+    background: "rgba(255,255,255,0.04)"
+  },
+  statusPillWide: {
+    minWidth: "280px",
+    flex: "1 1 280px"
+  },
+  statusPillLabel: {
+    fontSize: "11px",
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    color: "#b89f83"
+  },
+  statusPillValue: {
+    fontSize: "14px",
+    color: "#f3e7d2"
   },
   summaryGrid: {
     display: "grid",
@@ -1489,5 +1582,31 @@ function humanizeAgentState(state: OfficeAgent["state"]) {
       return "Offline";
     default:
       return state;
+  }
+}
+
+function statusToneStyle(tone: "good" | "warm" | "alert" | "muted"): CSSProperties {
+  switch (tone) {
+    case "good":
+      return {
+        background: "rgba(98, 151, 111, 0.16)",
+        border: "1px solid rgba(143, 208, 167, 0.22)"
+      };
+    case "warm":
+      return {
+        background: "rgba(181, 136, 82, 0.14)",
+        border: "1px solid rgba(240, 181, 106, 0.2)"
+      };
+    case "alert":
+      return {
+        background: "rgba(164, 88, 88, 0.16)",
+        border: "1px solid rgba(241, 139, 125, 0.24)"
+      };
+    case "muted":
+    default:
+      return {
+        background: "rgba(255,255,255,0.04)",
+        border: "1px solid rgba(255,255,255,0.08)"
+      };
   }
 }
