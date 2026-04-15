@@ -1,5 +1,5 @@
 import { useState, type CSSProperties } from "react";
-import type { LayoutSlotRecord } from "../App";
+import type { LayoutSlotDetailsDraft, LayoutSlotRecord } from "../App";
 
 type ProjectSaveState = "loading" | "idle" | "saving" | "saved" | "error" | "conflict";
 
@@ -23,8 +23,7 @@ interface ToolbarProps {
   onRevertProject: () => void;
   onSaveSlot: (slotId: string) => void;
   onLoadSlot: (slotId: string) => void;
-  onRenameSlot: (slotId: string) => void;
-  onEditSlotDetails: (slotId: string) => void;
+  onSaveSlotDetails: (slotId: string, draft: LayoutSlotDetailsDraft) => void;
   onSetActiveSlot: (slotId: string) => void;
   onDeleteSlot: (slotId: string) => void;
 }
@@ -55,13 +54,14 @@ export function Toolbar({
   onRevertProject,
   onSaveSlot,
   onLoadSlot,
-  onRenameSlot,
-  onEditSlotDetails,
+  onSaveSlotDetails,
   onSetActiveSlot,
   onDeleteSlot
 }: ToolbarProps) {
   const [slotQuery, setSlotQuery] = useState("");
   const [selectedTag, setSelectedTag] = useState<string>("all");
+  const [editingSlotId, setEditingSlotId] = useState<string | null>(null);
+  const [editorDraft, setEditorDraft] = useState<LayoutSlotDetailsDraft>({});
   const availableTags = Array.from(
     new Set(
       Object.values(slotRecords)
@@ -81,6 +81,30 @@ export function Toolbar({
     const matchesTag = selectedTag === "all" || (record?.tags ?? []).includes(selectedTag);
     return matchesQuery && matchesTag;
   });
+
+  function openSlotEditor(slotId: string) {
+    const record = slotRecords[slotId];
+    if (!record) {
+      return;
+    }
+
+    setEditingSlotId(slotId);
+    setEditorDraft({
+      name: record.name ?? "",
+      description: record.description ?? "",
+      tags: record.tags ?? []
+    });
+  }
+
+  function closeSlotEditor() {
+    setEditingSlotId(null);
+    setEditorDraft({});
+  }
+
+  function saveSlotEditor(slotId: string) {
+    onSaveSlotDetails(slotId, editorDraft);
+    closeSlotEditor();
+  }
 
   return (
     <div style={styles.stack}>
@@ -194,15 +218,62 @@ export function Toolbar({
             <button type="button" style={styles.button} onClick={() => onSetActiveSlot(slot.id)} disabled={!slotRecords[slot.id]}>
               {projectActiveSlotId === slot.id ? "Active" : "Make Active"}
             </button>
-            <button type="button" style={styles.button} onClick={() => onRenameSlot(slot.id)} disabled={!slotRecords[slot.id]}>
-              Rename
-            </button>
-            <button type="button" style={styles.button} onClick={() => onEditSlotDetails(slot.id)} disabled={!slotRecords[slot.id]}>
-              Details
+            <button type="button" style={styles.button} onClick={() => openSlotEditor(slot.id)} disabled={!slotRecords[slot.id]}>
+              {editingSlotId === slot.id ? "Editing" : "Edit"}
             </button>
             <button type="button" style={styles.button} onClick={() => onDeleteSlot(slot.id)} disabled={!slotRecords[slot.id]}>
               Clear
             </button>
+            {editingSlotId === slot.id ? (
+              <div style={styles.slotEditor}>
+                <label style={styles.editorField}>
+                  <span style={styles.editorLabel}>Room Name</span>
+                  <input
+                    type="text"
+                    value={editorDraft.name ?? ""}
+                    onChange={(event) => setEditorDraft((current) => ({ ...current, name: event.target.value }))}
+                    placeholder={slot.label}
+                    style={styles.editorInput}
+                  />
+                </label>
+                <label style={styles.editorField}>
+                  <span style={styles.editorLabel}>Description</span>
+                  <textarea
+                    value={editorDraft.description ?? ""}
+                    onChange={(event) => setEditorDraft((current) => ({ ...current, description: event.target.value }))}
+                    placeholder="What kind of room is this?"
+                    rows={3}
+                    style={styles.editorTextarea}
+                  />
+                </label>
+                <label style={styles.editorField}>
+                  <span style={styles.editorLabel}>Tags</span>
+                  <input
+                    type="text"
+                    value={(editorDraft.tags ?? []).join(", ")}
+                    onChange={(event) =>
+                      setEditorDraft((current) => ({
+                        ...current,
+                        tags: event.target.value
+                          .split(",")
+                          .map((tag) => tag.trim())
+                          .filter(Boolean)
+                      }))
+                    }
+                    placeholder="focus, sprint, demo"
+                    style={styles.editorInput}
+                  />
+                </label>
+                <div style={styles.editorActions}>
+                  <button type="button" style={styles.button} onClick={() => saveSlotEditor(slot.id)}>
+                    Save Details
+                  </button>
+                  <button type="button" style={styles.button} onClick={closeSlotEditor}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         ))}
         {visibleSlots.length === 0 ? <div style={styles.emptyState}>No saved rooms match that filter yet.</div> : null}
@@ -293,6 +364,15 @@ const styles: Record<string, CSSProperties> = {
     display: "grid",
     gap: "2px"
   },
+  slotEditor: {
+    display: "grid",
+    gap: "10px",
+    minWidth: "260px",
+    padding: "12px",
+    borderRadius: "16px",
+    background: "rgba(14, 12, 10, 0.72)",
+    border: "1px solid rgba(255,255,255,0.08)"
+  },
   slotLabel: {
     fontSize: "12px",
     color: "#d8c3a3",
@@ -343,6 +423,44 @@ const styles: Record<string, CSSProperties> = {
     ...baseButton,
     background: "rgba(255,255,255,0.06)",
     color: "#f0dfc4"
+  },
+  editorField: {
+    display: "grid",
+    gap: "6px"
+  },
+  editorLabel: {
+    fontSize: "11px",
+    letterSpacing: "0.05em",
+    textTransform: "uppercase",
+    color: "#bba487"
+  },
+  editorInput: {
+    width: "100%",
+    padding: "10px 12px",
+    borderRadius: "12px",
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(255,255,255,0.05)",
+    color: "#f0dfc4",
+    fontSize: "13px",
+    outline: "none"
+  },
+  editorTextarea: {
+    width: "100%",
+    resize: "vertical",
+    minHeight: "72px",
+    padding: "10px 12px",
+    borderRadius: "12px",
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(255,255,255,0.05)",
+    color: "#f0dfc4",
+    fontSize: "13px",
+    outline: "none",
+    fontFamily: "inherit"
+  },
+  editorActions: {
+    display: "flex",
+    gap: "8px",
+    flexWrap: "wrap"
   },
   searchInput: {
     minWidth: "260px",

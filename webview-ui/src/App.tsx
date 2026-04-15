@@ -21,6 +21,12 @@ export interface LayoutSlotRecord {
   tags?: string[];
 }
 
+export interface LayoutSlotDetailsDraft {
+  name?: string;
+  description?: string;
+  tags?: string[];
+}
+
 type ProjectSaveState = "loading" | "idle" | "saving" | "saved" | "error" | "conflict";
 
 interface ProjectLayoutEnvelope {
@@ -818,76 +824,17 @@ export default function App() {
     }
   }
 
-  function handleRenameSlot(slotId: string) {
-    const currentName = slotRecords[slotId]?.name ?? "";
-    const nextName = window.prompt("Name this layout slot", currentName)?.trim();
-    if (nextName === undefined) {
-      return;
-    }
-
+  function handleUpdateSlotDetails(slotId: string, updates: LayoutSlotDetailsDraft) {
     const current = slotRecords[slotId];
     if (!current) {
-      return;
-    }
-
-    const nextRecord = {
-      ...current,
-      updatedAt: current.updatedAt,
-      name: nextName || undefined
-    };
-
-    void saveProjectSlot(slotId, nextRecord)
-      .then((slots) => {
-        window.localStorage.setItem(LOCAL_LAYOUT_SLOTS_KEY, JSON.stringify(slots));
-        setSlotRecords(slots);
-        setConflictedSlotIds((currentIds) => currentIds.filter((id) => id !== slotId));
-      })
-      .catch((error) => {
-        if ((error as SlotConflictError).code === "SLOT_CONFLICT") {
-          const conflict = error as SlotConflictError;
-          if (conflict.slots) {
-            setSlotRecords(conflict.slots);
-            window.localStorage.setItem(LOCAL_LAYOUT_SLOTS_KEY, JSON.stringify(conflict.slots));
-          }
-          if (conflict.slotId) {
-            setConflictedSlotIds((currentIds) => Array.from(new Set([...currentIds, conflict.slotId!])));
-          }
-          return;
-        }
-
-        console.error("Failed to rename project layout slot", error);
-
-        try {
-          const slots = loadStoredSlots();
-          slots[slotId] = nextRecord;
-          window.localStorage.setItem(LOCAL_LAYOUT_SLOTS_KEY, JSON.stringify(slots));
-          setSlotRecords(slots);
-        } catch (localError) {
-          console.error("Failed to rename local layout slot", localError);
-        }
-      });
-  }
-
-  function handleEditSlotDetails(slotId: string) {
-    const current = slotRecords[slotId];
-    if (!current) {
-      return;
-    }
-
-    const nextDescription = window.prompt("Add a short room description", current.description ?? "")?.trim();
-    if (nextDescription === undefined) {
-      return;
-    }
-
-    const nextTagsInput = window.prompt("Tags for this room (comma separated)", current.tags?.join(", ") ?? "")?.trim();
-    if (nextTagsInput === undefined) {
       return;
     }
 
     const nextRecord: LayoutSlotRecord = {
       ...current,
-      description: nextDescription || undefined,
-      tags: parseSlotTags(nextTagsInput)
+      name: updates.name?.trim() ? updates.name.trim() : undefined,
+      description: updates.description?.trim() ? updates.description.trim() : undefined,
+      tags: sanitizeSlotTags(updates.tags)
     };
 
     void saveProjectSlot(slotId, nextRecord)
@@ -1029,8 +976,7 @@ export default function App() {
         onRevertProject={handleRevertProjectLayout}
         onSaveSlot={handleSaveSlot}
         onLoadSlot={handleLoadSlot}
-        onRenameSlot={handleRenameSlot}
-        onEditSlotDetails={handleEditSlotDetails}
+        onSaveSlotDetails={handleUpdateSlotDetails}
         onSetActiveSlot={handleSetActiveSlot}
         onDeleteSlot={handleDeleteSlot}
       />
@@ -1263,11 +1209,14 @@ function sanitizeSlotRecords(records: LayoutSlotMap): LayoutSlotMap {
   );
 }
 
-function parseSlotTags(value: string) {
-  const tags = value
-    .split(",")
+function sanitizeSlotTags(tags: string[] | undefined) {
+  if (!tags?.length) {
+    return undefined;
+  }
+
+  const normalized = tags
     .map((tag) => tag.trim())
     .filter(Boolean);
 
-  return tags.length > 0 ? Array.from(new Set(tags)) : undefined;
+  return normalized.length > 0 ? Array.from(new Set(normalized)) : undefined;
 }
