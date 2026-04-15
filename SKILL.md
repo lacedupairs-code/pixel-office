@@ -1,8 +1,9 @@
 ---
 name: pixel-office
 description: >
-  Set up and run the Pixel Office visualizer, a standalone web app that shows
-  OpenClaw agents in a pixel-art office at http://localhost:3456.
+  Set up and run Pixel Office, a standalone OpenClaw dashboard that shows
+  agents in a live pixel-art office with room editing, saved rooms, and
+  project-backed persistence at http://localhost:3456.
 triggers:
   - "start pixel office"
   - "open pixel office"
@@ -18,12 +19,20 @@ triggers:
 Clones `pixel-office` into `~/.openclaw/workspace/pixel-office`, installs dependencies,
 builds the app, and starts the local server at `http://localhost:3456`.
 
+After startup, the browser UI provides:
+
+- a live OpenClaw office view
+- room editing tools
+- saved room slots and active-room support
+- runtime diagnostics if OpenClaw discovery or frontend build readiness need attention
+
 ## Steps
 
 1. Check whether the repo already exists.
 2. Clone it if missing, otherwise pull the latest changes.
 3. Run `npm run install:all`.
 4. If the app is not already listening on port `3456`, start it in the background with `npm start`.
+5. Open `http://localhost:3456` in a browser.
 
 ## Commands
 
@@ -36,4 +45,4 @@ if ! lsof -ti:3456 >/dev/null 2>&1; then
 fi
 ```
 
-Open `http://localhost:3456` in your browser after startup.
+If the app opens with warnings, check the in-app `Runtime Diagnostics` panel first.
