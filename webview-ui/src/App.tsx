@@ -31,6 +31,7 @@ export interface LayoutSlotDetailsDraft {
 interface FeedPreferences {
   filter: OfficeAgent["state"] | "all";
   assignmentFilter: "all" | "seated" | "unassigned";
+  taskFilter: "all" | "with-task" | "without-task";
   searchQuery: string;
   sortMode: "priority" | "name" | "boss-first";
 }
@@ -38,6 +39,7 @@ interface FeedPreferences {
 const DEFAULT_FEED_PREFERENCES: FeedPreferences = {
   filter: "all",
   assignmentFilter: "all",
+  taskFilter: "all",
   searchQuery: "",
   sortMode: "priority"
 };
@@ -133,6 +135,15 @@ export default function App() {
       return false;
     }
 
+    const hasTaskHint = Boolean(agent.taskHint?.trim());
+    const matchesTaskFilter =
+      feedPreferences.taskFilter === "all" ||
+      (feedPreferences.taskFilter === "with-task" && hasTaskHint) ||
+      (feedPreferences.taskFilter === "without-task" && !hasTaskHint);
+    if (!matchesTaskFilter) {
+      return false;
+    }
+
     if (normalizedAgentSearch.length === 0) {
       return true;
     }
@@ -169,6 +180,15 @@ export default function App() {
       key: "unassigned",
       label: "Unassigned",
       count: sortedAgents.filter((agent) => !seatAssignments.has(agent.id)).length
+    }
+  ];
+  const taskFilters: Array<{ key: FeedPreferences["taskFilter"]; label: string; count: number }> = [
+    { key: "all", label: "All Tasks", count: sortedAgents.length },
+    { key: "with-task", label: "With Hint", count: sortedAgents.filter((agent) => Boolean(agent.taskHint?.trim())).length },
+    {
+      key: "without-task",
+      label: "No Hint",
+      count: sortedAgents.filter((agent) => !agent.taskHint?.trim()).length
     }
   ];
   const roomReadiness = buildRoomReadiness({
@@ -1458,6 +1478,26 @@ export default function App() {
             </button>
           ))}
         </div>
+        <div style={styles.feedTaskRow}>
+          {taskFilters.map((filter) => (
+            <button
+              key={filter.key}
+              type="button"
+              style={{
+                ...styles.feedTaskChip,
+                ...(feedPreferences.taskFilter === filter.key ? styles.feedTaskChipActive : null)
+              }}
+              onClick={() =>
+                setFeedPreferences((current) => ({
+                  ...current,
+                  taskFilter: filter.key
+                }))
+              }
+            >
+              {filter.label} {filter.count}
+            </button>
+          ))}
+        </div>
         <div style={styles.feedSummaryRow}>
           <span style={styles.feedSummaryPill}>Visible {visibleFeedSummary.total}</span>
           <span style={styles.feedSummaryPill}>Seated {visibleFeedSummary.seated}</span>
@@ -1870,6 +1910,12 @@ const styles: Record<string, CSSProperties> = {
     flexWrap: "wrap",
     marginBottom: "14px"
   },
+  feedTaskRow: {
+    display: "flex",
+    gap: "8px",
+    flexWrap: "wrap",
+    marginBottom: "14px"
+  },
   feedSummaryRow: {
     display: "flex",
     gap: "8px",
@@ -1903,6 +1949,20 @@ const styles: Record<string, CSSProperties> = {
     background: "rgba(143, 208, 167, 0.16)",
     color: "#ecf8ef",
     border: "1px solid rgba(143, 208, 167, 0.24)"
+  },
+  feedTaskChip: {
+    padding: "7px 10px",
+    borderRadius: "999px",
+    border: "1px solid rgba(255,255,255,0.08)",
+    background: "rgba(255,255,255,0.03)",
+    color: "#d7c4ac",
+    fontSize: "12px",
+    cursor: "pointer"
+  },
+  feedTaskChipActive: {
+    background: "rgba(120, 176, 226, 0.18)",
+    color: "#eef7ff",
+    border: "1px solid rgba(150, 210, 255, 0.24)"
   },
   feedSummaryPill: {
     padding: "6px 10px",
@@ -2011,6 +2071,7 @@ function loadFeedPreferences(): FeedPreferences {
     return {
       filter: isFeedFilter(parsed.filter) ? parsed.filter : "all",
       assignmentFilter: isFeedAssignmentFilter(parsed.assignmentFilter) ? parsed.assignmentFilter : "all",
+      taskFilter: isFeedTaskFilter(parsed.taskFilter) ? parsed.taskFilter : "all",
       searchQuery: typeof parsed.searchQuery === "string" ? parsed.searchQuery : "",
       sortMode: isFeedSortMode(parsed.sortMode) ? parsed.sortMode : "priority"
     };
@@ -2019,6 +2080,7 @@ function loadFeedPreferences(): FeedPreferences {
     return {
       filter: "all",
       assignmentFilter: "all",
+      taskFilter: "all",
       searchQuery: "",
       sortMode: "priority"
     };
@@ -2137,6 +2199,10 @@ function isFeedFilter(value: unknown): value is FeedPreferences["filter"] {
 
 function isFeedAssignmentFilter(value: unknown): value is FeedPreferences["assignmentFilter"] {
   return value === "all" || value === "seated" || value === "unassigned";
+}
+
+function isFeedTaskFilter(value: unknown): value is FeedPreferences["taskFilter"] {
+  return value === "all" || value === "with-task" || value === "without-task";
 }
 
 function isFeedSortMode(value: unknown): value is FeedPreferences["sortMode"] {
