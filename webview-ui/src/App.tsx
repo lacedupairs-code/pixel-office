@@ -10,6 +10,7 @@ import { useOfficeStore } from "./store/officeStore";
 const LOCAL_LAYOUT_KEY = "pixel-office.layout";
 const LOCAL_LAYOUT_SLOTS_KEY = "pixel-office.layout-slots";
 const PROJECT_SAVE_DEBOUNCE_MS = 500;
+const PROJECT_SYNC_POLL_MS = 10000;
 
 export interface LayoutSlotRecord {
   layout: OfficeLayout;
@@ -17,7 +18,12 @@ export interface LayoutSlotRecord {
   name?: string;
 }
 
-type ProjectSaveState = "loading" | "idle" | "saving" | "saved" | "error";
+type ProjectSaveState = "loading" | "idle" | "saving" | "saved" | "error" | "conflict";
+
+interface ProjectLayoutEnvelope {
+  layout: OfficeLayout;
+  updatedAt: string;
+}
 
 export default function App() {
   useAgentSocket();
@@ -39,7 +45,10 @@ export default function App() {
   const [serverLayoutReady, setServerLayoutReady] = useState(false);
   const [projectSaveState, setProjectSaveState] = useState<ProjectSaveState>("loading");
   const [projectSavedAt, setProjectSavedAt] = useState<string | null>(null);
+  const [projectRevision, setProjectRevision] = useState<string | null>(null);
   const skipNextProjectSyncRef = useRef(true);
+  const layoutRef = useRef(layout);
+  const projectRevisionRef = useRef<string | null>(null);
   const knownAgentIds = Array.from(new Set([...layout.agents.map((seat) => seat.agentId), ...agents.map((agent) => agent.id)])).sort();
 
   useEffect(() => {
@@ -49,6 +58,14 @@ export default function App() {
   useEffect(() => {
     window.localStorage.setItem(LOCAL_LAYOUT_KEY, JSON.stringify(layout));
   }, [layout]);
+
+  useEffect(() => {
+    layoutRef.current = layout;
+  }, [layout]);
+
+  useEffect(() => {
+    projectRevisionRef.current = projectRevision;
+  }, [projectRevision]);
 
   function replaceLayout(nextLayout: OfficeLayout, nextActiveSlot: string | null = null) {
     skipNextProjectSyncRef.current = true;
@@ -70,10 +87,14 @@ export default function App() {
       throw new Error(`Failed to fetch layout: ${response.status}`);
     }
 
-    return sanitizeLayout((await response.json()) as OfficeLayout);
+    const payload = (await response.json()) as ProjectLayoutEnvelope;
+    return {
+      layout: sanitizeLayout(payload.layout),
+      updatedAt: payload.updatedAt
+    };
   }
 
-  async function saveProjectLayout(nextLayout: OfficeLayout) {
+  async function saveProjectLayout(nextLayout: OfficeLayout, options?: { force?: boolean }) {
     setProjectSaveState("saving");
 
     const response = await fetch("/api/layout", {
@@ -81,35 +102,54 @@ export default function App() {
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify(nextLayout)
+      body: JSON.stringify({
+        layout: nextLayout,
+        expectedUpdatedAt: projectRevisionRef.current,
+        force: options?.force ?? false
+      })
     });
+
+    if (response.status === 409) {
+      const payload = (await response.json()) as ProjectLayoutEnvelope & { error: string };
+      const error = new Error(payload.error || "Project layout conflict");
+      (error as Error & { code?: string; remote?: ProjectLayoutEnvelope }).code = "PROJECT_CONFLICT";
+      (error as Error & { code?: string; remote?: ProjectLayoutEnvelope }).remote = {
+        layout: sanitizeLayout(payload.layout),
+        updatedAt: payload.updatedAt
+      };
+      throw error;
+    }
 
     if (!response.ok) {
       throw new Error(`Failed to save layout: ${response.status}`);
     }
 
-    const savedAt = new Date().toISOString();
-    setProjectSavedAt(savedAt);
+    const saved = (await response.json()) as ProjectLayoutEnvelope;
+    setProjectRevision(saved.updatedAt);
+    setProjectSavedAt(saved.updatedAt);
     setProjectSaveState("saved");
-    return savedAt;
+    return saved.updatedAt;
   }
 
   useEffect(() => {
     let cancelled = false;
 
     void fetchProjectLayout()
-      .then((nextLayout) => {
+      .then((nextProjectLayout) => {
         if (cancelled) {
           return;
         }
 
-        if (!nextLayout) {
+        if (!nextProjectLayout) {
+          setProjectRevision(null);
+          setProjectSavedAt(null);
           setProjectSaveState("idle");
           return;
         }
 
-        replaceLayout(nextLayout);
-        setProjectSavedAt(new Date().toISOString());
+        replaceLayout(nextProjectLayout.layout);
+        setProjectRevision(nextProjectLayout.updatedAt);
+        setProjectSavedAt(nextProjectLayout.updatedAt);
         setProjectSaveState("saved");
       })
       .catch((error) => {
@@ -132,43 +172,76 @@ export default function App() {
       return;
     }
 
+    if (projectSaveState === "conflict") {
+      return;
+    }
+
     if (skipNextProjectSyncRef.current) {
       skipNextProjectSyncRef.current = false;
       return;
     }
 
-    const controller = new AbortController();
     setProjectSaveState("saving");
     const timer = window.setTimeout(() => {
-      void fetch("/api/layout", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(layout),
-        signal: controller.signal
-      })
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error(`Failed to save layout: ${response.status}`);
-          }
-
-          setProjectSavedAt(new Date().toISOString());
-          setProjectSaveState("saved");
-        })
+      void saveProjectLayout(layout)
         .catch((error) => {
           if ((error as Error).name !== "AbortError") {
-            console.error("Failed to save server layout", error);
-            setProjectSaveState("error");
+            if ((error as Error & { code?: string }).code === "PROJECT_CONFLICT") {
+              setProjectSaveState("conflict");
+              const remote = (error as Error & { remote?: ProjectLayoutEnvelope }).remote;
+              if (remote) {
+                setProjectRevision(remote.updatedAt);
+                setProjectSavedAt(remote.updatedAt);
+              }
+            } else {
+              console.error("Failed to save server layout", error);
+              setProjectSaveState("error");
+            }
           }
         });
     }, PROJECT_SAVE_DEBOUNCE_MS);
 
     return () => {
-      controller.abort();
       window.clearTimeout(timer);
     };
-  }, [layout, serverLayoutReady]);
+  }, [layout, projectSaveState, serverLayoutReady]);
+
+  useEffect(() => {
+    if (!serverLayoutReady) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      void fetchProjectLayout()
+        .then((nextProjectLayout) => {
+          if (!nextProjectLayout || !projectRevisionRef.current) {
+            return;
+          }
+
+          if (nextProjectLayout.updatedAt === projectRevisionRef.current) {
+            return;
+          }
+
+          if (areLayoutsEqual(layoutRef.current, nextProjectLayout.layout)) {
+            setProjectRevision(nextProjectLayout.updatedAt);
+            setProjectSavedAt(nextProjectLayout.updatedAt);
+            setProjectSaveState("saved");
+            return;
+          }
+
+          setProjectRevision(nextProjectLayout.updatedAt);
+          setProjectSavedAt(nextProjectLayout.updatedAt);
+          setProjectSaveState("conflict");
+        })
+        .catch((error) => {
+          console.error("Failed to poll project layout", error);
+        });
+    }, PROJECT_SYNC_POLL_MS);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [serverLayoutReady]);
 
   function handlePaintTile(tileX: number, tileY: number) {
     handlePaintTiles([{ x: tileX, y: tileY }]);
@@ -260,10 +333,19 @@ export default function App() {
 
   async function handleSaveProjectLayout() {
     try {
-      await saveProjectLayout(layout);
+      await saveProjectLayout(layout, { force: projectSaveState === "conflict" });
     } catch (error) {
-      console.error("Failed to save project layout", error);
-      setProjectSaveState("error");
+      if ((error as Error & { code?: string }).code === "PROJECT_CONFLICT") {
+        const remote = (error as Error & { remote?: ProjectLayoutEnvelope }).remote;
+        if (remote) {
+          setProjectRevision(remote.updatedAt);
+          setProjectSavedAt(remote.updatedAt);
+        }
+        setProjectSaveState("conflict");
+      } else {
+        console.error("Failed to save project layout", error);
+        setProjectSaveState("error");
+      }
     }
   }
 
@@ -271,14 +353,17 @@ export default function App() {
     setProjectSaveState("loading");
 
     try {
-      const nextLayout = await fetchProjectLayout();
-      if (!nextLayout) {
+      const nextProjectLayout = await fetchProjectLayout();
+      if (!nextProjectLayout) {
+        setProjectRevision(null);
+        setProjectSavedAt(null);
         setProjectSaveState("idle");
         return;
       }
 
-      replaceLayout(nextLayout);
-      setProjectSavedAt(new Date().toISOString());
+      replaceLayout(nextProjectLayout.layout);
+      setProjectRevision(nextProjectLayout.updatedAt);
+      setProjectSavedAt(nextProjectLayout.updatedAt);
       setProjectSaveState("saved");
     } catch (error) {
       console.error("Failed to reload project layout", error);
@@ -868,4 +953,8 @@ function sanitizeLayout(layout: OfficeLayout): OfficeLayout {
     tiles: tiles.sort((left, right) => left.y - right.y || left.x - right.x),
     agents: Array.from(seatByAgent.values()).sort((left, right) => left.agentId.localeCompare(right.agentId))
   };
+}
+
+function areLayoutsEqual(left: OfficeLayout, right: OfficeLayout) {
+  return JSON.stringify(sanitizeLayout(left)) === JSON.stringify(sanitizeLayout(right));
 }

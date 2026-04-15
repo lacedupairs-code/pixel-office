@@ -4,7 +4,7 @@ import * as path from "node:path";
 import { WebSocket, WebSocketServer } from "ws";
 import { AgentRegistry } from "./agentRegistry";
 import { DEFAULT_PORT } from "./constants";
-import { isPersistedLayout, readLayoutFile, writeLayoutFile } from "./layoutStore";
+import { isLayoutSaveRequest, readLayoutFile, writeLayoutFile } from "./layoutStore";
 import { discoverAgents } from "./openclawConfig";
 import { OpenClawWatcher } from "./watcher";
 
@@ -32,14 +32,31 @@ app.get("/api/layout", async (_request, response) => {
 });
 
 app.put("/api/layout", async (request, response) => {
-  if (!isPersistedLayout(request.body)) {
+  if (!isLayoutSaveRequest(request.body)) {
     response.status(400).json({ error: "Invalid layout payload" });
     return;
   }
 
   try {
-    await writeLayoutFile(request.body);
-    response.json({ ok: true });
+    const existing = await readLayoutFile();
+    const expectedUpdatedAt = request.body.expectedUpdatedAt ?? null;
+    const hasConflict =
+      !request.body.force &&
+      expectedUpdatedAt &&
+      existing &&
+      existing.updatedAt !== expectedUpdatedAt;
+
+    if (hasConflict) {
+      response.status(409).json({
+        error: "Layout has changed on disk",
+        updatedAt: existing.updatedAt,
+        layout: existing.layout
+      });
+      return;
+    }
+
+    const saved = await writeLayoutFile(request.body.layout);
+    response.json(saved);
   } catch (error) {
     console.error("Failed to write layout file", error);
     response.status(500).json({ error: "Unable to save layout" });

@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import type { LayoutSlotRecord } from "../App";
 
-type ProjectSaveState = "loading" | "idle" | "saving" | "saved" | "error";
+type ProjectSaveState = "loading" | "idle" | "saving" | "saved" | "error" | "conflict";
 
 interface ToolbarProps {
   editMode: boolean;
@@ -97,7 +97,7 @@ export function Toolbar({
           onClick={onSaveProject}
           disabled={projectSaveState === "saving" || projectSaveState === "loading"}
         >
-          Save To Project
+          {projectSaveState === "conflict" ? "Keep Local Copy" : "Save To Project"}
         </button>
         <button
           type="button"
@@ -289,6 +289,8 @@ function formatProjectSaveState(state: ProjectSaveState, savedAt: string | null)
       return savedAt ? `Saved ${formatRelativeTime(savedAt)}` : "Saved to project";
     case "error":
       return "Project sync failed";
+    case "conflict":
+      return "Project changed elsewhere";
     case "idle":
     default:
       return "Local draft only";
@@ -304,6 +306,8 @@ function projectStateStyle(state: ProjectSaveState): CSSProperties {
       return { color: "#f0b56a" };
     case "error":
       return { color: "#f18b7d" };
+    case "conflict":
+      return { color: "#f3d36f" };
     case "idle":
     default:
       return { color: "#d8c3a3" };

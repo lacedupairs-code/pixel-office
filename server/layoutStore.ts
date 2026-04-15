@@ -20,15 +20,29 @@ export interface PersistedLayout {
   }>;
 }
 
-export async function readLayoutFile(): Promise<PersistedLayout | null> {
+export interface PersistedLayoutRecord {
+  layout: PersistedLayout;
+  updatedAt: string;
+}
+
+export interface LayoutSaveRequest {
+  layout: PersistedLayout;
+  expectedUpdatedAt?: string | null;
+  force?: boolean;
+}
+
+export async function readLayoutFile(): Promise<PersistedLayoutRecord | null> {
   try {
-    const raw = await fs.readFile(layoutFilePath, "utf8");
+    const [raw, stat] = await Promise.all([fs.readFile(layoutFilePath, "utf8"), fs.stat(layoutFilePath)]);
     const parsed = JSON.parse(raw) as unknown;
     if (!isPersistedLayout(parsed)) {
       return null;
     }
 
-    return parsed;
+    return {
+      layout: parsed,
+      updatedAt: stat.mtime.toISOString()
+    };
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
     if (code === "ENOENT") {
@@ -39,9 +53,14 @@ export async function readLayoutFile(): Promise<PersistedLayout | null> {
   }
 }
 
-export async function writeLayoutFile(layout: PersistedLayout): Promise<void> {
+export async function writeLayoutFile(layout: PersistedLayout): Promise<PersistedLayoutRecord> {
   await fs.mkdir(dataDir, { recursive: true });
   await fs.writeFile(layoutFilePath, `${JSON.stringify(layout, null, 2)}\n`, "utf8");
+  const stat = await fs.stat(layoutFilePath);
+  return {
+    layout,
+    updatedAt: stat.mtime.toISOString()
+  };
 }
 
 export function isPersistedLayout(value: unknown): value is PersistedLayout {
@@ -56,5 +75,20 @@ export function isPersistedLayout(value: unknown): value is PersistedLayout {
     typeof layout.rows === "number" &&
     Array.isArray(layout.tiles) &&
     Array.isArray(layout.agents)
+  );
+}
+
+export function isLayoutSaveRequest(value: unknown): value is LayoutSaveRequest {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const request = value as Partial<LayoutSaveRequest>;
+  return (
+    isPersistedLayout(request.layout) &&
+    (request.expectedUpdatedAt === undefined ||
+      request.expectedUpdatedAt === null ||
+      typeof request.expectedUpdatedAt === "string") &&
+    (request.force === undefined || typeof request.force === "boolean")
   );
 }
