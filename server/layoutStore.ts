@@ -37,6 +37,8 @@ export interface PersistedLayoutSlotRecord {
   savedAt: string;
   updatedAt: string;
   name?: string;
+  description?: string;
+  tags?: string[];
 }
 
 export type PersistedLayoutSlots = Record<string, PersistedLayoutSlotRecord>;
@@ -143,7 +145,9 @@ export function isPersistedLayoutSlotRecord(value: unknown): value is PersistedL
     isPersistedLayout(record.layout) &&
     typeof record.savedAt === "string" &&
     typeof record.updatedAt === "string" &&
-    (record.name === undefined || typeof record.name === "string")
+    (record.name === undefined || typeof record.name === "string") &&
+    (record.description === undefined || typeof record.description === "string") &&
+    (record.tags === undefined || (Array.isArray(record.tags) && record.tags.every((tag) => typeof tag === "string")))
   );
 }
 
@@ -176,7 +180,8 @@ function normalizeLayoutSlots(slots: Record<string, PersistedLayoutSlotRecord | 
       slotId,
       {
         ...record,
-        updatedAt: "updatedAt" in record && typeof record.updatedAt === "string" ? record.updatedAt : record.savedAt
+        updatedAt: "updatedAt" in record && typeof record.updatedAt === "string" ? record.updatedAt : record.savedAt,
+        tags: Array.isArray(record.tags) ? record.tags.filter((tag) => typeof tag === "string") : undefined
       }
     ])
   ) as PersistedLayoutSlots;

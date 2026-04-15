@@ -23,6 +23,7 @@ interface ToolbarProps {
   onSaveSlot: (slotId: string) => void;
   onLoadSlot: (slotId: string) => void;
   onRenameSlot: (slotId: string) => void;
+  onEditSlotDetails: (slotId: string) => void;
   onDeleteSlot: (slotId: string) => void;
 }
 
@@ -52,6 +53,7 @@ export function Toolbar({
   onSaveSlot,
   onLoadSlot,
   onRenameSlot,
+  onEditSlotDetails,
   onDeleteSlot
 }: ToolbarProps) {
   return (
@@ -134,6 +136,10 @@ export function Toolbar({
                 {conflictedSlotIds.includes(slot.id) ? "Conflict" : formatSlotStamp(slotRecords[slot.id]?.savedAt)}
               </span>
               <span style={styles.slotSummary}>{formatSlotSummary(slotRecords[slot.id])}</span>
+              {slotRecords[slot.id]?.description ? <span style={styles.slotDescription}>{slotRecords[slot.id]?.description}</span> : null}
+              {slotRecords[slot.id]?.tags?.length ? (
+                <span style={styles.slotTags}>{slotRecords[slot.id]?.tags?.map((tag) => `#${tag}`).join(" ")}</span>
+              ) : null}
             </div>
             <button type="button" style={styles.button} onClick={() => onSaveSlot(slot.id)}>
               {conflictedSlotIds.includes(slot.id) ? "Keep" : "Save"}
@@ -143,6 +149,9 @@ export function Toolbar({
             </button>
             <button type="button" style={styles.button} onClick={() => onRenameSlot(slot.id)} disabled={!slotRecords[slot.id]}>
               Rename
+            </button>
+            <button type="button" style={styles.button} onClick={() => onEditSlotDetails(slot.id)} disabled={!slotRecords[slot.id]}>
+              Details
             </button>
             <button type="button" style={styles.button} onClick={() => onDeleteSlot(slot.id)} disabled={!slotRecords[slot.id]}>
               Clear
@@ -248,6 +257,22 @@ const styles: Record<string, CSSProperties> = {
     fontSize: "10px",
     color: "#b9a589",
     minWidth: "110px"
+  },
+  slotDescription: {
+    fontSize: "10px",
+    color: "#cfbea1",
+    maxWidth: "180px",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis"
+  },
+  slotTags: {
+    fontSize: "10px",
+    color: "#8fd0a7",
+    maxWidth: "180px",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis"
   },
   slotLabelActive: {
     color: "#f0b56a",

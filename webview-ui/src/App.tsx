@@ -17,6 +17,8 @@ export interface LayoutSlotRecord {
   savedAt: string;
   updatedAt: string;
   name?: string;
+  description?: string;
+  tags?: string[];
 }
 
 type ProjectSaveState = "loading" | "idle" | "saving" | "saved" | "error" | "conflict";
@@ -721,7 +723,9 @@ export default function App() {
       layout,
       savedAt: now,
       updatedAt: slotRecords[slotId]?.updatedAt ?? now,
-      name: slotRecords[slotId]?.name
+      name: slotRecords[slotId]?.name,
+      description: slotRecords[slotId]?.description,
+      tags: slotRecords[slotId]?.tags
     };
 
     void saveProjectSlot(slotId, nextRecord)
@@ -821,6 +825,60 @@ export default function App() {
       });
   }
 
+  function handleEditSlotDetails(slotId: string) {
+    const current = slotRecords[slotId];
+    if (!current) {
+      return;
+    }
+
+    const nextDescription = window.prompt("Add a short room description", current.description ?? "")?.trim();
+    if (nextDescription === undefined) {
+      return;
+    }
+
+    const nextTagsInput = window.prompt("Tags for this room (comma separated)", current.tags?.join(", ") ?? "")?.trim();
+    if (nextTagsInput === undefined) {
+      return;
+    }
+
+    const nextRecord: LayoutSlotRecord = {
+      ...current,
+      description: nextDescription || undefined,
+      tags: parseSlotTags(nextTagsInput)
+    };
+
+    void saveProjectSlot(slotId, nextRecord)
+      .then((slots) => {
+        window.localStorage.setItem(LOCAL_LAYOUT_SLOTS_KEY, JSON.stringify(slots));
+        setSlotRecords(slots);
+        setConflictedSlotIds((currentIds) => currentIds.filter((id) => id !== slotId));
+      })
+      .catch((error) => {
+        if ((error as SlotConflictError).code === "SLOT_CONFLICT") {
+          const conflict = error as SlotConflictError;
+          if (conflict.slots) {
+            setSlotRecords(conflict.slots);
+            window.localStorage.setItem(LOCAL_LAYOUT_SLOTS_KEY, JSON.stringify(conflict.slots));
+          }
+          if (conflict.slotId) {
+            setConflictedSlotIds((currentIds) => Array.from(new Set([...currentIds, conflict.slotId!])));
+          }
+          return;
+        }
+
+        console.error("Failed to update project layout slot details", error);
+
+        try {
+          const slots = loadStoredSlots();
+          slots[slotId] = nextRecord;
+          window.localStorage.setItem(LOCAL_LAYOUT_SLOTS_KEY, JSON.stringify(slots));
+          setSlotRecords(slots);
+        } catch (localError) {
+          console.error("Failed to update local layout slot details", localError);
+        }
+      });
+  }
+
   function handleDeleteSlot(slotId: string) {
     if (!slotRecords[slotId]) {
       return;
@@ -905,6 +963,7 @@ export default function App() {
         onSaveSlot={handleSaveSlot}
         onLoadSlot={handleLoadSlot}
         onRenameSlot={handleRenameSlot}
+        onEditSlotDetails={handleEditSlotDetails}
         onDeleteSlot={handleDeleteSlot}
       />
       <input ref={fileInputRef} type="file" accept="application/json" onChange={handleImportFile} style={styles.fileInput} />
@@ -1128,8 +1187,19 @@ function sanitizeSlotRecords(records: LayoutSlotMap): LayoutSlotMap {
       {
         ...value,
         updatedAt: typeof value.updatedAt === "string" ? value.updatedAt : value.savedAt,
+        description: typeof value.description === "string" ? value.description : undefined,
+        tags: Array.isArray(value.tags) ? value.tags.filter((tag) => typeof tag === "string") : undefined,
         layout: sanitizeLayout(value.layout)
       }
     ])
   );
+}
+
+function parseSlotTags(value: string) {
+  const tags = value
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+
+  return tags.length > 0 ? Array.from(new Set(tags)) : undefined;
 }
