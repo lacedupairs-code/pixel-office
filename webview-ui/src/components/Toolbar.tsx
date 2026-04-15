@@ -74,8 +74,11 @@ export function Toolbar({
         {layoutSlots.map((slot) => (
           <div key={slot.id} style={styles.slotGroup}>
             <div style={styles.slotMeta}>
-              <span style={{ ...styles.slotLabel, ...(activeSlot === slot.id ? styles.slotLabelActive : null) }}>{slot.label}</span>
+              <span style={{ ...styles.slotLabel, ...(activeSlot === slot.id ? styles.slotLabelActive : null) }}>
+                {slot.label}
+              </span>
               <span style={styles.slotStamp}>{formatSlotStamp(slotRecords[slot.id]?.savedAt)}</span>
+              <span style={styles.slotSummary}>{formatSlotSummary(slotRecords[slot.id])}</span>
             </div>
             <button type="button" style={styles.button} onClick={() => onSaveSlot(slot.id)}>
               Save
@@ -132,6 +135,11 @@ const styles: Record<string, CSSProperties> = {
     color: "#9d8b71",
     minWidth: "72px"
   },
+  slotSummary: {
+    fontSize: "10px",
+    color: "#b9a589",
+    minWidth: "110px"
+  },
   slotLabelActive: {
     color: "#f0b56a",
     fontWeight: 700
@@ -169,4 +177,13 @@ function formatSlotStamp(value: string | undefined) {
     hour: "numeric",
     minute: "2-digit"
   });
+}
+
+function formatSlotSummary(record: LayoutSlotRecord | undefined) {
+  if (!record) {
+    return "No saved layout";
+  }
+
+  const { layout } = record;
+  return `${layout.cols}x${layout.rows}, ${layout.tiles.length} tiles, ${layout.agents.length} seats`;
 }
