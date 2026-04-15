@@ -1188,17 +1188,45 @@ export default function App() {
   return (
     <main style={styles.page}>
       <section style={styles.hero}>
-        <div style={styles.copyBlock}>
-          <p style={styles.kicker}>OpenClaw Live View</p>
-          <h1 style={styles.title}>Pixel Office</h1>
-          <p style={styles.copy}>
-            The office now supports a first editor foundation, generated sprite-sheet rendering, and richer idle scene
-            behavior like coffee breaks.
-          </p>
+        <div style={styles.heroIntro}>
+          <div style={styles.copyBlock}>
+            <p style={styles.kicker}>OpenClaw Live View</p>
+            <h1 style={styles.title}>Pixel Office</h1>
+            <p style={styles.copy}>
+              A living operations room for OpenClaw agents, with shared spaces, room editing, and a live office layer
+              that makes work, blockers, and downtime visible at a glance.
+            </p>
+          </div>
+          <div style={styles.badgeRow}>
+            <span style={styles.badge}>Socket: {connectionState}</span>
+            <span style={styles.badge}>Agents: {agents.length}</span>
+            <span style={styles.badge}>Mood: {officeNarrative.mood}</span>
+          </div>
         </div>
-        <div style={styles.badgeRow}>
-          <span style={styles.badge}>Socket: {connectionState}</span>
-          <span style={styles.badge}>Agents: {agents.length}</span>
+        <div style={styles.heroSignalCard}>
+          <span style={styles.heroSignalLabel}>Current Room</span>
+          <strong style={styles.heroSignalValue}>{currentRoomLabel}</strong>
+          <div style={styles.heroSignalMeter}>
+            <div style={{ ...styles.heroSignalFill, width: `${Math.max(18, Math.min(100, ((stateCounts.working + stateCounts.reading) / Math.max(1, agents.length)) * 100))}%` }} />
+          </div>
+          <div style={styles.heroSignalGrid}>
+            <div style={styles.heroSignalStat}>
+              <span style={styles.heroSignalStatLabel}>Focused</span>
+              <strong style={styles.heroSignalStatValue}>{stateCounts.working + stateCounts.reading}</strong>
+            </div>
+            <div style={styles.heroSignalStat}>
+              <span style={styles.heroSignalStatLabel}>Waiting</span>
+              <strong style={styles.heroSignalStatValue}>{stateCounts.waiting}</strong>
+            </div>
+            <div style={styles.heroSignalStat}>
+              <span style={styles.heroSignalStatLabel}>Seats</span>
+              <strong style={styles.heroSignalStatValue}>{totalSeats}</strong>
+            </div>
+            <div style={styles.heroSignalStat}>
+              <span style={styles.heroSignalStatLabel}>Landmarks</span>
+              <strong style={styles.heroSignalStatValue}>{hotspotSummary.coffee + hotspotSummary.lounge}</strong>
+            </div>
+          </div>
         </div>
       </section>
       <section style={styles.statusStrip}>
@@ -1537,37 +1565,152 @@ const styles: Record<string, CSSProperties> = {
   page: {
     minHeight: "100vh",
     margin: 0,
-    padding: "24px",
+    padding: "28px",
     background:
-      "radial-gradient(circle at top, rgba(255, 214, 153, 0.22), transparent 45%), linear-gradient(180deg, #241f1a 0%, #12100f 100%)",
+      "radial-gradient(circle at top left, rgba(255, 207, 136, 0.2), transparent 32%), radial-gradient(circle at top right, rgba(132, 181, 164, 0.14), transparent 28%), linear-gradient(180deg, #241d17 0%, #14110f 52%, #0d0b0a 100%)",
     color: "#f3e7d2",
-    fontFamily: '"Segoe UI", sans-serif',
+    fontFamily: '"Aptos", "Trebuchet MS", "Segoe UI", sans-serif',
     display: "grid",
     gap: "18px"
   },
   hero: {
     display: "flex",
     justifyContent: "space-between",
-    alignItems: "end",
-    gap: "16px",
-    flexWrap: "wrap"
+    alignItems: "stretch",
+    gap: "20px",
+    flexWrap: "wrap",
+    padding: "24px",
+    borderRadius: "28px",
+    border: "1px solid rgba(255, 236, 206, 0.14)",
+    background:
+      "linear-gradient(135deg, rgba(54, 41, 31, 0.94) 0%, rgba(34, 27, 22, 0.9) 54%, rgba(22, 18, 15, 0.9) 100%)",
+    boxShadow: "0 28px 90px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255,255,255,0.04)",
+    position: "relative",
+    overflow: "hidden"
+  },
+  heroIntro: {
+    flex: "1 1 520px",
+    display: "grid",
+    gap: "18px",
+    alignContent: "space-between",
+    minWidth: "280px"
   },
   copyBlock: {
-    maxWidth: "680px"
+    maxWidth: "700px",
+    display: "grid",
+    gap: "10px"
   },
   kicker: {
-    margin: "0 0 6px",
+    margin: 0,
     textTransform: "uppercase",
-    letterSpacing: "0.12em",
+    letterSpacing: "0.16em",
     fontSize: "11px",
-    color: "#d7b98d"
+    color: "#d9bd95"
   },
   panel: {
     padding: "20px",
     border: "1px solid rgba(255, 231, 198, 0.15)",
-    borderRadius: "16px",
-    background: "rgba(30, 24, 19, 0.9)",
-    boxShadow: "0 20px 60px rgba(0, 0, 0, 0.35)"
+    borderRadius: "18px",
+    background: "linear-gradient(180deg, rgba(33, 26, 21, 0.94) 0%, rgba(24, 19, 16, 0.92) 100%)",
+    boxShadow: "0 20px 60px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255,255,255,0.03)",
+    backdropFilter: "blur(10px)"
+  },
+  title: {
+    margin: 0,
+    fontSize: "clamp(38px, 7vw, 64px)",
+    lineHeight: 0.94,
+    letterSpacing: "-0.04em",
+    color: "#fff2df",
+    fontFamily: '"Georgia", "Times New Roman", serif',
+    textShadow: "0 12px 30px rgba(0, 0, 0, 0.32)"
+  },
+  copy: {
+    margin: 0,
+    maxWidth: "680px",
+    lineHeight: 1.65,
+    fontSize: "15px",
+    color: "#dbc8ab"
+  },
+  badgeRow: {
+    display: "flex",
+    gap: "10px",
+    flexWrap: "wrap"
+  },
+  badge: {
+    display: "inline-flex",
+    alignItems: "center",
+    minHeight: "34px",
+    padding: "8px 12px",
+    borderRadius: "999px",
+    border: "1px solid rgba(255, 240, 220, 0.14)",
+    background: "rgba(255, 248, 240, 0.06)",
+    color: "#f5e2c3",
+    fontSize: "12px",
+    letterSpacing: "0.02em",
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)"
+  },
+  heroSignalCard: {
+    flex: "0 1 320px",
+    minWidth: "260px",
+    display: "grid",
+    gap: "14px",
+    alignContent: "start",
+    padding: "18px 18px 16px",
+    borderRadius: "22px",
+    border: "1px solid rgba(255, 232, 204, 0.14)",
+    background:
+      "linear-gradient(180deg, rgba(255, 246, 230, 0.08) 0%, rgba(122, 164, 147, 0.08) 100%), rgba(19, 16, 14, 0.58)",
+    boxShadow: "0 20px 50px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.05)",
+    backdropFilter: "blur(12px)"
+  },
+  heroSignalLabel: {
+    fontSize: "11px",
+    letterSpacing: "0.14em",
+    textTransform: "uppercase",
+    color: "#bfa280"
+  },
+  heroSignalValue: {
+    fontSize: "24px",
+    lineHeight: 1.1,
+    color: "#fff2df",
+    letterSpacing: "-0.03em"
+  },
+  heroSignalMeter: {
+    height: "12px",
+    borderRadius: "999px",
+    overflow: "hidden",
+    border: "1px solid rgba(255,255,255,0.08)",
+    background: "rgba(255,255,255,0.06)",
+    boxShadow: "inset 0 1px 6px rgba(0,0,0,0.28)"
+  },
+  heroSignalFill: {
+    height: "100%",
+    borderRadius: "999px",
+    background: "linear-gradient(90deg, #e2b16c 0%, #8fc8a6 100%)",
+    boxShadow: "0 0 18px rgba(143, 200, 166, 0.35)"
+  },
+  heroSignalGrid: {
+    display: "grid",
+    gap: "10px",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))"
+  },
+  heroSignalStat: {
+    display: "grid",
+    gap: "4px",
+    padding: "12px 12px 10px",
+    borderRadius: "14px",
+    border: "1px solid rgba(255,255,255,0.08)",
+    background: "rgba(255,255,255,0.04)"
+  },
+  heroSignalStatLabel: {
+    fontSize: "11px",
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    color: "#bda27e"
+  },
+  heroSignalStatValue: {
+    fontSize: "18px",
+    color: "#f5ead8"
   },
   statusStrip: {
     display: "flex",
@@ -1834,30 +1977,9 @@ const styles: Record<string, CSSProperties> = {
   fileInput: {
     display: "none"
   },
-  title: {
-    margin: "0 0 12px",
-    fontSize: "36px"
-  },
   sectionTitle: {
     margin: "0 0 14px",
     fontSize: "18px"
-  },
-  copy: {
-    margin: "0 0 8px",
-    lineHeight: 1.5
-  },
-  badgeRow: {
-    display: "flex",
-    gap: "10px",
-    flexWrap: "wrap"
-  },
-  badge: {
-    padding: "8px 12px",
-    borderRadius: "999px",
-    background: "rgba(255,255,255,0.07)",
-    border: "1px solid rgba(255,255,255,0.08)",
-    color: "#e7d2ae",
-    fontSize: "13px"
   },
   feedSearchRow: {
     display: "flex",
