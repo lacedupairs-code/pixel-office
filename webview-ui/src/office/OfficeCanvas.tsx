@@ -1868,9 +1868,10 @@ const styles = {
   canvas: {
     display: "block",
     maxWidth: "100%",
-    borderRadius: "18px",
-    border: "1px solid rgba(255, 231, 198, 0.14)",
+    borderRadius: "24px",
+    border: "1px solid rgba(255, 233, 202, 0.24)",
     background: "#171311",
-    boxShadow: "0 24px 60px rgba(0, 0, 0, 0.35)"
+    boxShadow:
+      "inset 0 1px 0 rgba(255,255,255,0.08), 0 0 0 10px rgba(37, 29, 24, 0.72), 0 28px 70px rgba(0, 0, 0, 0.42)"
   }
 };

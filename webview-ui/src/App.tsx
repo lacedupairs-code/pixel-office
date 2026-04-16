@@ -2109,7 +2109,15 @@ const styles: Record<string, CSSProperties> = {
     lineHeight: 1.5
   },
   stage: {
-    overflowX: "auto"
+    overflowX: "auto",
+    padding: "18px",
+    borderRadius: "28px",
+    border: "1px solid rgba(255, 225, 179, 0.1)",
+    background:
+      "radial-gradient(circle at top left, rgba(255, 195, 120, 0.12), transparent 30%), linear-gradient(180deg, rgba(33, 25, 22, 0.96), rgba(24, 19, 18, 0.94))",
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04), 0 24px 60px rgba(0, 0, 0, 0.28)",
+    display: "flex",
+    justifyContent: "center"
   },
   fileInput: {
     display: "none"
