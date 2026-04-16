@@ -517,12 +517,30 @@ function drawAtmosphere(
   layout: OfficeLayout,
   timestampMs: number
 ) {
-  const pulse = 0.08 + ((Math.sin(timestampMs / 2800) + 1) / 2) * 0.03;
-  const floorGlow = ctx.createLinearGradient(0, 0, 0, height);
-  floorGlow.addColorStop(0, "rgba(255, 226, 184, 0.08)");
-  floorGlow.addColorStop(0.45, "rgba(255, 226, 184, 0)");
-  floorGlow.addColorStop(1, "rgba(12, 10, 9, 0.24)");
-  ctx.fillStyle = floorGlow;
+  const pulse = 0.05 + ((Math.sin(timestampMs / 2800) + 1) / 2) * 0.02;
+  ctx.fillStyle = "#2f2622";
+  ctx.fillRect(0, 0, width, height);
+
+  const insetLeft = TILE_SIZE;
+  const insetTop = TILE_SIZE;
+  const insetWidth = width - TILE_SIZE * 2;
+  const insetHeight = height - TILE_SIZE * 2;
+
+  ctx.fillStyle = "#a36f38";
+  ctx.fillRect(insetLeft, insetTop, insetWidth, insetHeight);
+
+  const topRoomWidth = Math.floor(width * 0.36);
+  ctx.fillStyle = "#ece2d8";
+  ctx.fillRect(width - topRoomWidth - TILE_SIZE, TILE_SIZE, topRoomWidth, TILE_SIZE * 4);
+  ctx.fillStyle = "#5d89b0";
+  ctx.fillRect(width - topRoomWidth - TILE_SIZE, TILE_SIZE * 5, topRoomWidth, TILE_SIZE * 6);
+
+  const sideWall = ctx.createLinearGradient(0, 0, width, 0);
+  sideWall.addColorStop(0, "rgba(10, 14, 20, 0.78)");
+  sideWall.addColorStop(0.06, "rgba(10, 14, 20, 0)");
+  sideWall.addColorStop(0.94, "rgba(10, 14, 20, 0)");
+  sideWall.addColorStop(1, "rgba(10, 14, 20, 0.78)");
+  ctx.fillStyle = sideWall;
   ctx.fillRect(0, 0, width, height);
 
   const deskTiles = layout.tiles.filter((tile) => tile.type === "desk");
@@ -530,7 +548,7 @@ function drawAtmosphere(
     const centerX = tile.x * TILE_SIZE + TILE_SIZE / 2;
     const centerY = tile.y * TILE_SIZE + TILE_SIZE / 2 - 4;
     const glow = ctx.createRadialGradient(centerX, centerY, 2, centerX, centerY, TILE_SIZE * 1.2);
-    glow.addColorStop(0, `rgba(120, 184, 220, ${(pulse * 1.6).toFixed(3)})`);
+    glow.addColorStop(0, `rgba(120, 184, 220, ${(pulse * 1.4).toFixed(3)})`);
     glow.addColorStop(1, "rgba(120, 184, 220, 0)");
     ctx.fillStyle = glow;
     ctx.fillRect(centerX - TILE_SIZE * 1.2, centerY - TILE_SIZE * 1.2, TILE_SIZE * 2.4, TILE_SIZE * 2.4);
@@ -547,7 +565,7 @@ function drawAtmosphere(
   }
 
   const vignette = ctx.createLinearGradient(0, 0, width, height);
-  vignette.addColorStop(0, "rgba(0,0,0,0.18)");
+  vignette.addColorStop(0, "rgba(0,0,0,0.16)");
   vignette.addColorStop(0.22, "rgba(0,0,0,0)");
   vignette.addColorStop(0.78, "rgba(0,0,0,0)");
   vignette.addColorStop(1, "rgba(0,0,0,0.2)");
@@ -618,19 +636,64 @@ function drawPrimitiveTile(
 }
 
 function drawFallbackDecor(ctx: CanvasRenderingContext2D, layout: OfficeLayout) {
-  ctx.strokeStyle = "rgba(255, 235, 205, 0.08)";
-  ctx.lineWidth = 1;
+  drawBookshelf(ctx, TILE_SIZE * 2, TILE_SIZE * 1.2);
+  drawBookshelf(ctx, TILE_SIZE * 5.8, TILE_SIZE * 1.2);
+  drawBookshelf(ctx, TILE_SIZE * 9.6, TILE_SIZE * 1.2);
+  drawBookshelf(ctx, TILE_SIZE * 13.4, TILE_SIZE * 1.2);
+  drawPlant(ctx, TILE_SIZE * 1.8, TILE_SIZE * 13.2);
+  drawPlant(ctx, TILE_SIZE * 15.3, TILE_SIZE * 13.2);
+  drawPlant(ctx, TILE_SIZE * 16.5, TILE_SIZE * 8.8);
+  drawWaterCooler(ctx, TILE_SIZE * 16.2, TILE_SIZE * 1.8);
+  drawFrameArt(ctx, TILE_SIZE * 12.8, TILE_SIZE * 7.3);
+}
 
-  for (const tile of layout.tiles) {
-    if (tile.type !== "floor") {
-      continue;
-    }
-
-    ctx.strokeRect(tile.x * TILE_SIZE + 6, tile.y * TILE_SIZE + 6, TILE_SIZE - 12, TILE_SIZE - 12);
+function drawBookshelf(ctx: CanvasRenderingContext2D, x: number, y: number) {
+  ctx.fillStyle = "#5d3512";
+  ctx.fillRect(x, y, TILE_SIZE * 1.8, TILE_SIZE * 0.95);
+  ctx.fillStyle = "#8e5928";
+  ctx.fillRect(x + 2, y + 2, TILE_SIZE * 1.8 - 4, TILE_SIZE * 0.95 - 4);
+  ctx.fillStyle = "#4b2910";
+  ctx.fillRect(x + 2, y + 10, TILE_SIZE * 1.8 - 4, 2);
+  ctx.fillRect(x + 2, y + 20, TILE_SIZE * 1.8 - 4, 2);
+  const bookColors = ["#6a2f2f", "#4d6d9a", "#d2c38a", "#3f7f5c"];
+  for (let index = 0; index < 6; index += 1) {
+    ctx.fillStyle = bookColors[index % bookColors.length] ?? "#d2c38a";
+    ctx.fillRect(x + 5 + index * 7, y + 6 + (index % 2), 5, 8);
   }
+}
 
-  ctx.fillStyle = "rgba(255, 241, 219, 0.03)";
-  ctx.fillRect(TILE_SIZE, TILE_SIZE, Math.max(0, (layout.cols - 2) * TILE_SIZE), 8);
+function drawPlant(ctx: CanvasRenderingContext2D, x: number, y: number) {
+  ctx.fillStyle = "#d2d6dd";
+  ctx.fillRect(x + 4, y + 14, 10, 8);
+  ctx.fillStyle = "#4d8a51";
+  ctx.fillRect(x + 8, y + 4, 2, 12);
+  ctx.fillRect(x + 4, y + 7, 2, 8);
+  ctx.fillRect(x + 12, y + 7, 2, 8);
+  ctx.fillRect(x + 6, y + 2, 2, 7);
+  ctx.fillRect(x + 10, y + 2, 2, 7);
+}
+
+function drawWaterCooler(ctx: CanvasRenderingContext2D, x: number, y: number) {
+  ctx.fillStyle = "#dee6ee";
+  ctx.fillRect(x + 5, y + 2, 10, 18);
+  ctx.fillStyle = "#9bc3d9";
+  ctx.fillRect(x + 7, y + 4, 6, 6);
+  ctx.fillStyle = "#6e7b88";
+  ctx.fillRect(x + 4, y + 20, 12, 4);
+}
+
+function drawFrameArt(ctx: CanvasRenderingContext2D, x: number, y: number) {
+  ctx.fillStyle = "#6b3b1b";
+  ctx.fillRect(x, y, 30, 18);
+  ctx.fillStyle = "#d9c7a8";
+  ctx.fillRect(x + 2, y + 2, 26, 14);
+  ctx.fillStyle = "#84b0d1";
+  ctx.fillRect(x + 4, y + 4, 22, 10);
+  ctx.fillStyle = "#5f9a65";
+  ctx.fillRect(x + 7, y + 9, 6, 3);
+  ctx.fillRect(x + 15, y + 7, 7, 5);
+  ctx.fillStyle = "#f4e7ae";
+  ctx.fillRect(x + 18, y + 5, 3, 3);
 }
 
 function drawAmbientInteractions(
