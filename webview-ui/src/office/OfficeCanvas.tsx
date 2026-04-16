@@ -87,6 +87,7 @@ export function OfficeCanvas({
   onMoveSelection,
   onDuplicateSelection
 }: OfficeCanvasProps) {
+  const authoredSceneBackground = !editMode ? "url('/assets/cute-sckr/scene-bg.png')" : undefined;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const agentsRef = useRef<Map<string, AgentSprite>>(new Map());
   const animationFrameRef = useRef<number | null>(null);
@@ -473,6 +474,10 @@ export function OfficeCanvas({
       ref={canvasRef}
       style={{
         ...styles.canvas,
+        backgroundColor: !editMode ? "#1b1a20" : styles.canvas.backgroundColor,
+        backgroundImage: authoredSceneBackground,
+        backgroundSize: "100% 100%",
+        backgroundRepeat: "no-repeat",
         cursor:
           editMode
             ? selectedSeatAgentId
@@ -510,10 +515,14 @@ function drawOffice(
   const height = layout.rows * TILE_SIZE;
 
   ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = FLOOR_COLOR;
-  ctx.fillRect(0, 0, width, height);
+  const useAuthoredScene = Boolean(cuteSckr?.sceneBg) && !editMode;
 
-  if (cuteSckr && !editMode) {
+  if (!useAuthoredScene) {
+    ctx.fillStyle = FLOOR_COLOR;
+    ctx.fillRect(0, 0, width, height);
+  }
+
+  if (useAuthoredScene && cuteSckr) {
     drawCuteSckrScene(ctx, layout, cuteSckr, timestampMs);
   } else {
     drawAtmosphere(ctx, width, height, layout, timestampMs);
