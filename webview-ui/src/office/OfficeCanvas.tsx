@@ -65,6 +65,7 @@ interface DragMoveSelection {
 }
 
 interface CuteSckrSheets {
+  sceneBg: HTMLImageElement | null;
   one: HTMLImageElement;
   two: HTMLImageElement;
   three: HTMLImageElement;
@@ -123,17 +124,18 @@ export function OfficeCanvas({
     let cancelled = false;
 
     Promise.all([
+      loadOptionalSceneImage("/assets/cute-sckr/scene-bg.png"),
       loadSceneImage("/assets/cute-sckr/1.png"),
       loadSceneImage("/assets/cute-sckr/2.png"),
       loadSceneImage("/assets/cute-sckr/3.png"),
       loadSceneImage("/assets/cute-sckr/4.png")
     ])
-      .then(([one, two, three, four]) => {
+      .then(([sceneBg, one, two, three, four]) => {
         if (cancelled) {
           return;
         }
 
-        cuteSckrRef.current = { one, two, three, four };
+        cuteSckrRef.current = { sceneBg, one, two, three, four };
         setCuteSckrReady(true);
       })
       .catch(() => {
@@ -538,12 +540,30 @@ function loadSceneImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
+function loadOptionalSceneImage(src: string): Promise<HTMLImageElement | null> {
+  return loadSceneImage(src).catch(() => null);
+}
+
 function drawCuteSckrScene(
   ctx: CanvasRenderingContext2D,
   layout: OfficeLayout,
   sheets: CuteSckrSheets,
   timestampMs: number
 ) {
+  if (sheets.sceneBg) {
+    ctx.drawImage(sheets.sceneBg, 0, 0, layout.cols * TILE_SIZE, layout.rows * TILE_SIZE);
+
+    const glowAlpha = 0.03 + ((Math.sin(timestampMs / 2500) + 1) / 2) * 0.03;
+    const vignette = ctx.createLinearGradient(0, 0, layout.cols * TILE_SIZE, layout.rows * TILE_SIZE);
+    vignette.addColorStop(0, `rgba(8, 8, 10, ${(glowAlpha + 0.11).toFixed(3)})`);
+    vignette.addColorStop(0.3, "rgba(8, 8, 10, 0)");
+    vignette.addColorStop(0.7, "rgba(8, 8, 10, 0)");
+    vignette.addColorStop(1, `rgba(8, 8, 10, ${(glowAlpha + 0.15).toFixed(3)})`);
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, layout.cols * TILE_SIZE, layout.rows * TILE_SIZE);
+    return;
+  }
+
   const tileMap = buildResolvedTileMap(layout);
   const width = layout.cols * TILE_SIZE;
   const height = layout.rows * TILE_SIZE;
