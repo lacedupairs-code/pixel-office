@@ -128,6 +128,7 @@ function drawAgentStateAccent(
   moving: boolean
 ) {
   const x = sprite.x;
+  drawCharacterSilhouette(ctx, agent, x, y, direction);
   switch (agent.state) {
     case "reading":
       drawBookProp(ctx, x, y + 1, direction, timestampMs);
@@ -148,6 +149,35 @@ function drawAgentStateAccent(
       return;
     default:
       return;
+  }
+}
+
+function drawCharacterSilhouette(
+  ctx: CanvasRenderingContext2D,
+  agent: OfficeAgent,
+  x: number,
+  y: number,
+  direction: Facing
+) {
+  const variant = getCharacterVariant(agent.id, agent.isDefault);
+
+  if (variant === 1) {
+    ctx.fillStyle = "rgba(0, 0, 0, 0.12)";
+    ctx.fillRect(x - 8, y - 7, 2, 8);
+    ctx.fillRect(x + 6, y - 7, 2, 8);
+  } else if (variant === 2) {
+    ctx.fillStyle = "rgba(255, 246, 219, 0.85)";
+    ctx.fillRect(x - 5, y + 2, 10, 2);
+  } else if (variant === 3) {
+    ctx.fillStyle = "rgba(58, 46, 34, 0.5)";
+    if (direction === "left") {
+      ctx.fillRect(x - 10, y - 3, 4, 8);
+    } else if (direction === "right") {
+      ctx.fillRect(x + 6, y - 3, 4, 8);
+    } else {
+      ctx.fillRect(x - 9, y - 1, 3, 6);
+      ctx.fillRect(x + 6, y - 1, 3, 6);
+    }
   }
 }
 
@@ -275,4 +305,12 @@ function hexToRgb(value: string) {
     g: Number.parseInt(normalized.slice(2, 4), 16),
     b: Number.parseInt(normalized.slice(4, 6), 16)
   };
+}
+
+function getCharacterVariant(agentId: string, isBoss: boolean) {
+  if (isBoss) {
+    return 3;
+  }
+
+  return Array.from(agentId).reduce((value, char) => value + char.charCodeAt(0), 0) % 4;
 }
