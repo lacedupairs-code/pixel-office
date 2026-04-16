@@ -174,35 +174,45 @@ function drawTemplateFrame(
 
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(offsetX + 4, offsetY + 1, 8, 7);
+  ctx.fillRect(offsetX + 5, offsetY + 8, 6, 1);
   ctx.fillStyle = "#ff8800";
   ctx.fillRect(offsetX + 3, offsetY, 10, 3);
   ctx.fillRect(offsetX + 3, offsetY + 2, 2, 4);
   ctx.fillRect(offsetX + 11, offsetY + 2, 2, 4);
+  ctx.fillRect(offsetX + 4, offsetY + 1, 1, 5);
+  ctx.fillRect(offsetX + 11, offsetY + 1, 1, 5);
   ctx.fillStyle = "#6b3b12";
   ctx.fillRect(offsetX + 4, offsetY + 2, 8, 1);
+  ctx.fillRect(offsetX + 5, offsetY + 5, 6, 1);
   ctx.fillStyle = "#e4c09f";
   ctx.fillRect(offsetX + 4, offsetY + 6, 8, 2);
   ctx.fillStyle = "#ff00ff";
-  ctx.fillRect(offsetX + 5, offsetY + 8, 6, 5);
+  ctx.fillRect(offsetX + 4, offsetY + 8, 8, 6);
+  ctx.fillRect(offsetX + 3, offsetY + 10, 2, 3);
+  ctx.fillRect(offsetX + 11, offsetY + 10, 2, 3);
   ctx.fillStyle = "#b544a7";
-  ctx.fillRect(offsetX + 5, offsetY + 12, 6, 2);
+  ctx.fillRect(offsetX + 4, offsetY + 12, 8, 2);
+  ctx.fillRect(offsetX + 5, offsetY + 14, 6, 1);
   ctx.fillStyle = "#ffd84f";
   ctx.fillRect(offsetX + 6, offsetY + 9, 4, 1);
+  ctx.fillRect(offsetX + 6, offsetY + 11, 4, 1);
   ctx.fillStyle = "#00ffff";
-  ctx.fillRect(offsetX + 5, offsetY + 14, 2, 3);
-  ctx.fillRect(offsetX + 9, offsetY + 14 + Math.abs(swing), 2, 3);
+  ctx.fillRect(offsetX + 4, offsetY + 14, 3, 4);
+  ctx.fillRect(offsetX + 9, offsetY + 14 + Math.abs(swing), 3, 4);
   ctx.fillStyle = "#5f7cff";
-  ctx.fillRect(offsetX + 5, offsetY + 17, 2, 1);
-  ctx.fillRect(offsetX + 9, offsetY + 17 + Math.abs(swing), 2, 1);
+  ctx.fillRect(offsetX + 4, offsetY + 18, 3, 1);
+  ctx.fillRect(offsetX + 9, offsetY + 18 + Math.abs(swing), 3, 1);
 
   ctx.fillStyle = "#00ff00";
   if (direction === "left") {
-    ctx.fillRect(offsetX + 3, offsetY + 8 + swing, 2, 5);
+    ctx.fillRect(offsetX + 2, offsetY + 8 + swing, 2, 6);
+    ctx.fillRect(offsetX + 12, offsetY + 9, 1, 4);
   } else if (direction === "right") {
-    ctx.fillRect(offsetX + 11, offsetY + 8 - swing, 2, 5);
+    ctx.fillRect(offsetX + 12, offsetY + 8 - swing, 2, 6);
+    ctx.fillRect(offsetX + 3, offsetY + 9, 1, 4);
   } else {
-    ctx.fillRect(offsetX + 3, offsetY + 8 + swing, 2, 5);
-    ctx.fillRect(offsetX + 11, offsetY + 8 - swing, 2, 5);
+    ctx.fillRect(offsetX + 2, offsetY + 8 + swing, 2, 6);
+    ctx.fillRect(offsetX + 12, offsetY + 8 - swing, 2, 6);
   }
 
   ctx.fillStyle = "#111111";

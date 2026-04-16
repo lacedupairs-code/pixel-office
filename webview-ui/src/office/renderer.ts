@@ -159,26 +159,101 @@ function drawCharacterSilhouette(
   y: number,
   direction: Facing
 ) {
-  const variant = getCharacterVariant(agent.id, agent.isDefault);
+  const hairVariant = getHairVariant(agent.id, agent.isDefault);
+  const outfitVariant = getOutfitVariant(agent.id, agent.isDefault);
+
+  drawHairSilhouette(ctx, x, y, direction, hairVariant);
+  drawOutfitSilhouette(ctx, x, y, direction, outfitVariant);
+}
+
+function drawHairSilhouette(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  direction: Facing,
+  variant: number
+) {
+  if (variant === 0) {
+    return;
+  }
 
   if (variant === 1) {
-    ctx.fillStyle = "rgba(0, 0, 0, 0.12)";
-    ctx.fillRect(x - 8, y - 7, 2, 8);
-    ctx.fillRect(x + 6, y - 7, 2, 8);
-  } else if (variant === 2) {
-    ctx.fillStyle = "rgba(255, 246, 219, 0.85)";
-    ctx.fillRect(x - 5, y + 2, 10, 2);
-  } else if (variant === 3) {
-    ctx.fillStyle = "rgba(58, 46, 34, 0.5)";
-    if (direction === "left") {
-      ctx.fillRect(x - 10, y - 3, 4, 8);
-    } else if (direction === "right") {
-      ctx.fillRect(x + 6, y - 3, 4, 8);
-    } else {
-      ctx.fillRect(x - 9, y - 1, 3, 6);
-      ctx.fillRect(x + 6, y - 1, 3, 6);
-    }
+    ctx.fillStyle = "rgba(32, 24, 20, 0.42)";
+    ctx.fillRect(x - 9, y - 12, 3, 8);
+    ctx.fillRect(x + 6, y - 12, 3, 8);
+    ctx.fillRect(x - 6, y - 8, 12, 2);
+    return;
   }
+
+  if (variant === 2) {
+    ctx.fillStyle = "rgba(82, 58, 36, 0.42)";
+    ctx.fillRect(x - 11, y - 4, 3, 10);
+    ctx.fillRect(x + 8, y - 4, 3, 10);
+    ctx.fillRect(x - 7, y - 11, 14, 2);
+    return;
+  }
+
+  if (variant === 3) {
+    ctx.fillStyle = "rgba(46, 38, 33, 0.38)";
+    if (direction === "left") {
+      ctx.fillRect(x - 11, y - 6, 4, 10);
+    } else if (direction === "right") {
+      ctx.fillRect(x + 7, y - 6, 4, 10);
+    } else {
+      ctx.fillRect(x - 8, y - 10, 16, 2);
+      ctx.fillRect(x - 10, y - 5, 3, 8);
+      ctx.fillRect(x + 7, y - 5, 3, 8);
+    }
+    return;
+  }
+
+  ctx.fillStyle = "rgba(64, 46, 31, 0.4)";
+  ctx.fillRect(x - 4, y - 14, 8, 2);
+  ctx.fillRect(x - 2, y - 12, 4, 2);
+}
+
+function drawOutfitSilhouette(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  direction: Facing,
+  variant: number
+) {
+  if (variant === 0) {
+    ctx.fillStyle = "rgba(255, 247, 230, 0.75)";
+    ctx.fillRect(x - 4, y - 1, 8, 2);
+    return;
+  }
+
+  if (variant === 1) {
+    ctx.fillStyle = "rgba(26, 24, 31, 0.18)";
+    ctx.fillRect(x - 9, y - 2, 3, 9);
+    ctx.fillRect(x + 6, y - 2, 3, 9);
+    return;
+  }
+
+  if (variant === 2) {
+    ctx.fillStyle = "rgba(255, 241, 214, 0.82)";
+    ctx.fillRect(x - 5, y + 1, 10, 2);
+    ctx.fillStyle = "rgba(53, 41, 34, 0.16)";
+    ctx.fillRect(x - 6, y + 4, 12, 2);
+    return;
+  }
+
+  if (variant === 3) {
+    ctx.fillStyle = "rgba(57, 46, 39, 0.22)";
+    if (direction === "left") {
+      ctx.fillRect(x - 11, y - 1, 4, 10);
+    } else if (direction === "right") {
+      ctx.fillRect(x + 7, y - 1, 4, 10);
+    } else {
+      ctx.fillRect(x - 8, y + 5, 16, 2);
+    }
+    return;
+  }
+
+  ctx.fillStyle = "rgba(247, 226, 173, 0.8)";
+  ctx.fillRect(x - 2, y - 1, 4, 9);
 }
 
 function drawBookProp(ctx: CanvasRenderingContext2D, x: number, y: number, direction: Facing, timestampMs: number) {
@@ -313,4 +388,20 @@ function getCharacterVariant(agentId: string, isBoss: boolean) {
   }
 
   return Array.from(agentId).reduce((value, char) => value + char.charCodeAt(0), 0) % 4;
+}
+
+function getHairVariant(agentId: string, isBoss: boolean) {
+  if (isBoss) {
+    return 3;
+  }
+
+  return (getCharacterVariant(agentId, false) + 1) % 5;
+}
+
+function getOutfitVariant(agentId: string, isBoss: boolean) {
+  if (isBoss) {
+    return 4;
+  }
+
+  return Array.from(agentId).reduce((value, char) => value + char.charCodeAt(0) * 3, 0) % 5;
 }

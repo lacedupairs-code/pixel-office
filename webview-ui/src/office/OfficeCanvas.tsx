@@ -651,6 +651,8 @@ function drawFallbackDecor(ctx: CanvasRenderingContext2D, layout: OfficeLayout) 
   drawBookshelf(ctx, TILE_SIZE * 5.8, TILE_SIZE * 1.2);
   drawBookshelf(ctx, TILE_SIZE * 9.6, TILE_SIZE * 1.2);
   drawBookshelf(ctx, TILE_SIZE * 13.4, TILE_SIZE * 1.2);
+  drawTallShelf(ctx, TILE_SIZE * 11.4, TILE_SIZE * 6.55);
+  drawTallShelf(ctx, TILE_SIZE * 18.55, TILE_SIZE * 6.65);
   drawPartitionWall(ctx, TILE_SIZE * 15.7, TILE_SIZE * 1.05, TILE_SIZE * 0.2, TILE_SIZE * 9.8);
   drawPartitionWall(ctx, TILE_SIZE * 14.9, TILE_SIZE * 5.05, TILE_SIZE * 4.6, TILE_SIZE * 0.18);
   drawPartitionWall(ctx, TILE_SIZE * 17.7, TILE_SIZE * 5.1, TILE_SIZE * 0.2, TILE_SIZE * 2.4);
@@ -658,14 +660,20 @@ function drawFallbackDecor(ctx: CanvasRenderingContext2D, layout: OfficeLayout) 
   drawPlant(ctx, TILE_SIZE * 1.8, TILE_SIZE * 13.2);
   drawPlant(ctx, TILE_SIZE * 15.3, TILE_SIZE * 13.2);
   drawPlant(ctx, TILE_SIZE * 16.5, TILE_SIZE * 8.8);
+  drawPlant(ctx, TILE_SIZE * 19.05, TILE_SIZE * 13.2);
   drawWaterCooler(ctx, TILE_SIZE * 16.2, TILE_SIZE * 1.8);
   drawCabinet(ctx, TILE_SIZE * 18.3, TILE_SIZE * 1.45);
   drawFrameArt(ctx, TILE_SIZE * 12.8, TILE_SIZE * 7.3);
-  drawLongBench(ctx, TILE_SIZE * 16.2, TILE_SIZE * 1.6);
+  drawReceptionBench(ctx, TILE_SIZE * 16.1, TILE_SIZE * 1.5);
   drawRoundBin(ctx, TILE_SIZE * 18.0, TILE_SIZE * 2.4);
   drawMeetingTable(ctx, TILE_SIZE * 13.7, TILE_SIZE * 8.3);
+  drawCafeTable(ctx, TILE_SIZE * 14.55, TILE_SIZE * 8.95);
   drawLoungeChair(ctx, TILE_SIZE * 12.9, TILE_SIZE * 8.55, "left");
   drawLoungeChair(ctx, TILE_SIZE * 16.25, TILE_SIZE * 8.55, "right");
+  drawWorkDesk(ctx, TILE_SIZE * 3.0, TILE_SIZE * 5.3, "left");
+  drawWorkDesk(ctx, TILE_SIZE * 9.2, TILE_SIZE * 5.3, "right");
+  drawFrontDesk(ctx, TILE_SIZE * 3.0, TILE_SIZE * 10.45, "screen");
+  drawFrontDesk(ctx, TILE_SIZE * 9.2, TILE_SIZE * 10.45, "laptop");
 }
 
 function drawWoodFloorPattern(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number) {
@@ -786,6 +794,18 @@ function drawLongBench(ctx: CanvasRenderingContext2D, x: number, y: number) {
   ctx.fillRect(x + 27, y + 10, 3, 4);
 }
 
+function drawReceptionBench(ctx: CanvasRenderingContext2D, x: number, y: number) {
+  ctx.fillStyle = "#f0e9dd";
+  ctx.fillRect(x, y, 38, 12);
+  ctx.fillStyle = "#a67f52";
+  ctx.fillRect(x + 3, y + 8, 32, 3);
+  ctx.fillStyle = "#6e5336";
+  ctx.fillRect(x + 4, y + 10, 3, 5);
+  ctx.fillRect(x + 30, y + 10, 3, 5);
+  ctx.fillStyle = "#d4cabf";
+  ctx.fillRect(x + 6, y + 2, 26, 5);
+}
+
 function drawRoundBin(ctx: CanvasRenderingContext2D, x: number, y: number) {
   ctx.fillStyle = "#e0d8d0";
   ctx.fillRect(x + 2, y, 7, 10);
@@ -805,6 +825,17 @@ function drawMeetingTable(ctx: CanvasRenderingContext2D, x: number, y: number) {
   ctx.fillRect(x + 20, y + 4, 4, 4);
 }
 
+function drawCafeTable(ctx: CanvasRenderingContext2D, x: number, y: number) {
+  ctx.fillStyle = "#8c693f";
+  ctx.fillRect(x, y, 16, 16);
+  ctx.fillStyle = "#c9a36e";
+  ctx.fillRect(x + 2, y + 2, 12, 12);
+  ctx.fillStyle = "#6f5130";
+  ctx.fillRect(x + 7, y + 3, 2, 12);
+  ctx.fillStyle = "#f1ede6";
+  ctx.fillRect(x + 10, y + 4, 3, 3);
+}
+
 function drawLoungeChair(ctx: CanvasRenderingContext2D, x: number, y: number, side: "left" | "right") {
   ctx.fillStyle = "#9b5b7a";
   ctx.fillRect(x, y, 14, 18);
@@ -816,6 +847,82 @@ function drawLoungeChair(ctx: CanvasRenderingContext2D, x: number, y: number, si
   } else {
     ctx.fillRect(x + 11, y + 2, 3, 12);
   }
+}
+
+function drawTallShelf(ctx: CanvasRenderingContext2D, x: number, y: number) {
+  ctx.fillStyle = "#5b391d";
+  ctx.fillRect(x, y, 22, 32);
+  ctx.fillStyle = "#84542a";
+  ctx.fillRect(x + 2, y + 2, 18, 28);
+  ctx.fillStyle = "#4a2d17";
+  ctx.fillRect(x + 2, y + 10, 18, 2);
+  ctx.fillRect(x + 2, y + 19, 18, 2);
+  const bookColors = ["#5878a8", "#d8c17f", "#8d4e3a", "#49735f"];
+  for (let index = 0; index < 5; index += 1) {
+    ctx.fillStyle = bookColors[index % bookColors.length] ?? "#d8c17f";
+    ctx.fillRect(x + 4 + index * 3, y + 4 + (index % 2), 2, 6);
+    ctx.fillRect(x + 4 + ((index + 1) % 5) * 3, y + 13 + (index % 2), 2, 5);
+    ctx.fillRect(x + 4 + index * 3, y + 22 + (index % 2), 2, 5);
+  }
+}
+
+function drawWorkDesk(ctx: CanvasRenderingContext2D, x: number, y: number, chairSide: "left" | "right") {
+  ctx.fillStyle = "#5c3414";
+  ctx.fillRect(x, y, 34, 22);
+  ctx.fillStyle = "#a2672f";
+  ctx.fillRect(x + 2, y + 2, 30, 18);
+  ctx.fillStyle = "#1f1816";
+  ctx.fillRect(x + 4, y + 5, 13, 9);
+  ctx.fillStyle = "#7b8ca4";
+  ctx.fillRect(x + 5, y + 6, 11, 7);
+  ctx.fillStyle = "#d9d4ca";
+  ctx.fillRect(x + 19, y + 13, 8, 3);
+  ctx.fillRect(x + 21, y + 7, 4, 4);
+  ctx.fillStyle = "#f1ece2";
+  ctx.fillRect(x + 18, y + 5, 4, 5);
+  ctx.fillStyle = "#1b1614";
+  ctx.fillRect(x + 2, y + 20, 3, 5);
+  ctx.fillRect(x + 29, y + 20, 3, 5);
+  drawDeskChair(ctx, chairSide === "left" ? x + 8 : x + 22, y + 24, chairSide);
+}
+
+function drawFrontDesk(ctx: CanvasRenderingContext2D, x: number, y: number, device: "screen" | "laptop") {
+  ctx.fillStyle = "#5c3414";
+  ctx.fillRect(x, y, 34, 20);
+  ctx.fillStyle = "#a2672f";
+  ctx.fillRect(x + 2, y + 2, 30, 16);
+  if (device === "screen") {
+    ctx.fillStyle = "#dde2e8";
+    ctx.fillRect(x + 10, y + 4, 14, 9);
+    ctx.fillStyle = "#8ea4c2";
+    ctx.fillRect(x + 11, y + 5, 12, 7);
+    ctx.fillStyle = "#564438";
+    ctx.fillRect(x + 15, y + 13, 4, 2);
+  } else {
+    ctx.fillStyle = "#d8dbe0";
+    ctx.fillRect(x + 11, y + 7, 12, 6);
+    ctx.fillStyle = "#8ca2bd";
+    ctx.fillRect(x + 12, y + 8, 10, 4);
+    ctx.fillStyle = "#7f6c59";
+    ctx.fillRect(x + 9, y + 13, 16, 2);
+  }
+  ctx.fillStyle = "#1b1614";
+  ctx.fillRect(x + 2, y + 18, 3, 5);
+  ctx.fillRect(x + 29, y + 18, 3, 5);
+}
+
+function drawDeskChair(ctx: CanvasRenderingContext2D, x: number, y: number, side: "left" | "right") {
+  ctx.fillStyle = "#ab9160";
+  ctx.fillRect(x, y, 10, 9);
+  ctx.fillStyle = "#795d36";
+  ctx.fillRect(x + 1, y + 7, 8, 2);
+  if (side === "left") {
+    ctx.fillRect(x, y + 1, 2, 6);
+  } else {
+    ctx.fillRect(x + 8, y + 1, 2, 6);
+  }
+  ctx.fillRect(x + 1, y + 9, 2, 4);
+  ctx.fillRect(x + 7, y + 9, 2, 4);
 }
 
 function drawFrameArt(ctx: CanvasRenderingContext2D, x: number, y: number) {
