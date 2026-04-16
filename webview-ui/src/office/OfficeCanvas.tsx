@@ -636,39 +636,64 @@ function drawCuteSckrRoomProps(ctx: CanvasRenderingContext2D, sheets: CuteSckrSh
   const width = layout.cols * TILE_SIZE;
   const height = layout.rows * TILE_SIZE;
 
-  drawSheetSprite(ctx, sheets.four, 576, 0, 96, 96, TILE_SIZE * 1.0, TILE_SIZE * 0.8, TILE_SIZE * 2.1, TILE_SIZE * 2.1);
-  drawSheetSprite(ctx, sheets.four, 448, 0, 96, 96, TILE_SIZE * 4.9, TILE_SIZE * 0.8, TILE_SIZE * 2.1, TILE_SIZE * 2.1);
-  drawSheetSprite(ctx, sheets.four, 544, 0, 96, 96, TILE_SIZE * 8.8, TILE_SIZE * 0.8, TILE_SIZE * 2.1, TILE_SIZE * 2.1);
-  drawSheetSprite(ctx, sheets.four, 576, 0, 96, 96, TILE_SIZE * 12.7, TILE_SIZE * 0.8, TILE_SIZE * 2.1, TILE_SIZE * 2.1);
-  drawSheetSprite(ctx, sheets.three, 0, 480, 96, 64, TILE_SIZE * 12.8, TILE_SIZE * 0.8, TILE_SIZE * 2.0, TILE_SIZE * 1.35);
-  drawSheetSprite(ctx, sheets.three, 96, 480, 96, 64, TILE_SIZE * 15.15, TILE_SIZE * 0.8, TILE_SIZE * 2.0, TILE_SIZE * 1.35);
-  drawSheetSprite(ctx, sheets.two, 448, 224, 64, 128, TILE_SIZE * 17.5, TILE_SIZE * 0.9, TILE_SIZE * 0.9, TILE_SIZE * 1.75);
+  ctx.fillStyle = "rgba(232, 225, 214, 0.9)";
+  ctx.fillRect(TILE_SIZE * 16.1, TILE_SIZE * 0.9, TILE_SIZE * 3.0, TILE_SIZE * 3.8);
+  ctx.fillStyle = "rgba(94, 136, 174, 0.92)";
+  ctx.fillRect(TILE_SIZE * 16.1, TILE_SIZE * 5.2, TILE_SIZE * 3.4, TILE_SIZE * 6.2);
 
-  drawSheetSprite(ctx, sheets.one, 0, 0, 96, 64, TILE_SIZE * 1.6, TILE_SIZE * 3.1, TILE_SIZE * 2.2, TILE_SIZE * 1.45);
-  drawSheetSprite(ctx, sheets.one, 0, 0, 96, 64, TILE_SIZE * 7.3, TILE_SIZE * 3.1, TILE_SIZE * 2.2, TILE_SIZE * 1.45);
-  drawSheetSprite(ctx, sheets.one, 288, 0, 96, 64, TILE_SIZE * 1.6, TILE_SIZE * 7.9, TILE_SIZE * 2.2, TILE_SIZE * 1.45);
-  drawSheetSprite(ctx, sheets.one, 288, 0, 96, 64, TILE_SIZE * 7.3, TILE_SIZE * 7.9, TILE_SIZE * 2.2, TILE_SIZE * 1.45);
-  drawSheetSprite(ctx, sheets.two, 0, 224, 64, 128, TILE_SIZE * 5.25, TILE_SIZE * 2.95, TILE_SIZE * 0.95, TILE_SIZE * 1.85);
-  drawSheetSprite(ctx, sheets.two, 0, 224, 64, 128, TILE_SIZE * 10.95, TILE_SIZE * 2.95, TILE_SIZE * 0.95, TILE_SIZE * 1.85);
-  drawSheetSprite(ctx, sheets.three, 384, 0, 128, 160, TILE_SIZE * 0.9, TILE_SIZE * 11.0, TILE_SIZE * 2.25, TILE_SIZE * 2.8);
-  drawSheetSprite(ctx, sheets.three, 384, 0, 128, 160, TILE_SIZE * 7.0, TILE_SIZE * 11.0, TILE_SIZE * 2.25, TILE_SIZE * 2.8);
+  drawSheetSprite(ctx, sheets.four, 576, 0, 96, 96, TILE_SIZE * 1.0, TILE_SIZE * 0.75, TILE_SIZE * 2.2, TILE_SIZE * 2.2);
+  drawSheetSprite(ctx, sheets.four, 448, 0, 96, 96, TILE_SIZE * 5.0, TILE_SIZE * 0.75, TILE_SIZE * 2.2, TILE_SIZE * 2.2);
+  drawSheetSprite(ctx, sheets.four, 544, 0, 96, 96, TILE_SIZE * 9.0, TILE_SIZE * 0.75, TILE_SIZE * 2.2, TILE_SIZE * 2.2);
+  drawSheetSprite(ctx, sheets.four, 576, 0, 96, 96, TILE_SIZE * 16.35, TILE_SIZE * 6.55, TILE_SIZE * 2.15, TILE_SIZE * 2.15);
+  drawSheetSprite(ctx, sheets.four, 544, 0, 96, 96, TILE_SIZE * 18.55, TILE_SIZE * 6.55, TILE_SIZE * 2.15, TILE_SIZE * 2.15);
+  drawSheetSprite(ctx, sheets.three, 0, 480, 96, 64, TILE_SIZE * 16.45, TILE_SIZE * 0.9, TILE_SIZE * 1.95, TILE_SIZE * 1.35);
+  drawSheetSprite(ctx, sheets.three, 96, 480, 96, 64, TILE_SIZE * 18.55, TILE_SIZE * 0.9, TILE_SIZE * 1.95, TILE_SIZE * 1.35);
+  drawSheetSprite(ctx, sheets.two, 448, 224, 64, 128, TILE_SIZE * 17.3, TILE_SIZE * 1.0, TILE_SIZE * 0.9, TILE_SIZE * 1.75);
 
-  drawSheetSprite(ctx, sheets.two, 544, 416, 96, 64, TILE_SIZE * 14.05, TILE_SIZE * 7.15, TILE_SIZE * 1.95, TILE_SIZE * 1.3);
-  drawSheetSprite(ctx, sheets.three, 320, 640, 128, 96, TILE_SIZE * 13.05, TILE_SIZE * 8.05, TILE_SIZE * 2.25, TILE_SIZE * 1.6);
-  drawSheetSprite(ctx, sheets.three, 0, 320, 64, 96, TILE_SIZE * 12.15, TILE_SIZE * 7.85, TILE_SIZE * 0.95, TILE_SIZE * 1.45);
-  drawSheetSprite(ctx, sheets.three, 96, 320, 64, 96, TILE_SIZE * 16.2, TILE_SIZE * 7.85, TILE_SIZE * 0.95, TILE_SIZE * 1.45);
-  drawSheetSprite(ctx, sheets.three, 64, 224, 96, 96, TILE_SIZE * 15.35, TILE_SIZE * 5.2, TILE_SIZE * 1.55, TILE_SIZE * 1.55);
-  drawSheetSprite(ctx, sheets.three, 384, 544, 64, 96, TILE_SIZE * 18.45, TILE_SIZE * 12.45, TILE_SIZE * 0.95, TILE_SIZE * 1.45);
-  drawSheetSprite(ctx, sheets.three, 512, 544, 96, 96, TILE_SIZE * 11.8, TILE_SIZE * 12.2, TILE_SIZE * 1.45, TILE_SIZE * 1.45);
-  drawSheetSprite(ctx, sheets.two, 608, 352, 64, 64, TILE_SIZE * 17.9, TILE_SIZE * 7.45, TILE_SIZE * 0.75, TILE_SIZE * 0.75);
-  drawSheetSprite(ctx, sheets.two, 608, 544, 64, 64, TILE_SIZE * 17.85, TILE_SIZE * 5.8, TILE_SIZE * 0.7, TILE_SIZE * 0.7);
-  drawSheetSprite(ctx, sheets.two, 608, 544, 64, 64, TILE_SIZE * 18.2, TILE_SIZE * 9.25, TILE_SIZE * 0.7, TILE_SIZE * 0.7);
-  drawSheetSprite(ctx, sheets.two, 608, 544, 64, 64, TILE_SIZE * 1.0, TILE_SIZE * 13.05, TILE_SIZE * 0.7, TILE_SIZE * 0.7);
-  drawSheetSprite(ctx, sheets.two, 608, 544, 64, 64, TILE_SIZE * 15.8, TILE_SIZE * 13.05, TILE_SIZE * 0.7, TILE_SIZE * 0.7);
+  drawOfficeDeskCluster(ctx, sheets, TILE_SIZE * 2.0, TILE_SIZE * 4.0, 2, 2);
+  drawOfficeDeskCluster(ctx, sheets, TILE_SIZE * 8.2, TILE_SIZE * 4.0, 2, 2);
+
+  drawSheetSprite(ctx, sheets.two, 0, 224, 64, 128, TILE_SIZE * 5.6, TILE_SIZE * 4.15, TILE_SIZE * 0.95, TILE_SIZE * 1.85);
+  drawSheetSprite(ctx, sheets.two, 0, 224, 64, 128, TILE_SIZE * 11.8, TILE_SIZE * 4.15, TILE_SIZE * 0.95, TILE_SIZE * 1.85);
+  drawSheetSprite(ctx, sheets.three, 384, 0, 128, 160, TILE_SIZE * 2.15, TILE_SIZE * 10.3, TILE_SIZE * 2.35, TILE_SIZE * 2.95);
+  drawSheetSprite(ctx, sheets.three, 384, 0, 128, 160, TILE_SIZE * 8.4, TILE_SIZE * 10.3, TILE_SIZE * 2.35, TILE_SIZE * 2.95);
+
+  drawSheetSprite(ctx, sheets.two, 544, 416, 96, 64, TILE_SIZE * 16.65, TILE_SIZE * 8.15, TILE_SIZE * 1.9, TILE_SIZE * 1.25);
+  drawSheetSprite(ctx, sheets.three, 320, 640, 128, 96, TILE_SIZE * 16.95, TILE_SIZE * 9.2, TILE_SIZE * 2.1, TILE_SIZE * 1.55);
+  drawSheetSprite(ctx, sheets.three, 0, 320, 64, 96, TILE_SIZE * 16.25, TILE_SIZE * 9.05, TILE_SIZE * 0.9, TILE_SIZE * 1.4);
+  drawSheetSprite(ctx, sheets.three, 96, 320, 64, 96, TILE_SIZE * 19.15, TILE_SIZE * 9.05, TILE_SIZE * 0.9, TILE_SIZE * 1.4);
+  drawSheetSprite(ctx, sheets.three, 64, 224, 96, 96, TILE_SIZE * 18.2, TILE_SIZE * 5.45, TILE_SIZE * 1.45, TILE_SIZE * 1.45);
+
+  drawSheetSprite(ctx, sheets.two, 352, 416, 64, 64, TILE_SIZE * 14.2, TILE_SIZE * 12.55, TILE_SIZE * 0.75, TILE_SIZE * 0.75);
+  drawSheetSprite(ctx, sheets.two, 608, 352, 64, 64, TILE_SIZE * 18.85, TILE_SIZE * 7.95, TILE_SIZE * 0.75, TILE_SIZE * 0.75);
+  drawSheetSprite(ctx, sheets.two, 608, 544, 64, 64, TILE_SIZE * 19.0, TILE_SIZE * 11.35, TILE_SIZE * 0.7, TILE_SIZE * 0.7);
+  drawSheetSprite(ctx, sheets.two, 608, 544, 64, 64, TILE_SIZE * 1.25, TILE_SIZE * 13.25, TILE_SIZE * 0.7, TILE_SIZE * 0.7);
+  drawSheetSprite(ctx, sheets.two, 608, 544, 64, 64, TILE_SIZE * 15.55, TILE_SIZE * 13.25, TILE_SIZE * 0.7, TILE_SIZE * 0.7);
 
   ctx.fillStyle = "rgba(10, 15, 21, 0.82)";
   ctx.fillRect(TILE_SIZE * 15.9, TILE_SIZE * 1.05, TILE_SIZE * 0.12, height - TILE_SIZE * 2.15);
   ctx.fillRect(TILE_SIZE * 15.9, TILE_SIZE * 5.0, width - TILE_SIZE * 16.8, TILE_SIZE * 0.12);
+}
+
+function drawOfficeDeskCluster(
+  ctx: CanvasRenderingContext2D,
+  sheets: CuteSckrSheets,
+  startX: number,
+  startY: number,
+  columns: number,
+  rows: number
+) {
+  const spacingX = TILE_SIZE * 3.2;
+  const spacingY = TILE_SIZE * 2.8;
+
+  for (let row = 0; row < rows; row += 1) {
+    for (let column = 0; column < columns; column += 1) {
+      const x = startX + column * spacingX;
+      const y = startY + row * spacingY;
+      const sprite = (row + column) % 2 === 0 ? { sx: 0, sy: 0 } : { sx: 288, sy: 0 };
+      drawSheetSprite(ctx, sheets.one, sprite.sx, sprite.sy, 96, 64, x, y, TILE_SIZE * 2.35, TILE_SIZE * 1.55);
+    }
+  }
 }
 
 function drawSheetSprite(
