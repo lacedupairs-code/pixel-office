@@ -64,6 +64,13 @@ interface DragMoveSelection {
   duplicate: boolean;
 }
 
+interface CuteSckrSheets {
+  one: HTMLImageElement;
+  two: HTMLImageElement;
+  three: HTMLImageElement;
+  four: HTMLImageElement;
+}
+
 export function OfficeCanvas({
   agents,
   layout,
@@ -84,11 +91,13 @@ export function OfficeCanvas({
   const animationFrameRef = useRef<number | null>(null);
   const lastTickRef = useRef<number | null>(null);
   const tilesetRef = useRef<LoadedTileset | null>(null);
+  const cuteSckrRef = useRef<CuteSckrSheets | null>(null);
   const dragPaintRef = useRef(false);
   const lastPaintedTileRef = useRef<string | null>(null);
   const dragSelectionRef = useRef<DragSelection | null>(null);
   const dragMoveSelectionRef = useRef<DragMoveSelection | null>(null);
   const [tilesetReady, setTilesetReady] = useState(false);
+  const [cuteSckrReady, setCuteSckrReady] = useState(false);
   const [hoverTile, setHoverTile] = useState<HoverTile | null>(null);
   const spawnPoint = useMemo(() => ({ x: TILE_SIZE * 2.5, y: TILE_SIZE * (layout.rows - 2.2) }), [layout.rows]);
   const walkableGrid = useMemo(() => buildWalkableGrid(layout), [layout]);
@@ -104,6 +113,33 @@ export function OfficeCanvas({
       tilesetRef.current = tileset;
       setTilesetReady(true);
     });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    Promise.all([
+      loadSceneImage("/assets/cute-sckr/1.png"),
+      loadSceneImage("/assets/cute-sckr/2.png"),
+      loadSceneImage("/assets/cute-sckr/3.png"),
+      loadSceneImage("/assets/cute-sckr/4.png")
+    ])
+      .then(([one, two, three, four]) => {
+        if (cancelled) {
+          return;
+        }
+
+        cuteSckrRef.current = { one, two, three, four };
+        setCuteSckrReady(true);
+      })
+      .catch(() => {
+        cuteSckrRef.current = null;
+        setCuteSckrReady(false);
+      });
 
     return () => {
       cancelled = true;
@@ -412,7 +448,8 @@ export function OfficeCanvas({
         hoverTile,
         dragSelectionRef.current,
         selectionBounds,
-        dragMoveSelectionRef.current
+        dragMoveSelectionRef.current,
+        cuteSckrRef.current
       );
       animationFrameRef.current = window.requestAnimationFrame(tick);
     };
@@ -427,7 +464,7 @@ export function OfficeCanvas({
       animationFrameRef.current = null;
       lastTickRef.current = null;
     };
-  }, [agents, editMode, hoverTile, layout, paintMode, selectedSeatAgentId, selectedTool, selectionBounds, spawnPoint, tilesetReady, walkableGrid]);
+  }, [agents, cuteSckrReady, editMode, hoverTile, layout, paintMode, selectedSeatAgentId, selectedTool, selectionBounds, spawnPoint, tilesetReady, walkableGrid]);
 
   return (
     <canvas
@@ -464,7 +501,8 @@ function drawOffice(
   hoverTile: HoverTile | null,
   dragSelection: DragSelection | null,
   selectionBounds: TileSelectionBounds | null,
-  dragMoveSelection: DragMoveSelection | null
+  dragMoveSelection: DragMoveSelection | null,
+  cuteSckr: CuteSckrSheets | null
 ) {
   const width = layout.cols * TILE_SIZE;
   const height = layout.rows * TILE_SIZE;
@@ -473,16 +511,162 @@ function drawOffice(
   ctx.fillStyle = FLOOR_COLOR;
   ctx.fillRect(0, 0, width, height);
 
-  drawAtmosphere(ctx, width, height, layout, timestampMs);
-  drawTiles(ctx, layout, tileset);
+  if (cuteSckr && !editMode) {
+    drawCuteSckrScene(ctx, layout, cuteSckr, timestampMs);
+  } else {
+    drawAtmosphere(ctx, width, height, layout, timestampMs);
+    drawTiles(ctx, layout, tileset);
+  }
   drawAmbientInteractions(ctx, layout, agents, sprites, timestampMs);
-  drawGrid(ctx, layout);
+  if (!cuteSckr || editMode) {
+    drawGrid(ctx, layout);
+  }
   if (editMode) {
     drawEditorBadge(ctx, selectedTool, paintMode, selectedSeatAgentId, dragMoveSelection);
     drawHoverPreview(ctx, layout, hoverTile, selectedTool, paintMode, selectedSeatAgentId, dragSelection);
     drawSelectionBounds(ctx, getDraggedSelectionBounds(selectionBounds, dragMoveSelection));
   }
   drawAgents(ctx, agents, sprites, timestampMs, layout);
+}
+
+function loadSceneImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error(`Unable to load image: ${src}`));
+    image.src = src;
+  });
+}
+
+function drawCuteSckrScene(
+  ctx: CanvasRenderingContext2D,
+  layout: OfficeLayout,
+  sheets: CuteSckrSheets,
+  timestampMs: number
+) {
+  const tileMap = buildResolvedTileMap(layout);
+  const width = layout.cols * TILE_SIZE;
+  const height = layout.rows * TILE_SIZE;
+
+  ctx.fillStyle = "#19181b";
+  ctx.fillRect(0, 0, width, height);
+
+  for (let y = 0; y < layout.rows; y += 1) {
+    for (let x = 0; x < layout.cols; x += 1) {
+      const tileType = tileMap.get(`${x},${y}`) ?? "floor";
+      drawCuteSckrBaseTile(ctx, sheets, tileType, x, y);
+    }
+  }
+
+  drawCuteSckrRoomProps(ctx, sheets, layout);
+
+  for (let y = 0; y < layout.rows; y += 1) {
+    for (let x = 0; x < layout.cols; x += 1) {
+      const tileType = tileMap.get(`${x},${y}`) ?? "floor";
+      if (tileType !== "desk" && tileType !== "coffee" && tileType !== "couch") {
+        continue;
+      }
+
+      drawCuteSckrProp(ctx, sheets, tileType, x, y);
+
+      if (tileType === "desk") {
+        const isBossDesk = layout.agents.some((seat) => seat.agentId === "main" && seat.deskX === x && seat.deskY === y);
+        if (isBossDesk) {
+          ctx.fillStyle = "rgba(222, 165, 96, 0.18)";
+          ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        }
+      }
+    }
+  }
+
+  const glowAlpha = 0.03 + ((Math.sin(timestampMs / 2500) + 1) / 2) * 0.03;
+  const vignette = ctx.createLinearGradient(0, 0, width, height);
+  vignette.addColorStop(0, `rgba(8, 8, 10, ${(glowAlpha + 0.11).toFixed(3)})`);
+  vignette.addColorStop(0.3, "rgba(8, 8, 10, 0)");
+  vignette.addColorStop(0.7, "rgba(8, 8, 10, 0)");
+  vignette.addColorStop(1, `rgba(8, 8, 10, ${(glowAlpha + 0.15).toFixed(3)})`);
+  ctx.fillStyle = vignette;
+  ctx.fillRect(0, 0, width, height);
+}
+
+function drawCuteSckrBaseTile(
+  ctx: CanvasRenderingContext2D,
+  sheets: CuteSckrSheets,
+  tileType: "floor" | "wall" | "desk" | "coffee" | "couch",
+  tileX: number,
+  tileY: number
+) {
+  const destX = tileX * TILE_SIZE;
+  const destY = tileY * TILE_SIZE;
+
+  if (tileType === "wall") {
+    drawSheetSprite(ctx, sheets.four, 0, 0, 64, 64, destX, destY, TILE_SIZE, TILE_SIZE);
+    return;
+  }
+
+  drawSheetSprite(ctx, sheets.four, 0, 64, 64, 64, destX, destY, TILE_SIZE, TILE_SIZE);
+}
+
+function drawCuteSckrProp(
+  ctx: CanvasRenderingContext2D,
+  sheets: CuteSckrSheets,
+  tileType: "floor" | "wall" | "desk" | "coffee" | "couch",
+  tileX: number,
+  tileY: number
+) {
+  const x = tileX * TILE_SIZE;
+  const y = tileY * TILE_SIZE;
+
+  if (tileType === "desk") {
+    drawSheetSprite(ctx, sheets.one, 0, 0, 96, 64, x - TILE_SIZE * 0.48, y - TILE_SIZE * 0.36, TILE_SIZE * 2.25, TILE_SIZE * 1.5);
+    return;
+  }
+
+  if (tileType === "coffee") {
+    drawSheetSprite(ctx, sheets.one, 544, 256, 64, 128, x - TILE_SIZE * 0.15, y - TILE_SIZE * 0.58, TILE_SIZE * 0.95, TILE_SIZE * 1.8);
+    return;
+  }
+
+  if (tileType === "couch") {
+    drawSheetSprite(ctx, sheets.three, 416, 480, 160, 96, x - TILE_SIZE * 0.75, y - TILE_SIZE * 0.38, TILE_SIZE * 2.4, TILE_SIZE * 1.45);
+  }
+}
+
+function drawCuteSckrRoomProps(ctx: CanvasRenderingContext2D, sheets: CuteSckrSheets, layout: OfficeLayout) {
+  const width = layout.cols * TILE_SIZE;
+  const height = layout.rows * TILE_SIZE;
+
+  drawSheetSprite(ctx, sheets.four, 576, 0, 96, 96, TILE_SIZE * 1.0, TILE_SIZE * 0.8, TILE_SIZE * 2.1, TILE_SIZE * 2.1);
+  drawSheetSprite(ctx, sheets.four, 448, 0, 96, 96, TILE_SIZE * 4.9, TILE_SIZE * 0.8, TILE_SIZE * 2.1, TILE_SIZE * 2.1);
+  drawSheetSprite(ctx, sheets.four, 544, 0, 96, 96, TILE_SIZE * 8.8, TILE_SIZE * 0.8, TILE_SIZE * 2.1, TILE_SIZE * 2.1);
+  drawSheetSprite(ctx, sheets.three, 0, 480, 96, 64, TILE_SIZE * 12.4, TILE_SIZE * 0.85, TILE_SIZE * 2.0, TILE_SIZE * 1.35);
+  drawSheetSprite(ctx, sheets.two, 448, 224, 64, 128, TILE_SIZE * 17.2, TILE_SIZE * 0.9, TILE_SIZE * 0.9, TILE_SIZE * 1.75);
+
+  drawSheetSprite(ctx, sheets.two, 544, 416, 96, 64, TILE_SIZE * 14.1, TILE_SIZE * 7.25, TILE_SIZE * 1.9, TILE_SIZE * 1.25);
+  drawSheetSprite(ctx, sheets.three, 320, 640, 128, 96, TILE_SIZE * 13.1, TILE_SIZE * 8.1, TILE_SIZE * 2.2, TILE_SIZE * 1.55);
+  drawSheetSprite(ctx, sheets.three, 0, 320, 64, 96, TILE_SIZE * 12.25, TILE_SIZE * 7.9, TILE_SIZE * 0.95, TILE_SIZE * 1.45);
+  drawSheetSprite(ctx, sheets.three, 96, 320, 64, 96, TILE_SIZE * 16.1, TILE_SIZE * 7.9, TILE_SIZE * 0.95, TILE_SIZE * 1.45);
+  drawSheetSprite(ctx, sheets.three, 64, 224, 96, 96, TILE_SIZE * 15.5, TILE_SIZE * 5.3, TILE_SIZE * 1.55, TILE_SIZE * 1.55);
+  drawSheetSprite(ctx, sheets.three, 384, 544, 64, 96, TILE_SIZE * 18.3, TILE_SIZE * 12.55, TILE_SIZE * 0.95, TILE_SIZE * 1.45);
+
+  ctx.fillStyle = "rgba(10, 15, 21, 0.82)";
+  ctx.fillRect(TILE_SIZE * 15.9, TILE_SIZE * 1.05, TILE_SIZE * 0.12, height - TILE_SIZE * 2.15);
+  ctx.fillRect(TILE_SIZE * 15.9, TILE_SIZE * 5.0, width - TILE_SIZE * 16.8, TILE_SIZE * 0.12);
+}
+
+function drawSheetSprite(
+  ctx: CanvasRenderingContext2D,
+  image: CanvasImageSource,
+  sx: number,
+  sy: number,
+  sw: number,
+  sh: number,
+  dx: number,
+  dy: number,
+  dw: number,
+  dh: number
+) {
+  ctx.drawImage(image, sx, sy, sw, sh, dx, dy, dw, dh);
 }
 
 function drawTiles(ctx: CanvasRenderingContext2D, layout: OfficeLayout, tileset: LoadedTileset | null) {
