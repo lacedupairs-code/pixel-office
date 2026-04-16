@@ -1,13 +1,12 @@
 {
-  "version": 1,
-  "image": "tileset.png",
-  "tileSize": 16,
+  "version": 2,
+  "image": "cute-sckr/office-atlas.png",
+  "tileSize": 32,
   "tiles": {
-    "floor": { "x": 0, "y": 0, "w": 16, "h": 16 },
-    "wall": { "x": 16, "y": 0, "w": 16, "h": 16 },
-    "desk": { "x": 32, "y": 0, "w": 16, "h": 16 },
-    "coffee": { "x": 48, "y": 0, "w": 16, "h": 16 },
-    "couch": { "x": 64, "y": 0, "w": 16, "h": 16 }
+    "floor": { "x": 0, "y": 0, "w": 32, "h": 32 },
+    "wall": { "x": 32, "y": 0, "w": 32, "h": 32 },
+    "desk": { "x": 64, "y": 0, "w": 32, "h": 32 },
+    "coffee": { "x": 96, "y": 0, "w": 32, "h": 32 },
+    "couch": { "x": 128, "y": 0, "w": 32, "h": 32 }
   }
 }
-

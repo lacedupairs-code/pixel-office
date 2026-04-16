@@ -4,3 +4,4 @@ node_modules/
 server.log
 *.tsbuildinfo
 webview-ui/dist/
+webview-ui/public/assets/cute-sckr/
