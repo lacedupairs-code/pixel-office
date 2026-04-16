@@ -10,6 +10,8 @@ const FRAMES_PER_DIRECTION = 3;
 type Palette = {
   head: string;
   headShadow: string;
+  hair: string;
+  hairShadow: string;
   body: string;
   bodyShadow: string;
   accent: string;
@@ -70,12 +72,15 @@ export function getPalette(agent: OfficeAgent): Palette {
   }
 
   const isBoss = agent.isDefault;
+  const hairPair = getHairPair(agent.id, isBoss);
   const palette = (() => {
     switch (agent.state) {
       case "working":
         return {
           head: "#f2d2b6",
           headShadow: "#d2ab8b",
+          hair: hairPair.base,
+          hairShadow: hairPair.shadow,
           body: isBoss ? "#d7863e" : "#d06f4c",
           bodyShadow: isBoss ? "#a95f27" : "#a45035",
           accent: "#ffe0b8",
@@ -87,6 +92,8 @@ export function getPalette(agent: OfficeAgent): Palette {
         return {
           head: "#f2d2b6",
           headShadow: "#d0ab8d",
+          hair: hairPair.base,
+          hairShadow: hairPair.shadow,
           body: isBoss ? "#6996d7" : "#5a84bf",
           bodyShadow: isBoss ? "#476ea9" : "#40618d",
           accent: "#dcecff",
@@ -98,6 +105,8 @@ export function getPalette(agent: OfficeAgent): Palette {
         return {
           head: "#f2d2b6",
           headShadow: "#d1ac8d",
+          hair: hairPair.base,
+          hairShadow: hairPair.shadow,
           body: "#d0b04a",
           bodyShadow: "#a58a2e",
           accent: "#fff2b3",
@@ -109,6 +118,8 @@ export function getPalette(agent: OfficeAgent): Palette {
         return {
           head: "#dcc4b0",
           headShadow: "#b69d8a",
+          hair: hairPair.base,
+          hairShadow: hairPair.shadow,
           body: "#7d72b8",
           bodyShadow: "#5d528e",
           accent: "#c8c1eb",
@@ -120,6 +131,8 @@ export function getPalette(agent: OfficeAgent): Palette {
         return {
           head: "#98887a",
           headShadow: "#77685c",
+          hair: hairPair.base,
+          hairShadow: hairPair.shadow,
           body: "#5e5751",
           bodyShadow: "#463f3b",
           accent: "#867d77",
@@ -132,6 +145,8 @@ export function getPalette(agent: OfficeAgent): Palette {
         return {
           head: "#f2d2b6",
           headShadow: "#d2ab8b",
+          hair: hairPair.base,
+          hairShadow: hairPair.shadow,
           body: isBoss ? "#6fa86f" : "#69a98f",
           bodyShadow: isBoss ? "#4f7f52" : "#47806a",
           accent: "#dbf6de",
@@ -159,6 +174,12 @@ function drawTemplateFrame(
 
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(offsetX + 4, offsetY + 1, 8, 7);
+  ctx.fillStyle = "#ff8800";
+  ctx.fillRect(offsetX + 3, offsetY, 10, 3);
+  ctx.fillRect(offsetX + 3, offsetY + 2, 2, 4);
+  ctx.fillRect(offsetX + 11, offsetY + 2, 2, 4);
+  ctx.fillStyle = "#6b3b12";
+  ctx.fillRect(offsetX + 4, offsetY + 2, 8, 1);
   ctx.fillStyle = "#e4c09f";
   ctx.fillRect(offsetX + 4, offsetY + 6, 8, 2);
   ctx.fillStyle = "#ff00ff";
@@ -193,4 +214,23 @@ function drawTemplateFrame(
     ctx.fillRect(offsetX + 9, offsetY + 4, 1, 1);
     ctx.fillRect(offsetX + 4, offsetY + 1, 8, 1);
   }
+}
+
+function getHairPair(agentId: string, isBoss: boolean) {
+  if (isBoss) {
+    return {
+      base: "#2e2a30",
+      shadow: "#1a171d"
+    };
+  }
+
+  const options = [
+    { base: "#2f2520", shadow: "#1c1512" },
+    { base: "#704a2a", shadow: "#4a311b" },
+    { base: "#c59a42", shadow: "#8c6b2b" },
+    { base: "#8c5a38", shadow: "#5f3b24" },
+    { base: "#d6d0c8", shadow: "#9f978d" }
+  ];
+  const hash = Array.from(agentId).reduce((value, char) => value + char.charCodeAt(0), 0);
+  return options[hash % options.length] ?? options[0];
 }

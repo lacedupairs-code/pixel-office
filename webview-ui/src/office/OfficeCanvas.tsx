@@ -530,10 +530,18 @@ function drawAtmosphere(
   ctx.fillRect(insetLeft, insetTop, insetWidth, insetHeight);
 
   const topRoomWidth = Math.floor(width * 0.36);
+  const topRoomLeft = width - topRoomWidth - TILE_SIZE;
   ctx.fillStyle = "#ece2d8";
-  ctx.fillRect(width - topRoomWidth - TILE_SIZE, TILE_SIZE, topRoomWidth, TILE_SIZE * 4);
+  ctx.fillRect(topRoomLeft, TILE_SIZE, topRoomWidth, TILE_SIZE * 4);
   ctx.fillStyle = "#5d89b0";
-  ctx.fillRect(width - topRoomWidth - TILE_SIZE, TILE_SIZE * 5, topRoomWidth, TILE_SIZE * 6);
+  ctx.fillRect(topRoomLeft, TILE_SIZE * 5, topRoomWidth, TILE_SIZE * 6);
+
+  ctx.fillStyle = "#10161f";
+  ctx.fillRect(topRoomLeft - 4, TILE_SIZE, 4, TILE_SIZE * 10);
+  ctx.fillRect(topRoomLeft, TILE_SIZE * 5 - 4, topRoomWidth, 4);
+  ctx.fillRect(topRoomLeft + TILE_SIZE * 1.8, TILE_SIZE * 5, 4, TILE_SIZE * 2.5);
+  ctx.fillRect(topRoomLeft + TILE_SIZE * 1.8, TILE_SIZE * 8.4, 4, TILE_SIZE * 2.6);
+  ctx.fillRect(topRoomLeft - TILE_SIZE * 0.2, TILE_SIZE * 11 - 4, topRoomWidth + TILE_SIZE * 0.2, 4);
 
   const sideWall = ctx.createLinearGradient(0, 0, width, 0);
   sideWall.addColorStop(0, "rgba(10, 14, 20, 0.78)");
@@ -640,11 +648,17 @@ function drawFallbackDecor(ctx: CanvasRenderingContext2D, layout: OfficeLayout) 
   drawBookshelf(ctx, TILE_SIZE * 5.8, TILE_SIZE * 1.2);
   drawBookshelf(ctx, TILE_SIZE * 9.6, TILE_SIZE * 1.2);
   drawBookshelf(ctx, TILE_SIZE * 13.4, TILE_SIZE * 1.2);
+  drawPartitionWall(ctx, TILE_SIZE * 15.7, TILE_SIZE * 1.05, TILE_SIZE * 0.2, TILE_SIZE * 9.8);
+  drawPartitionWall(ctx, TILE_SIZE * 14.9, TILE_SIZE * 5.05, TILE_SIZE * 4.6, TILE_SIZE * 0.18);
+  drawPartitionWall(ctx, TILE_SIZE * 17.7, TILE_SIZE * 5.1, TILE_SIZE * 0.2, TILE_SIZE * 2.4);
+  drawPartitionWall(ctx, TILE_SIZE * 17.7, TILE_SIZE * 8.4, TILE_SIZE * 0.2, TILE_SIZE * 2.5);
   drawPlant(ctx, TILE_SIZE * 1.8, TILE_SIZE * 13.2);
   drawPlant(ctx, TILE_SIZE * 15.3, TILE_SIZE * 13.2);
   drawPlant(ctx, TILE_SIZE * 16.5, TILE_SIZE * 8.8);
   drawWaterCooler(ctx, TILE_SIZE * 16.2, TILE_SIZE * 1.8);
   drawFrameArt(ctx, TILE_SIZE * 12.8, TILE_SIZE * 7.3);
+  drawLongBench(ctx, TILE_SIZE * 16.2, TILE_SIZE * 1.6);
+  drawRoundBin(ctx, TILE_SIZE * 18.0, TILE_SIZE * 2.4);
 }
 
 function drawBookshelf(ctx: CanvasRenderingContext2D, x: number, y: number) {
@@ -680,6 +694,31 @@ function drawWaterCooler(ctx: CanvasRenderingContext2D, x: number, y: number) {
   ctx.fillRect(x + 7, y + 4, 6, 6);
   ctx.fillStyle = "#6e7b88";
   ctx.fillRect(x + 4, y + 20, 12, 4);
+}
+
+function drawPartitionWall(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number) {
+  ctx.fillStyle = "#0e141c";
+  ctx.fillRect(x, y, width, height);
+  ctx.fillStyle = "#243243";
+  ctx.fillRect(x + 1, y + 1, Math.max(0, width - 2), Math.max(0, height - 2));
+}
+
+function drawLongBench(ctx: CanvasRenderingContext2D, x: number, y: number) {
+  ctx.fillStyle = "#d8d1c7";
+  ctx.fillRect(x, y, 34, 12);
+  ctx.fillStyle = "#9b7a52";
+  ctx.fillRect(x + 3, y + 8, 28, 3);
+  ctx.fillStyle = "#73573a";
+  ctx.fillRect(x + 4, y + 10, 3, 4);
+  ctx.fillRect(x + 27, y + 10, 3, 4);
+}
+
+function drawRoundBin(ctx: CanvasRenderingContext2D, x: number, y: number) {
+  ctx.fillStyle = "#e0d8d0";
+  ctx.fillRect(x + 2, y, 7, 10);
+  ctx.fillStyle = "#7f858d";
+  ctx.fillRect(x + 1, y + 2, 9, 2);
+  ctx.fillRect(x + 3, y + 9, 5, 2);
 }
 
 function drawFrameArt(ctx: CanvasRenderingContext2D, x: number, y: number) {

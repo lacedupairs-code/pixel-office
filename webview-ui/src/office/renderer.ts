@@ -76,6 +76,8 @@ function drawStandingBody(
 
   ctx.drawImage(sheet, frameRect.sx, frameRect.sy, frameRect.sw, frameRect.sh, destX, destY, destWidth, destHeight);
   tintMask(ctx, destX, destY, destWidth, destHeight, "#ffffff", palette.head);
+  tintMask(ctx, destX, destY, destWidth, destHeight, "#ff8800", palette.hair);
+  tintMask(ctx, destX, destY, destWidth, destHeight, "#6b3b12", palette.hairShadow);
   tintMask(ctx, destX, destY, destWidth, destHeight, "#e4c09f", palette.headShadow);
   tintMask(ctx, destX, destY, destWidth, destHeight, "#ff00ff", palette.body);
   tintMask(ctx, destX, destY, destWidth, destHeight, "#b544a7", palette.bodyShadow);
@@ -213,6 +215,8 @@ function getFacing(dx: number, dy: number): Facing {
 interface Palette {
   head: string;
   headShadow: string;
+  hair: string;
+  hairShadow: string;
   body: string;
   bodyShadow: string;
   accent: string;
