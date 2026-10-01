@@ -5,7 +5,7 @@ Pixel Office is a standalone web app that visualizes OpenClaw agents as animated
 Open the app in a browser at `http://localhost:3456`.
 
 ## What It Does
-
+adding some text here
 Pixel Office now includes:
 
 - `server/` watches `~/.openclaw/agents/*/sessions/*.jsonl`
