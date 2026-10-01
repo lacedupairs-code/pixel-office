@@ -1662,8 +1662,8 @@ const styles: Record<string, CSSProperties> = {
     margin: 0,
     padding: "28px",
     background:
-      "radial-gradient(circle at top left, rgba(255, 207, 136, 0.2), transparent 32%), radial-gradient(circle at top right, rgba(132, 181, 164, 0.14), transparent 28%), linear-gradient(180deg, #241d17 0%, #14110f 52%, #0d0b0a 100%)",
-    color: "#f3e7d2",
+      "radial-gradient(circle at top left, rgba(255, 79, 163, 0.32), transparent 34%), radial-gradient(circle at top right, rgba(34, 211, 238, 0.28), transparent 30%), radial-gradient(circle at bottom center, rgba(163, 230, 53, 0.12), transparent 40%), linear-gradient(180deg, #1b1145 0%, #120a33 52%, #0a0622 100%)",
+    color: "#f6f3ff",
     fontFamily: '"Aptos", "Trebuchet MS", "Segoe UI", sans-serif',
     display: "grid",
     gap: "18px"
@@ -1676,10 +1676,10 @@ const styles: Record<string, CSSProperties> = {
     flexWrap: "wrap",
     padding: "24px",
     borderRadius: "28px",
-    border: "1px solid rgba(255, 236, 206, 0.14)",
+    border: "1px solid rgba(255, 121, 198, 0.45)",
     background:
-      "linear-gradient(135deg, rgba(54, 41, 31, 0.94) 0%, rgba(34, 27, 22, 0.9) 54%, rgba(22, 18, 15, 0.9) 100%)",
-    boxShadow: "0 28px 90px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255,255,255,0.04)",
+      "linear-gradient(135deg, rgba(124, 58, 237, 0.85) 0%, rgba(219, 39, 119, 0.7) 52%, rgba(14, 165, 233, 0.75) 100%)",
+    boxShadow: "0 28px 90px rgba(124, 58, 237, 0.4), inset 0 1px 0 rgba(255,255,255,0.18)",
     position: "relative",
     overflow: "hidden"
   },
@@ -1700,14 +1700,15 @@ const styles: Record<string, CSSProperties> = {
     textTransform: "uppercase",
     letterSpacing: "0.16em",
     fontSize: "11px",
-    color: "#d9bd95"
+    color: "#67e8f9",
+    fontWeight: 700
   },
   panel: {
     padding: "20px",
-    border: "1px solid rgba(255, 231, 198, 0.15)",
+    border: "1px solid rgba(167, 139, 250, 0.4)",
     borderRadius: "18px",
-    background: "linear-gradient(180deg, rgba(33, 26, 21, 0.94) 0%, rgba(24, 19, 16, 0.92) 100%)",
-    boxShadow: "0 20px 60px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255,255,255,0.03)",
+    background: "linear-gradient(180deg, rgba(42, 27, 98, 0.92) 0%, rgba(25, 15, 66, 0.92) 100%)",
+    boxShadow: "0 20px 60px rgba(76, 29, 149, 0.45), inset 0 1px 0 rgba(255,255,255,0.08)",
     backdropFilter: "blur(10px)"
   },
   title: {
@@ -1715,16 +1716,16 @@ const styles: Record<string, CSSProperties> = {
     fontSize: "clamp(38px, 7vw, 64px)",
     lineHeight: 0.94,
     letterSpacing: "-0.04em",
-    color: "#fff2df",
+    color: "#ffffff",
     fontFamily: '"Georgia", "Times New Roman", serif',
-    textShadow: "0 12px 30px rgba(0, 0, 0, 0.32)"
+    textShadow: "0 0 24px rgba(255, 79, 163, 0.7), 0 12px 30px rgba(0, 0, 0, 0.32)"
   },
   copy: {
     margin: 0,
     maxWidth: "680px",
     lineHeight: 1.65,
     fontSize: "15px",
-    color: "#dbc8ab"
+    color: "#ede9fe"
   },
   badgeRow: {
     display: "flex",
@@ -1737,9 +1738,9 @@ const styles: Record<string, CSSProperties> = {
     minHeight: "34px",
     padding: "8px 12px",
     borderRadius: "999px",
-    border: "1px solid rgba(255, 240, 220, 0.14)",
-    background: "rgba(255, 248, 240, 0.06)",
-    color: "#f5e2c3",
+    border: "1px solid rgba(255, 255, 255, 0.35)",
+    background: "rgba(255, 255, 255, 0.16)",
+    color: "#ffffff",
     fontSize: "12px",
     letterSpacing: "0.02em",
     boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)"
@@ -1752,9 +1753,9 @@ const styles: Record<string, CSSProperties> = {
     alignContent: "start",
     padding: "18px 18px 16px",
     borderRadius: "22px",
-    border: "1px solid rgba(255, 232, 204, 0.14)",
+    border: "1px solid rgba(103, 232, 249, 0.45)",
     background:
-      "linear-gradient(180deg, rgba(255, 246, 230, 0.08) 0%, rgba(122, 164, 147, 0.08) 100%), rgba(19, 16, 14, 0.58)",
+      "linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(34, 211, 238, 0.12) 100%), rgba(20, 10, 60, 0.7)",
     boxShadow: "0 20px 50px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.05)",
     backdropFilter: "blur(12px)"
   },
@@ -1762,12 +1763,12 @@ const styles: Record<string, CSSProperties> = {
     fontSize: "11px",
     letterSpacing: "0.14em",
     textTransform: "uppercase",
-    color: "#bfa280"
+    color: "#67e8f9"
   },
   heroSignalValue: {
     fontSize: "24px",
     lineHeight: 1.1,
-    color: "#fff2df",
+    color: "#ffffff",
     letterSpacing: "-0.03em"
   },
   heroSignalMeter: {
@@ -1781,8 +1782,8 @@ const styles: Record<string, CSSProperties> = {
   heroSignalFill: {
     height: "100%",
     borderRadius: "999px",
-    background: "linear-gradient(90deg, #e2b16c 0%, #8fc8a6 100%)",
-    boxShadow: "0 0 18px rgba(143, 200, 166, 0.35)"
+    background: "linear-gradient(90deg, #ff4fa3 0%, #fbbf24 50%, #a3e635 100%)",
+    boxShadow: "0 0 18px rgba(255, 79, 163, 0.6)"
   },
   heroSignalGrid: {
     display: "grid",
@@ -1833,7 +1834,7 @@ const styles: Record<string, CSSProperties> = {
   },
   statusPillValue: {
     fontSize: "14px",
-    color: "#f3e7d2"
+    color: "#f6f3ff"
   },
   summaryGrid: {
     display: "grid",
@@ -1863,15 +1864,15 @@ const styles: Record<string, CSSProperties> = {
     fontSize: "11px",
     letterSpacing: "0.08em",
     textTransform: "uppercase",
-    color: "#c7a97d"
+    color: "#ff8fd0"
   },
   summaryValue: {
     fontSize: "20px",
-    color: "#f3e7d2"
+    color: "#f6f3ff"
   },
   summaryMeta: {
     fontSize: "12px",
-    color: "#bda988"
+    color: "#b9b2f5"
   },
   summaryStatRow: {
     display: "flex",
@@ -1903,15 +1904,15 @@ const styles: Record<string, CSSProperties> = {
     fontSize: "11px",
     letterSpacing: "0.08em",
     textTransform: "uppercase",
-    color: "#c7a97d"
+    color: "#ff8fd0"
   },
   diagnosticsValue: {
     fontSize: "20px",
-    color: "#f3e7d2"
+    color: "#f6f3ff"
   },
   diagnosticsMeta: {
     fontSize: "12px",
-    color: "#cdb89b",
+    color: "#cfc9ff",
     lineHeight: 1.5
   },
   diagnosticsWarningList: {
@@ -1922,8 +1923,8 @@ const styles: Record<string, CSSProperties> = {
   diagnosticsWarningItem: {
     padding: "12px 14px",
     borderRadius: "14px",
-    border: "1px solid rgba(240, 181, 106, 0.2)",
-    background: "rgba(181, 136, 82, 0.12)",
+    border: "1px solid rgba(253, 224, 71,0.2)",
+    background: "rgba(251, 191, 36,0.12)",
     color: "#f0dfc4",
     lineHeight: 1.5,
     fontSize: "13px"
@@ -1945,7 +1946,7 @@ const styles: Record<string, CSSProperties> = {
     fontSize: "11px",
     letterSpacing: "0.08em",
     textTransform: "uppercase",
-    color: "#c7a97d"
+    color: "#ff8fd0"
   },
   highlightRow: {
     display: "grid",
@@ -1953,7 +1954,7 @@ const styles: Record<string, CSSProperties> = {
   },
   highlightMeta: {
     fontSize: "12px",
-    color: "#cdb89b"
+    color: "#cfc9ff"
   },
   highlightEmpty: {
     fontSize: "12px",
@@ -1976,15 +1977,15 @@ const styles: Record<string, CSSProperties> = {
     fontSize: "11px",
     letterSpacing: "0.08em",
     textTransform: "uppercase",
-    color: "#c7a97d"
+    color: "#ff8fd0"
   },
   readinessValue: {
     fontSize: "18px",
-    color: "#f3e7d2"
+    color: "#f6f3ff"
   },
   readinessMeta: {
     fontSize: "12px",
-    color: "#cdb89b"
+    color: "#cfc9ff"
   },
   actionsList: {
     display: "grid",
@@ -2004,7 +2005,7 @@ const styles: Record<string, CSSProperties> = {
     height: "24px",
     borderRadius: "999px",
     background: "rgba(0,0,0,0.22)",
-    color: "#f3e7d2",
+    color: "#f6f3ff",
     fontSize: "12px",
     fontWeight: 700,
     display: "grid",
@@ -2016,12 +2017,12 @@ const styles: Record<string, CSSProperties> = {
     gap: "4px"
   },
   actionTitle: {
-    color: "#f3e7d2",
+    color: "#f6f3ff",
     fontSize: "14px"
   },
   actionMeta: {
     fontSize: "12px",
-    color: "#cdb89b"
+    color: "#cfc9ff"
   },
   narrativeCard: {
     display: "grid",
@@ -2042,7 +2043,7 @@ const styles: Record<string, CSSProperties> = {
     fontSize: "11px",
     letterSpacing: "0.08em",
     textTransform: "uppercase",
-    color: "#c7a97d"
+    color: "#ff8fd0"
   },
   narrativeBadge: {
     padding: "6px 10px",
@@ -2090,14 +2091,14 @@ const styles: Record<string, CSSProperties> = {
     flexWrap: "wrap"
   },
   attentionTitle: {
-    color: "#f3e7d2",
+    color: "#f6f3ff",
     fontSize: "14px"
   },
   attentionTag: {
     padding: "4px 8px",
     borderRadius: "999px",
     background: "rgba(0,0,0,0.18)",
-    color: "#f3e7d2",
+    color: "#f6f3ff",
     fontSize: "11px",
     fontWeight: 700,
     letterSpacing: "0.04em",
@@ -2105,17 +2106,17 @@ const styles: Record<string, CSSProperties> = {
   },
   attentionMeta: {
     fontSize: "12px",
-    color: "#cdb89b",
+    color: "#cfc9ff",
     lineHeight: 1.5
   },
   stage: {
     overflowX: "auto",
     padding: "18px",
     borderRadius: "28px",
-    border: "1px solid rgba(255, 225, 179, 0.1)",
+    border: "1px solid rgba(34, 211, 238, 0.4)",
     background:
-      "radial-gradient(circle at top left, rgba(255, 195, 120, 0.12), transparent 30%), linear-gradient(180deg, rgba(33, 25, 22, 0.96), rgba(24, 19, 18, 0.94))",
-    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04), 0 24px 60px rgba(0, 0, 0, 0.28)",
+      "radial-gradient(circle at top left, rgba(255, 79, 163, 0.2), transparent 32%), radial-gradient(circle at bottom right, rgba(34, 211, 238, 0.16), transparent 32%), linear-gradient(180deg, rgba(34, 21, 82, 0.96), rgba(20, 12, 54, 0.94))",
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08), 0 24px 60px rgba(76, 29, 149, 0.4)",
     display: "flex",
     justifyContent: "center"
   },
@@ -2139,7 +2140,7 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: "12px",
     border: "1px solid rgba(255,255,255,0.1)",
     background: "rgba(255,255,255,0.05)",
-    color: "#f3e7d2",
+    color: "#f6f3ff",
     fontSize: "13px",
     outline: "none"
   },
@@ -2151,8 +2152,8 @@ const styles: Record<string, CSSProperties> = {
     padding: "10px 12px",
     borderRadius: "12px",
     border: "1px solid rgba(255,255,255,0.1)",
-    background: "#2a221c",
-    color: "#f3e7d2",
+    background: "#2a1b62",
+    color: "#f6f3ff",
     fontSize: "13px",
     outline: "none"
   },
@@ -2161,7 +2162,7 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: "12px",
     border: "1px solid rgba(255,255,255,0.1)",
     background: "rgba(255,255,255,0.05)",
-    color: "#f3e7d2",
+    color: "#f6f3ff",
     fontSize: "13px",
     cursor: "pointer"
   },
@@ -2199,23 +2200,23 @@ const styles: Record<string, CSSProperties> = {
     cursor: "pointer"
   },
   feedFilterChipActive: {
-    background: "rgba(240, 181, 106, 0.18)",
-    color: "#f7ead3",
-    border: "1px solid rgba(240, 181, 106, 0.28)"
+    background: "rgba(255, 79, 163, 0.35)",
+    color: "#ffffff",
+    border: "1px solid rgba(255, 121, 198, 0.7)"
   },
   feedAssignmentChip: {
     padding: "7px 10px",
     borderRadius: "999px",
     border: "1px solid rgba(255,255,255,0.08)",
     background: "rgba(255,255,255,0.03)",
-    color: "#cdb89b",
+    color: "#cfc9ff",
     fontSize: "12px",
     cursor: "pointer"
   },
   feedAssignmentChipActive: {
-    background: "rgba(143, 208, 167, 0.16)",
+    background: "rgba(110, 231, 183,0.16)",
     color: "#ecf8ef",
-    border: "1px solid rgba(143, 208, 167, 0.24)"
+    border: "1px solid rgba(110, 231, 183,0.24)"
   },
   feedTaskChip: {
     padding: "7px 10px",
@@ -2227,9 +2228,9 @@ const styles: Record<string, CSSProperties> = {
     cursor: "pointer"
   },
   feedTaskChipActive: {
-    background: "rgba(120, 176, 226, 0.18)",
-    color: "#eef7ff",
-    border: "1px solid rgba(150, 210, 255, 0.24)"
+    background: "rgba(34, 211, 238, 0.28)",
+    color: "#ffffff",
+    border: "1px solid rgba(103, 232, 249, 0.6)"
   },
   feedSummaryPill: {
     padding: "6px 10px",
@@ -2261,7 +2262,7 @@ const styles: Record<string, CSSProperties> = {
   },
   status: {
     textTransform: "capitalize",
-    color: "#f6b26b"
+    color: "#fde047"
   },
   assignmentBadge: {
     padding: "5px 8px",
@@ -2273,17 +2274,17 @@ const styles: Record<string, CSSProperties> = {
     border: "1px solid rgba(255,255,255,0.08)"
   },
   assignmentBadgeReady: {
-    background: "rgba(98, 151, 111, 0.16)",
+    background: "rgba(52, 211, 153,0.16)",
     color: "#dff5e3",
-    border: "1px solid rgba(143, 208, 167, 0.22)"
+    border: "1px solid rgba(110, 231, 183,0.22)"
   },
   assignmentBadgeMissing: {
-    background: "rgba(181, 136, 82, 0.16)",
+    background: "rgba(251, 191, 36,0.16)",
     color: "#fff0db",
-    border: "1px solid rgba(240, 181, 106, 0.22)"
+    border: "1px solid rgba(253, 224, 71,0.22)"
   },
   feedHighlight: {
-    background: "rgba(240, 181, 106, 0.26)",
+    background: "rgba(253, 224, 71,0.26)",
     color: "#fff3dd",
     borderRadius: "4px",
     padding: "0 2px"
@@ -2291,7 +2292,7 @@ const styles: Record<string, CSSProperties> = {
   meta: {
     marginTop: "4px",
     fontSize: "12px",
-    color: "#bda988"
+    color: "#b9b2f5"
   }
 };
 
@@ -2570,18 +2571,18 @@ function statusToneStyle(tone: "good" | "warm" | "alert" | "muted"): CSSProperti
   switch (tone) {
     case "good":
       return {
-        background: "rgba(98, 151, 111, 0.16)",
-        border: "1px solid rgba(143, 208, 167, 0.22)"
+        background: "rgba(52, 211, 153,0.16)",
+        border: "1px solid rgba(110, 231, 183,0.22)"
       };
     case "warm":
       return {
-        background: "rgba(181, 136, 82, 0.14)",
-        border: "1px solid rgba(240, 181, 106, 0.2)"
+        background: "rgba(251, 191, 36,0.14)",
+        border: "1px solid rgba(253, 224, 71,0.2)"
       };
     case "alert":
       return {
-        background: "rgba(164, 88, 88, 0.16)",
-        border: "1px solid rgba(241, 139, 125, 0.24)"
+        background: "rgba(244, 63, 94,0.16)",
+        border: "1px solid rgba(251, 113, 133,0.24)"
       };
     case "muted":
     default:
@@ -2596,19 +2597,19 @@ function readinessToneStyle(tone: "good" | "warm" | "alert"): CSSProperties {
   switch (tone) {
     case "good":
       return {
-        background: "rgba(98, 151, 111, 0.14)",
-        border: "1px solid rgba(143, 208, 167, 0.2)"
+        background: "rgba(52, 211, 153,0.14)",
+        border: "1px solid rgba(110, 231, 183,0.2)"
       };
     case "alert":
       return {
-        background: "rgba(164, 88, 88, 0.16)",
-        border: "1px solid rgba(241, 139, 125, 0.24)"
+        background: "rgba(244, 63, 94,0.16)",
+        border: "1px solid rgba(251, 113, 133,0.24)"
       };
     case "warm":
     default:
       return {
-        background: "rgba(181, 136, 82, 0.14)",
-        border: "1px solid rgba(240, 181, 106, 0.2)"
+        background: "rgba(251, 191, 36,0.14)",
+        border: "1px solid rgba(253, 224, 71,0.2)"
       };
   }
 }
@@ -2617,18 +2618,18 @@ function actionToneStyle(tone: "good" | "warm" | "alert" | "muted"): CSSProperti
   switch (tone) {
     case "good":
       return {
-        background: "rgba(98, 151, 111, 0.12)",
-        border: "1px solid rgba(143, 208, 167, 0.18)"
+        background: "rgba(52, 211, 153,0.12)",
+        border: "1px solid rgba(110, 231, 183,0.18)"
       };
     case "alert":
       return {
-        background: "rgba(164, 88, 88, 0.14)",
-        border: "1px solid rgba(241, 139, 125, 0.22)"
+        background: "rgba(244, 63, 94,0.14)",
+        border: "1px solid rgba(251, 113, 133,0.22)"
       };
     case "warm":
       return {
-        background: "rgba(181, 136, 82, 0.12)",
-        border: "1px solid rgba(240, 181, 106, 0.18)"
+        background: "rgba(251, 191, 36,0.12)",
+        border: "1px solid rgba(253, 224, 71,0.18)"
       };
     case "muted":
     default:
@@ -2643,21 +2644,21 @@ function narrativeToneStyle(tone: "focused" | "blocked" | "quiet" | "offline"): 
   switch (tone) {
     case "focused":
       return {
-        background: "rgba(98, 151, 111, 0.16)",
+        background: "rgba(52, 211, 153,0.16)",
         color: "#e8f5eb",
-        border: "1px solid rgba(143, 208, 167, 0.24)"
+        border: "1px solid rgba(110, 231, 183,0.24)"
       };
     case "blocked":
       return {
-        background: "rgba(164, 88, 88, 0.18)",
+        background: "rgba(244, 63, 94,0.18)",
         color: "#ffe4df",
-        border: "1px solid rgba(241, 139, 125, 0.24)"
+        border: "1px solid rgba(251, 113, 133,0.24)"
       };
     case "quiet":
       return {
-        background: "rgba(181, 136, 82, 0.16)",
+        background: "rgba(251, 191, 36,0.16)",
         color: "#fff0db",
-        border: "1px solid rgba(240, 181, 106, 0.22)"
+        border: "1px solid rgba(253, 224, 71,0.22)"
       };
     case "offline":
     default:
@@ -2673,18 +2674,18 @@ function attentionToneStyle(tone: "good" | "warm" | "alert" | "muted"): CSSPrope
   switch (tone) {
     case "good":
       return {
-        background: "rgba(98, 151, 111, 0.12)",
-        border: "1px solid rgba(143, 208, 167, 0.2)"
+        background: "rgba(52, 211, 153,0.12)",
+        border: "1px solid rgba(110, 231, 183,0.2)"
       };
     case "alert":
       return {
-        background: "rgba(164, 88, 88, 0.16)",
-        border: "1px solid rgba(241, 139, 125, 0.24)"
+        background: "rgba(244, 63, 94,0.16)",
+        border: "1px solid rgba(251, 113, 133,0.24)"
       };
     case "warm":
       return {
-        background: "rgba(181, 136, 82, 0.12)",
-        border: "1px solid rgba(240, 181, 106, 0.18)"
+        background: "rgba(251, 191, 36,0.12)",
+        border: "1px solid rgba(253, 224, 71,0.18)"
       };
     case "muted":
     default:
