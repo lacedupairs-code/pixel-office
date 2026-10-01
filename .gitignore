@@ -4,3 +4,6 @@ node_modules/
 server.log
 *.tsbuildinfo
 webview-ui/dist/
+
+# Saved room layouts (written at runtime, not code)
+data/

@@ -1,0 +1,11 @@
+{
+  "name": "Pixel Office",
+  "description": "Pixel-art office that shows OpenClaw agents at work",
+  "icon": "monitor",
+  "color": "purple",
+  "install": "npm ci && npm --prefix webview-ui ci",
+  "build": "npm run build",
+  "start": "node dist/server/index.js",
+  "port": 7010,
+  "health": "/api/health"
+}
