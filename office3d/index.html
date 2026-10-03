@@ -27,13 +27,23 @@ header{display:flex;align-items:center;gap:14px;padding:10px 16px;border-bottom:
 main{display:grid;grid-template-columns:1fr 330px;min-height:0}
 .stage{position:relative;min-width:0;min-height:0;overflow:hidden;background:#05050a}
 #view{position:absolute;inset:0}
-#view canvas{display:block}
+#view canvas{display:block;cursor:grab}
+#view canvas:active{cursor:grabbing}
+#view canvas:focus-visible{outline:2px solid #ffe36b;outline-offset:-3px}
 .labels{position:absolute;inset:0;pointer-events:none}
 .classic{position:absolute;left:12px;top:44px;z-index:3;text-decoration:none}
 .mock{position:absolute;left:12px;top:12px;font-family:Silkscreen,monospace;font-size:10px;color:#000;background:#ffe36b;padding:3px 8px;border-radius:4px;box-shadow:2px 2px 0 #000;z-index:3}
 .tools{position:absolute;right:12px;top:12px;display:flex;gap:6px;z-index:3}
 .tool{font-family:Silkscreen,monospace;font-size:11px;background:rgba(10,8,16,.85);color:var(--text);border:2px solid #000;border-radius:6px;padding:5px 9px;cursor:pointer;box-shadow:0 2px 0 #000;user-select:none}
 .tool:hover{background:#2a2340}
+.tool:focus-visible{outline:2px solid #ffe36b;outline-offset:2px}
+.navigation{position:absolute;left:12px;bottom:12px;z-index:3;display:flex;flex-direction:column;gap:8px;padding:10px;border:1px solid var(--line);border-radius:10px;background:rgba(10,8,16,.9)}
+.nav-buttons{display:flex;gap:6px;align-items:center}
+.navigation .tool{min-width:44px;min-height:44px;font:600 18px Inter,system-ui,sans-serif;padding:6px}
+.navigation .nav-mode{font:11px Silkscreen;min-width:72px}
+.navigation .nav-mode[aria-pressed="true"]{background:#ffe36b;color:#111}
+.nav-hint{font:11px Inter,system-ui,sans-serif;color:var(--mute);max-width:310px}
+@media(max-width:520px){.tools{gap:3px;right:6px}.tools .tool{font-size:9px;padding:6px}.navigation{left:8px;bottom:8px;padding:8px}.nav-hint{max-width:280px}}
 .toast{position:absolute;left:50%;top:14px;transform:translateX(-50%);background:#2a1d08;border:2px solid var(--warn);color:#ffe9b0;font-family:Silkscreen,monospace;font-size:11px;padding:7px 12px;border-radius:8px;box-shadow:0 3px 0 #000;display:none;white-space:nowrap;z-index:4}
 .loading{position:absolute;inset:0;display:grid;place-items:center;font-family:Silkscreen,monospace;color:var(--mute);z-index:5;background:#05050a}
 aside{border-left:2px solid #000;background:var(--panel);display:grid;grid-template-rows:auto 1fr;min-height:0}
@@ -88,7 +98,21 @@ h3{margin:0;font-family:Silkscreen,monospace;font-size:12px;color:var(--mute);fo
     <div id="view"></div>
     <div class="labels" id="labels"></div>
     <div class="mock" id="mode">CONNECTING…</div><a class="tool classic" href="/classic/" title="The classic 2D Pixel Office">2D</a>
-    <div class="tools"><span class="tool" id="night">☾ NIGHT</span><span class="tool" id="quality">HIGH</span><button class="tool" id="desks" title="See the detailed workstations">DESKS</button><span class="tool" id="fit">⤢ OVERVIEW</span></div>
+    <div class="tools"><span class="tool" id="night">☾ NIGHT</span><span class="tool" id="quality">HIGH</span><button class="tool" id="desks" title="See the detailed workstations">DESKS</button><button class="tool" id="fit" title="Reset the camera to the office overview (Home)">⤢ OVERVIEW</button></div>
+    <div class="navigation" role="group" aria-label="Camera navigation">
+      <div class="nav-buttons">
+        <button class="tool" id="zoomOut" aria-label="Zoom out" title="Zoom out (−)">−</button>
+        <button class="tool" id="zoomIn" aria-label="Zoom in" title="Zoom in (+)">+</button>
+        <button class="tool nav-mode" id="rotate" aria-pressed="false" title="Toggle drag to rotate">ROTATE</button>
+      </div>
+      <div class="nav-buttons">
+        <button class="tool" data-pan="left" aria-label="Move view left" title="Move left (A or left arrow)">←</button>
+        <button class="tool" data-pan="up" aria-label="Move view forward" title="Move forward (W or up arrow)">↑</button>
+        <button class="tool" data-pan="down" aria-label="Move view backward" title="Move backward (S or down arrow)">↓</button>
+        <button class="tool" data-pan="right" aria-label="Move view right" title="Move right (D or right arrow)">→</button>
+      </div>
+      <div class="nav-hint" id="navHint">Drag to move · Scroll to zoom · WASD / arrows</div>
+    </div>
     <div class="toast" id="toast"></div>
     <div class="loading" id="loading">LOADING THE OFFICE…</div>
   </div>
@@ -177,7 +201,15 @@ const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 200);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true; controls.dampingFactor = 0.08;
 controls.minPolarAngle = 0.45; controls.maxPolarAngle = 1.15;
-controls.minDistance = 6; controls.maxDistance = 60;
+controls.minDistance = 3; controls.maxDistance = 80;
+controls.cursorStyle = "grab";
+controls.panSpeed = 1.3;
+controls.zoomSpeed = 1.2;
+controls.zoomToCursor = true;
+controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
+controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_PAN };
+renderer.domElement.tabIndex = 0;
+renderer.domElement.setAttribute("aria-label", "Office view. Drag to move, scroll or pinch to zoom. Use arrow keys or WASD to move, plus and minus to zoom, Home for overview.");
 controls.screenSpacePanning = false;
 const HOME = { target: new THREE.Vector3(W / 2, 0, D / 2 + 0.5), pos: new THREE.Vector3(W / 2, 22, D / 2 + 21) };
 function overview() { cam.follow = null; cam.goal = { target: HOME.target.clone(), pos: MOBILE ? new THREE.Vector3(16, 16, 26) : HOME.pos.clone() }; }
@@ -887,9 +919,9 @@ const STATUS_TEXT = { working: "Working", thinking: "Thinking", waiting: "Needs 
 function select(a) { selected = a; cam.follow = a; renderInspector(); }
 function renderInspector() {
   const el = document.getElementById("insp");
-  if (!selected) { el.innerHTML = `<h3>INSPECTOR</h3><div class="empty">Click anyone to follow them. Drag to rotate, right-drag or two fingers to pan, scroll or pinch to zoom.</div>`; return; }
+  if (!selected) { el.innerHTML = `<h3>INSPECTOR</h3><div class="empty">Click anyone to follow them. Drag to move, scroll or pinch to zoom. Use the camera buttons below, or turn on Rotate to look around.</div>`; return; }
   const a = selected, [cx, cz] = cellOf(a), r = ROOMS.find((x) => x.id === zone[cz][cx]);
-  el.innerHTML = `<h3>INSPECTOR · FOLLOWING</h3><div class="who"><div class="av" style="background:${ORG[a.org]}22;border-color:${ORG[a.org]}">${a.icon || "🤖"}</div><div><div class="n">${a.name}</div><div class="r">${a.role}</div><span class="tag" style="background:${ORG[a.org]}">${a.org.toUpperCase()}</span></div></div>
+  el.innerHTML = `<h3>INSPECTOR · ${cam.follow === selected ? "FOLLOWING" : "SELECTED"}</h3><div class="who"><div class="av" style="background:${ORG[a.org]}22;border-color:${ORG[a.org]}">${a.icon || "🤖"}</div><div><div class="n">${a.name}</div><div class="r">${a.role}</div><span class="tag" style="background:${ORG[a.org]}">${a.org.toUpperCase()}</span></div></div>
     <div class="kv"><span>Status</span><span>${STATUS_TEXT[a.status] || a.status}</span><span>Doing</span><span>${a.doing || "Nothing right now"}</span><span>Where</span><span>${r ? r.name[0] + r.name.slice(1).toLowerCase() : "Hallway"}</span></div>
     ${a.link ? `<a class="btn" href="${a.link}" target="_blank" rel="noopener">OPEN IN ${a.org === "LacedupBot" ? "LACEDUPBOT" : a.org === "HQ" ? "HQ" : "JARVIS"} ▸</a>` : ""}`;
 }
@@ -902,12 +934,78 @@ document.getElementById("desks").onclick = () => {
   select(null); cam.follow = null;
   cam.goal = { target: new THREE.Vector3(6.5, 0.45, 10), pos: new THREE.Vector3(-1, 9, 21) };
 };
-// click to select (raycast against agents)
+// Manual navigation releases following and any preset camera animation.
+function manualNavigation() {
+  cam.goal = null;
+  if (cam.follow) { cam.follow = null; renderInspector(); }
+}
+controls.addEventListener("start", manualNavigation);
+let rotating = false;
+const rotateButton = document.getElementById("rotate");
+const navHint = document.getElementById("navHint");
+function setRotate(value) {
+  rotating = value;
+  controls.mouseButtons.LEFT = value ? THREE.MOUSE.ROTATE : THREE.MOUSE.PAN;
+  controls.touches.ONE = value ? THREE.TOUCH.ROTATE : THREE.TOUCH.PAN;
+  rotateButton.setAttribute("aria-pressed", String(value));
+  navHint.textContent = MOBILE
+    ? `${value ? "Drag to rotate" : "Drag to move"} · Pinch to zoom · Two fingers to move`
+    : `${value ? "Drag to rotate" : "Drag to move"} · Scroll to zoom · WASD / arrows`;
+}
+rotateButton.onclick = () => setRotate(!rotating);
+setRotate(false);
+function zoomBy(factor) {
+  manualNavigation();
+  const offset = camera.position.clone().sub(controls.target);
+  const distance = THREE.MathUtils.clamp(offset.length() * factor, controls.minDistance, controls.maxDistance);
+  camera.position.copy(controls.target).add(offset.setLength(distance));
+  controls.update();
+}
+function panView(x, y, seconds = 0.18) {
+  manualNavigation();
+  // Move along the floor in the direction currently shown on screen.
+  const right = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 0).setY(0).normalize();
+  const forward = new THREE.Vector3().crossVectors(camera.up, right).normalize();
+  const speed = camera.position.distanceTo(controls.target) * 0.65 * seconds;
+  const delta = right.multiplyScalar(x * speed).add(forward.multiplyScalar(y * speed));
+  controls.target.add(delta); camera.position.add(delta);
+  controls.update();
+}
+document.getElementById("zoomIn").onclick = () => zoomBy(1 / 1.2);
+document.getElementById("zoomOut").onclick = () => zoomBy(1.2);
+const directions = { left: [-1, 0], right: [1, 0], up: [0, 1], down: [0, -1] };
+for (const button of document.querySelectorAll("[data-pan]")) button.onclick = () => panView(...directions[button.dataset.pan]);
+const moveKeys = new Set();
+const keyDirections = { arrowleft: "left", a: "left", arrowright: "right", d: "right", arrowup: "up", w: "up", arrowdown: "down", s: "down" };
+renderer.domElement.addEventListener("keydown", (e) => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const key = e.key.toLowerCase();
+  if (keyDirections[key]) { e.preventDefault(); moveKeys.add(key); manualNavigation(); }
+  else if (key === "+" || key === "=") { e.preventDefault(); zoomBy(1 / 1.2); }
+  else if (key === "-" || key === "_") { e.preventDefault(); zoomBy(1.2); }
+  else if (key === "home") { e.preventDefault(); moveKeys.clear(); select(null); overview(); }
+});
+addEventListener("keyup", (e) => moveKeys.delete(e.key.toLowerCase()));
+renderer.domElement.addEventListener("blur", () => moveKeys.clear());
+addEventListener("blur", () => moveKeys.clear());
+
+// A tap selects an agent; dragging, right-clicking and multi-touch do not.
 const ray = new THREE.Raycaster(), mouse = new THREE.Vector2();
+const activePointers = new Set();
 let downAt = null;
-renderer.domElement.addEventListener("pointerdown", (e) => (downAt = [e.clientX, e.clientY]));
+renderer.domElement.addEventListener("pointerdown", (e) => {
+  renderer.domElement.focus({ preventScroll: true });
+  activePointers.add(e.pointerId);
+  downAt = activePointers.size === 1 && e.button === 0 ? { id: e.pointerId, x: e.clientX, y: e.clientY } : null;
+});
+renderer.domElement.addEventListener("pointermove", (e) => {
+  if (downAt && e.pointerId === downAt.id && Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 5) downAt = null;
+});
+renderer.domElement.addEventListener("pointercancel", (e) => { activePointers.delete(e.pointerId); downAt = null; });
 renderer.domElement.addEventListener("pointerup", (e) => {
-  if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 5) return;
+  activePointers.delete(e.pointerId);
+  const tap = downAt; downAt = null;
+  if (!tap || tap.id !== e.pointerId || e.button !== 0 || Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 5) return;
   const r = renderer.domElement.getBoundingClientRect(); mouse.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   ray.setFromCamera(mouse, camera);
   let best = null, bestD = 1e9;
@@ -1105,6 +1203,12 @@ function animateScene(dt) {
   }
 }
 function updateCamera(dt) {
+  if (moveKeys.size) {
+    let x = 0, y = 0;
+    for (const key of moveKeys) { const dir = directions[keyDirections[key]]; x += dir[0]; y += dir[1]; }
+    const length = Math.hypot(x, y);
+    if (length) panView(x / length, y / length, dt);
+  }
   if (cam.follow && agents.includes(cam.follow)) {
     const p = cam.follow.group.position;
     const delta = v3.set(p.x, 0.4, p.z).sub(controls.target).multiplyScalar(Math.min(1, dt * 4));

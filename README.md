@@ -26,6 +26,15 @@ Pixel Office now includes:
 - room slot management with names, descriptions, tags, thumbnails, active-room support, and project persistence
 - project sync diagnostics, readiness checks, recommendations, highlights, and narrative summaries
 
+## Moving Around the 3D Office
+
+- Drag with the mouse or one finger to move around the floor.
+- Scroll or pinch to zoom toward the pointer; use the **+ / −** buttons for stepped zoom.
+- Use the direction buttons, or click the scene and hold **WASD / arrow keys**, to move the view.
+- Enable **Rotate** to rotate by dragging, or use right-drag with the mouse.
+- Choose **Overview** or press **Home** while the scene is focused to reset the camera.
+- Click an agent to follow them. Moving or zooming manually releases following while keeping that agent selected.
+
 ## Using With OpenClaw
 
 Pixel Office looks for OpenClaw data under:
