@@ -210,11 +210,33 @@ app.delete("/api/layout-slots/:slotId", async (request, response) => {
   }
 });
 
+// Agent Office (2026-10-03): the 3D office is the main view; the classic 2D office lives at /classic/.
+// The office's furniture and people are Synty POLYGON Office, licensed to the owner: those files are
+// never in git. They live only on the host (private-assets/synty, or SYNTY_DIR) and are served from there.
+const officeDir = path.resolve(process.cwd(), "office3d");
+const syntyDir = path.resolve(process.cwd(), process.env.SYNTY_DIR || path.join("private-assets", "synty"));
+const threeDir = path.resolve(process.cwd(), "node_modules", "three");
+app.get("/api/office-config", (_request, response) => {
+  response.json({
+    syntyReady: pathExists(path.join(syntyDir, "textures", "PolygonOffice_Texture_01_A.png")),
+    // where HQ answers; by default the page works it out (same tailnet name, HQ on the usual port)
+    hqUrl: process.env.OFFICE_HQ_URL || null
+  });
+});
+app.use("/vendor/three", express.static(threeDir, { maxAge: "7d", index: false }));
+app.use("/synty", express.static(syntyDir, { maxAge: "1d", index: false }));
+app.use("/office", express.static(officeDir, { index: false }));
+app.get(["/", "/index.html"], (_request, response) => {
+  response.sendFile(path.join(officeDir, "index.html"));
+});
+
 if (runtimeStatus.distReady) {
-  app.use(express.static(distDir));
-  app.get("*", (_request, response) => {
+  app.use("/classic", express.static(distDir));
+  app.use("/assets", express.static(path.join(distDir, "assets"))); // the classic view's art asks for /assets/…
+  app.get("/classic/*", (_request, response) => {
     response.sendFile(distIndexPath);
   });
+  app.get("*", (_request, response) => response.redirect("/"));
 } else {
   runtimeStatus.warnings.push(`Frontend build is missing at ${distIndexPath}. Run npm start or npm run build first.`);
   app.get("*", (_request, response) => {

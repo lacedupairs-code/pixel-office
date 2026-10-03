@@ -1,6 +1,6 @@
 {
   "name": "Pixel Office",
-  "description": "Pixel-art office that shows OpenClaw agents at work",
+  "description": "A 3D office where every agent in HQ, Jarvis and LacedupBot works, live",
   "icon": "monitor",
   "color": "purple",
   "install": "npm ci && npm --prefix webview-ui ci",

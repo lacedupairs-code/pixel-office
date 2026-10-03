@@ -7,3 +7,6 @@ webview-ui/dist/
 
 # Saved room layouts (written at runtime, not code)
 data/
+
+# Synty POLYGON Office (licensed to the owner, never shared): kept on the host only
+private-assets/

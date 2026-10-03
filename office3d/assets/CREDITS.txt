@@ -1,0 +1,6 @@
+Agent Office 3D assets in this folder (all CC0, free to share):
+- robot.glb: RobotExpressive by Tomas Laulhe (Quaternius), modified by Don McCurdy, CC0 1.0 (three.js examples).
+- AnimationLibrary_Godot_Standard.*: Universal Animation Library (Standard) by Quaternius, CC0 1.0.
+
+The office furniture and people are Synty POLYGON Office, licensed to the owner. Those files are NOT in this repo:
+they live only on the host (private-assets/synty, or SYNTY_DIR) and are served from there.
