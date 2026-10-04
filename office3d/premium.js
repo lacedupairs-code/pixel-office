@@ -137,7 +137,7 @@ export function workstationTexture(seat) {
   const map=new THREE.CanvasTexture(canvas);map.colorSpace=THREE.SRGBColorSpace;map.anisotropy=8;displays.set(seat,map);return map;
 }
 
-export function refineInterior({world,topOf,blocked}) {
+export function refineInterior({world,topOf,blocked,place,ROOMS}) {
   // Replace the lounge furniture with a tailored sofa, rug and rounded coffee table.
   for(const child of [...world.children]) {
     const name=child.userData.prop;
@@ -183,6 +183,122 @@ export function refineInterior({world,topOf,blocked}) {
   board.position.set(11.35,1.27,14.582);world.add(board);
   for(const x of [10.98,11.72])rounded(world,[.025,1.15,.025],[x,.575,14.53],metal,.004);
   blocked[14][11]=true;
+  refineOtherRooms({world,topOf,blocked,place,ROOMS});
+}
+
+function refineOtherRooms({world,topOf,blocked,place,ROOMS}) {
+  const prop=(name,x,z,options={})=>place(name,x,z,options.rot||0,{block:false,...options});
+  const cream=new THREE.MeshStandardMaterial({color:'#d8d1c0',roughness:.76});
+  const paper=new THREE.MeshStandardMaterial({color:'#efe9d9',roughness:.92});
+  const brass=new THREE.MeshStandardMaterial({color:'#a78b58',metalness:.65,roughness:.4});
+  const frame=(x,z,title,colour,width=1.05,y=1.28)=>{
+    const map=texture((g,s)=>{
+      g.fillStyle='#ece5d5';g.fillRect(0,0,s,s);g.fillStyle=colour;g.fillRect(28,28,s-56,100);
+      g.font='bold 27px sans-serif';g.fillStyle='#fff';g.fillText(title,48,89);
+      for(let i=0;i<5;i++){g.fillStyle=i%2?'#b4b7a6':'#c9c9b9';g.fillRect(48,165+i*53,160+(i%3)*72,12);}
+    });
+    rounded(world,[width,.65,.045],[x,y,z],walnut,.014);
+    const face=new THREE.Mesh(new THREE.PlaneGeometry(width-.065,.585),new THREE.MeshStandardMaterial({map,roughness:.92}));
+    face.position.set(x,y,z+.027);world.add(face);
+  };
+  const shelf=(x,z,width=1.8,y=.9)=>{
+    rounded(world,[width,.04,.24],[x,y,z],walnut,.012);
+    for(let i=0;i<Math.floor(width/.15)-1;i++)book(world,x-width/2+.12+i*.15,y+.025,z,['#637e84','#ab7d59','#d1bc90','#737456','#746174'][i%5],.085,.18+(i%3)*.03);
+  };
+  const papers=(x,y,z)=>{
+    for(let i=0;i<3;i++){
+      const sheet=rounded(world,[.25,.003,.19],[x+i*.008,y+i*.004,z],paper,.001);
+      sheet.rotation.y=(i-1)*.06;
+    }
+  };
+  // Server room: cable trays and ventilated equipment, rather than domestic decor.
+  for(const x of [.65,1.45,3.75,4.6]) {
+    rounded(world,[.58,.08,.16],[x,1.65,.42],metal,.015);
+    for(let i=0;i<6;i++)rounded(world,[.4,.014,.035],[x,1.66,.37+i*.018],metal,.003);
+  }
+  rounded(world,[4.5,.1,.16],[2.8,1.77,.14],metal,.016);
+  for(const x of [1,4.3])rounded(world,[.06,1.3,.07],[x,.7,.13],metal,.009);
+  prop('FolderTray_01',2.05,3.55,{y:topOf('Desk_Standing_01'),scale:.65});
+  prop('Computer_Keyboard_01',2.5,3.7,{y:topOf('Desk_Standing_01')+.012,scale:.75});
+  frame(5.12,.19,'EQUIPMENT','#546571',.65,1.26);
+  // Library: warm reading pool, timber tabletop and individual loose books.
+  rug(world,8.95,3.65,3.25,2.65);
+  rounded(world,[1.65,.03,.87],[9,topOf('Table_01')+.008,3.5],wood,.025);
+  lamp(world,6.45,4.15);blocked[4][6]=true;
+  prop('Desklamp_01',9.65,3.35,{y:topOf('Table_01')+.025,scale:.7});
+  papers(9.3,topOf('Table_01')+.03,3.67);
+  frame(10.5,.19,'READ & DISCOVER','#6f7c61',1.1,1.5);
+  // War room: table runner, briefing folders and a shared agenda board.
+  const conference=topOf('Table_Conference_02');
+  const meetingTop=new THREE.Mesh(new THREE.CylinderGeometry(1,1,.026,64),walnut);
+  meetingTop.scale.set(1.6,1,.6);meetingTop.position.set(16.5,conference+.009,3);
+  meetingTop.castShadow=meetingTop.receiveShadow=true;world.add(meetingTop);
+  rounded(world,[1.6,.008,.27],[16.5,conference+.028,3],textile,.006);
+  for(const x of [15.8,16.5,17.2]){
+    papers(x,conference+.038,3.25);
+    prop('Cup_Pens_01',x,2.7,{y:conference+.03,scale:.5});
+  }
+  frame(18.1,.2,'WEEKLY AGENDA','#647b89',1.2,1.28);
+  shelf(13.5,.25,1.3,.83);
+  // Proof studio: absorptive panels, equipment case and a production desk.
+  const felt=new THREE.MeshStandardMaterial({color:'#41454a',bumpMap:weave,bumpScale:.008,roughness:1});
+  for(const x of [21.55,25.45])for(let i=0;i<3;i++)rounded(world,[.44,.34,.06],[x,.5+i*.37,.15],felt,.016);
+  rounded(world,[1.08,.39,.5],[25.1,.21,5.4],metal,.028);blocked[5][25]=true;
+  for(const x of [24.7,25.5])rounded(world,[.065,.13,.025],[x,.29,5.66],brass,.008);
+  rounded(world,[.9,.04,.5],[21.7,.72,4.9],wood,.02);
+  for(const x of [21.35,22.05])rounded(world,[.045,.7,.045],[x,.36,4.9],metal,.008);
+  prop('Laptop_01',21.7,4.9,{y:.745,scale:.7});blocked[4][21]=true;
+  frame(22.15,.19,'ON SET','#8d706c',.65,1.5);
+  // Ship dock: restrained industrial storage and painted safety markings.
+  for(const z of [.6,5.65])for(let i=0;i<8;i++){
+    const stripe=rounded(world,[.17,.008,.3],[27+i*.48,.015,z],textile,.001);stripe.rotation.y=-.55;
+  }
+  rounded(world,[1,.46,.48],[26.7,.24,.55],metal,.025);blocked[0][26]=true;
+  for(const x of [26.42,26.98])rounded(world,[.035,.13,.035],[x,.27,.8],brass,.004);
+  frame(27.4,.19,'DISPATCH','#766d55',1.05,1.32);
+  // Build floor: overhead books, team boards, desktop pads and cabinet finishes.
+  for(const x of [2.5,6.5,10.5])shelf(x,7.17,1.65,.82);
+  for(const x of [1,4,7,10])for(const z of [8,11]){
+    papers(x+.6,topOf('Desk_04')+.025,z+.8);
+    rounded(world,[.38,.48,.48],[x+.05,.25,z+.55],cream,.02);
+    for(const y of [.15,.3,.44])rounded(world,[.16,.017,.025],[x+.05,y,z+.8],metal,.004);
+  }
+  frame(5.1,7.18,'TEAM NOTES','#687c72',1.1,.63);
+  // Lobby: a soft waiting-area rug and framed wall art around the reception.
+  rug(world,14.2,11.2,2.1,2.45);lamp(world,13.5,12.5);blocked[12][13]=true;
+  frame(17.55,7.2,'WELCOME','#8b735b',1.05,.65);
+  // Break room: tailored upholstered seating, side table and menu art.
+  for(const child of [...world.children])if(child.userData.prop==='Couch_03'&&child.position.x>29)world.remove(child);
+  rug(world,29.95,12.05,3.5,1.7);sofa(world,29.95,12.1);
+  for(const x of [29,30,31])blocked[12][x]=true;
+  lamp(world,28.7,12.3);blocked[12][28]=true;
+  frame(20.7,7.19,'COFFEE & BREAKS','#897658',1.3,.75);
+  for(const x of [19.4,20.05])rounded(world,[.58,.025,.43],[x,topOf('Kitchen_Counter_01')+.005,7.4],wood,.012);
+  prop('Coffee_Tray_01_Full',20.05,7.4,{y:topOf('Kitchen_Counter_01')+.025,scale:.7});
+  // Bot wing: notebooks, shelving and a small meeting corner without new seats.
+  shelf(3.8,14.18,2,.85);shelf(6.65,14.18,1.8,.85);
+  frame(1.5,14.2,'TEAM WORKSPACE','#79677c',1,.68);
+  rug(world,2.2,18.1,2.5,1.4);
+  rounded(world,[.85,.06,.47],[2.3,.38,18.1],walnut,.035);
+  for(const x of [2.02,2.58])rounded(world,[.045,.36,.045],[x,.19,18.1],metal,.006);
+  papers(2.3,.415,18.1);blocked[18][2]=true;
+  // Vault: steel lockboxes and labelled archive folders instead of more windows.
+  for(const x of [20,24.3]){
+    rounded(world,[.5,.6,.48],[x,.31,17.2],metal,.025);blocked[17][Math.floor(x)]=true;
+    rounded(world,[.08,.19,.025],[x,.36,17.45],brass,.012);
+    rounded(world,[.24,.065,.012],[x,.53,17.46],paper,.004);
+  }
+  frame(23.7,14.2,'ARCHIVE INDEX','#676f70',.85,.73);
+  // Security: curved-edge worktop, document tray and equipment shelf.
+  const guard=topOf('Desk_04');
+  rounded(world,[1.9,.028,.72],[28.5,guard+.009,15.5],walnut,.022);
+  prop('Computer_Keyboard_01',28.5,15.78,{y:guard+.03,scale:.75});
+  prop('FolderTray_01',29.1,15.55,{y:guard+.03,scale:.7});
+  prop('Cup_Pens_01',27.9,15.45,{y:guard+.03,scale:.65});
+  shelf(30.9,14.2,.95,.85);
+  frame(26,14.2,'SECURITY','#626f79',.7,.7);
+  // Record the art pass on every room for browser verification and future refinements.
+  for(const room of ROOMS)room.detailPass='tailored-interior';
 }
 
 // Low-frequency real office camera thumbnails; no extra renders in the mobile preset.

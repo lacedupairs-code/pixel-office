@@ -373,7 +373,8 @@ function buildShell() {
     const r = roomOf(x, b ? z : z - 1) || roomOf(x, z - 1);
     const h = back ? 1.9 : front ? 0.45 : 1.05;
     wall(x, z, x + 1, z, h, back ? (r ? r.wall : "#e9dcc5") : r ? r.wall : "#d9c8ad");
-    if (back && x % 2 === 1) windowAt(x + 0.5, z);
+    // Three deliberate exterior windows; service rooms and display walls stay solid.
+    if (back && [14, 19, 30].includes(x)) windowAt(x + 0.5, z);
   }
   for (let x = 0; x <= W; x++) for (let z = 0; z < D; z++) {
     const a = x > 0 ? zone[z][x - 1] : null, b = x < W ? zone[z][x] : null;
@@ -392,7 +393,7 @@ function buildShell() {
 const windows = [];
 function windowAt(x, z) {
   const frame = new THREE.Mesh(new THREE.BoxGeometry(1.65, 1.02, 0.18), std("#5b4a3a")); frame.position.set(x, 1.18, z); world.add(frame);
-  const pane = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.88), new THREE.MeshStandardMaterial({ color: "#9fdcff", emissive: "#9fdcff", emissiveIntensity: 0.8, roughness: 0.1 }));
+  const pane = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.88), new THREE.MeshStandardMaterial({ color: "#c1cbc9", emissive: "#c5ceca", emissiveIntensity: 0.12, roughness: 0.28 }));
   pane.position.set(x, 1.18, z + 0.1); world.add(pane); windows.push(pane);
   detailBox(0.035, 0.88, 0.04, "#b9b6ad", x, 1.18, z + 0.13);
   detailBox(1.5, 0.035, 0.04, "#b9b6ad", x, 1.08, z + 0.13);
@@ -868,7 +869,7 @@ function setNight(v) {
   // only real light sources glow: by day the threshold sits above sunlit white floors
   bloom.strength = night ? 0.45 : 0.16; bloom.threshold = night ? 1.1 : 1.8; bloom.radius = .35;
   if (CAST.jarvis && CAST.jarvis.pl) CAST.jarvis.pl.intensity = night ? 1.6 : 0.4;
-  for (const w of windows) { w.material.emissive.set(night ? "#1c2747" : "#bfe7ff"); w.material.emissiveIntensity = night ? 0.4 : 1.2; }
+  for (const w of windows) { w.material.emissive.set(night ? "#252b35" : "#c5ceca"); w.material.emissiveIntensity = night ? 0.06 : 0.12; }
   for (const l of roomLights) l.light.intensity = night || l.always ? l.base : 0;
 }
 function addRoomLights() {
@@ -1331,7 +1332,7 @@ function frame() {
     return;
   }
   try { await loadAll(); } catch (e) { document.getElementById("loading").textContent = "COULDN'T LOAD THE MODELS: " + e.message; return; }
-  buildShell(); furnish(); furnishInterior({ THREE, world, place, topOf, detailBox, std, ROOMS }); refineInterior({ world, topOf, blocked }); batchDetails(); addRoomLights();
+  buildShell(); furnish(); furnishInterior({ THREE, world, place, topOf, detailBox, std, ROOMS }); refineInterior({ world, topOf, blocked, place, ROOMS }); batchDetails(); addRoomLights();
   for (const [x, z] of DOORS) blocked[z][x] = false;
   setNight(night); applyQuality(); addEventListener("resize", resize);
   renderInspector();
