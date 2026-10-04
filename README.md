@@ -1,5 +1,17 @@
 # Pixel Office
 
+## Detailed 3D office
+
+The main office keeps the twelve existing rooms and live HQ/Jarvis/LacedupBot feed. Workers are animated POLYGON human characters, including new agents and bots. Hermes wears blue, OpenClaw orange, Cortex purple, and Agent Zero charcoal; Jarvis is a human receptionist. The Inspector renders a portrait from the selected worker's model.
+
+The detailed interior adds workstation lamps and stationery, library books, lounge seating, reception accessories, a kitchenette, archive shelves and a cart. Room signs follow the 3D camera. Use **Overview** for the complete floor, **Desks** for the build workstations, or **Lounge** for the four agent desks. Selection follows and zooms in on a worker. Daylight is the default; the existing Night and quality controls remain available.
+
+The lounge includes custom rounded leather seating, textile cushions, wood-grain desks, wall shelves, a notes board and floor lamps. Reception has a curved wood counter. Workstation screens show original editor graphics, and the security monitors render views of the actual office. High quality adds softened shadows, ambient occlusion, anti-aliasing and warm area lighting; low quality disables the extra camera renders and lighting for mobile performance. Open `/?demo=1&night=0&view=lounge` for the local lounge review with sample workers.
+
+Synty assets stay in the ignored `private-assets/synty/{fbx,characters,textures}` directories, or the directory configured with `SYNTY_DIR`. They are licensed to the owner and must not be committed. The classic 2D office and its layout editor remain accessible at `/classic/`.
+
+To verify the 3D scene, start the app with its private assets, then run `npm run test:office`. Set `OFFICE_TEST_URL` if it is not at `http://localhost:7012`, and `OFFICE_TEST_BROWSER` to choose a Playwright browser channel (default: `msedge`). Checks cover human rigs, portraits, all twelve rooms, filters, camera controls, mobile overflow, and fixture-based live unknown-agent/bot routing. They do not create real agent jobs.
+
 Pixel Office is a standalone web app that visualizes OpenClaw agents as animated pixel-art coworkers in a virtual office.
 
 Open the app in a browser at `http://localhost:3456`.

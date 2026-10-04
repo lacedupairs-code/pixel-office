@@ -9,7 +9,8 @@
     "start": "node dist/server/index.js",
     "dev": "concurrently \"ts-node-dev --respawn --transpile-only server/index.ts\" \"npm --prefix webview-ui run dev\"",
     "install:all": "npm install && npm --prefix webview-ui install",
-    "lint": "tsc --noEmit -p tsconfig.json"
+    "lint": "tsc --noEmit -p tsconfig.json",
+    "test:office": "node tests/office3d-browser.cjs"
   },
   "dependencies": {
     "chokidar": "^4.0.3",
@@ -23,6 +24,7 @@
     "@types/node": "^22.14.0",
     "@types/ws": "^8.5.14",
     "concurrently": "^9.1.2",
+    "playwright": "^1.63.0",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.8.3"
   }
