@@ -339,9 +339,9 @@ const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness
 function buildShell() {
   // ground outside
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), std("#85715b", { roughness: 1 }));
-  ground.rotation.x = -Math.PI / 2; ground.position.set(W / 2, -0.06, D / 2); ground.receiveShadow = true; world.add(ground);
+  ground.rotation.x = -Math.PI / 2; ground.position.set(W / 2, -0.06, D / 2); ground.receiveShadow = true; ground.userData.outside = true; world.add(ground);
   const slab = new THREE.Mesh(new THREE.BoxGeometry(W + 0.6, 0.3, D + 0.6), std("#685442"));
-  slab.position.set(W / 2, -0.2, D / 2); slab.receiveShadow = true; world.add(slab);
+  slab.position.set(W / 2, -0.2, D / 2); slab.receiveShadow = true; slab.userData.outside = true; world.add(slab);
   // floors: one plane per zone rectangle so textures line up
   const rects = [...ROOMS.map((r) => ({ ...r })), { floor: "hall", x: 0, z: 6, w: W, d: 1 }, { floor: "hall", x: 0, z: 13, w: W, d: 1 }];
   for (const r of rects) {
@@ -355,14 +355,29 @@ function buildShell() {
   const wallMat = new Map();
   const matFor = (c) => { if (!wallMat.has(c)) wallMat.set(c, std(c, { roughness: 0.9 })); return wallMat.get(c); };
   const capMat = std("#dfcfb9", { roughness: 0.6 });
+  // Walls are gathered into straight runs first, then built one box per run: cell-sized pieces that
+  // overlapped their neighbours had faces in the same plane, which flickered as the camera moved.
+  const runs = [];
   function wall(x1, z1, x2, z2, h, color) {
-    const len = Math.hypot(x2 - x1, z2 - z1), t = 0.14;
-    const g = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.BoxGeometry(len + t, h, t), matFor(color)); body.position.y = h / 2; body.castShadow = true; body.receiveShadow = true; g.add(body);
-    const cap = new THREE.Mesh(new THREE.BoxGeometry(len + t + 0.02, 0.04, t + 0.02), capMat); cap.position.y = h + 0.02; g.add(cap);
-    const base = new THREE.Mesh(new THREE.BoxGeometry(len + t + 0.01, 0.08, t + 0.03), std("#5c4433")); base.position.y = 0.04; g.add(base);
-    g.position.set((x1 + x2) / 2, 0, (z1 + z2) / 2); g.rotation.y = x1 === x2 ? Math.PI / 2 : 0; world.add(g);
+    const last = runs[runs.length - 1];
+    if (last && last.h === h && last.color === color && last.x2 === x1 && last.z2 === z1 && (last.x1 === last.x2) === (x1 === x2)) { last.x2 = x2; last.z2 = z2; return; }
+    runs.push({ x1, z1, x2, z2, h, color });
   }
+  function buildWall({ x1, z1, x2, z2, h, color }) {
+    const len = Math.hypot(x2 - x1, z2 - z1), t = 0.14;
+    // Corners: the x-running wall reaches t/2 past its ends and covers the corner; the z-running one
+    // stops inside it (no two faces in one plane). Neither reaches past an end where a run carries on in line.
+    const vertical = x1 === x2;
+    const inLine = (x, z) => runs.some((r) => (r.x1 === r.x2) === vertical && ((r.x2 === x && r.z2 === z) || (r.x1 === x && r.z1 === z)) && !(r.x1 === x1 && r.z1 === z1 && r.x2 === x2 && r.z2 === z2));
+    const a = vertical || inLine(x1, z1) ? 0 : t / 2, b = vertical || inLine(x2, z2) ? 0 : t / 2, L = len + a + b, shift = (b - a) / 2;
+    const capH = vertical ? 0.036 : 0.04, baseH = vertical ? 0.075 : 0.08; // tops at different heights where runs cross
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.BoxGeometry(L, h, t), matFor(color)); body.position.set(shift, h / 2, 0); body.castShadow = true; body.receiveShadow = true; g.add(body);
+    const cap = new THREE.Mesh(new THREE.BoxGeometry(L + (a ? 0.01 : 0) + (b ? 0.01 : 0), capH, t + 0.02), capMat); cap.position.set(shift + ((b ? 0.01 : 0) - (a ? 0.01 : 0)) / 2, h + capH / 2, 0); g.add(cap);
+    const base = new THREE.Mesh(new THREE.BoxGeometry(L + (a ? 0.005 : 0) + (b ? 0.005 : 0), baseH, t + 0.03), baseMat); base.position.set(shift + ((b ? 0.005 : 0) - (a ? 0.005 : 0)) / 2, baseH / 2, 0); g.add(base);
+    g.position.set((x1 + x2) / 2, 0, (z1 + z2) / 2); g.rotation.y = x1 === x2 ? -Math.PI / 2 : 0; world.add(g);
+  }
+  const baseMat = std("#5c4433");
   const roomOf = (x, z) => ROOMS.find((r) => r.id === zone[z]?.[x]);
   // horizontal edges (between z-1 and z), vertical edges (between x-1 and x)
   for (let z = 0; z <= D; z++) for (let x = 0; x < W; x++) {
@@ -384,11 +399,12 @@ function buildShell() {
     const r = roomOf(b ? x : x - 1, z) || roomOf(x - 1, z);
     wall(x, z, x, z + 1, x === 0 || x === W ? 1.1 : 1.05, r ? r.wall : "#d9c8ad");
   }
+  for (const r of runs) buildWall(r);
   // the front door: glass and a mat
   const glass = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.2, 0.9), std("#9bd5f0", { transparent: true, opacity: 0.45, roughness: 0.05, metalness: 0.1, emissive: "#3aa0d8", emissiveIntensity: 0.15 }));
   glass.position.set(W + 0.25, 0.6, ENTRANCE.z + 0.5); world.add(glass);
-  const mat = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.02, 0.9), std("#7c3838")); mat.position.set(W + 0.8, 0.01, ENTRANCE.z + 0.5); mat.receiveShadow = true; world.add(mat);
-  const path = new THREE.Mesh(new THREE.BoxGeometry(6, 0.04, 1.2), std("#8a8172")); path.position.set(W + 3.4, -0.02, ENTRANCE.z + 0.5); path.receiveShadow = true; world.add(path);
+  const mat = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.02, 0.9), std("#7c3838")); mat.position.set(W + 0.8, 0.01, ENTRANCE.z + 0.5); mat.receiveShadow = true; mat.userData.outside = true; world.add(mat);
+  const path = new THREE.Mesh(new THREE.BoxGeometry(6, 0.04, 1.2), std("#8a8172")); path.position.set(W + 3.4, -0.02, ENTRANCE.z + 0.5); path.receiveShadow = true; path.userData.outside = true; world.add(path);
 }
 const windows = [];
 function windowAt(x, z) {
@@ -871,6 +887,7 @@ function setNight(v) {
   if (CAST.jarvis && CAST.jarvis.pl) CAST.jarvis.pl.intensity = night ? 1.6 : 0.4;
   for (const w of windows) { w.material.emissive.set(night ? "#252b35" : "#c5ceca"); w.material.emissiveIntensity = night ? 0.06 : 0.12; }
   for (const l of roomLights) l.light.intensity = night || l.always ? l.base : 0;
+  bakedTime(night);
 }
 function addRoomLights() {
   for (const r of ROOMS) {
@@ -1237,6 +1254,108 @@ setInterval(() => {
 }, 40000);
 
 // =============================================================================================
+// Baked lighting (2026-10-05): the building and its furniture lit by Blender (office3d/bake/). The
+// light is baked into a lightmap (one for day, one for night) that the furniture's own textures are
+// multiplied by; agents and everything that moves or glows stay live. Without the baked files (they're
+// made from the Synty models, so they live on the host only, in private-assets/synty/baked/), the
+// office uses its live lights as before. ?baked=0 shows the live lights anyway.
+// =============================================================================================
+const BAKED = { on: false, meta: null, mats: [], props: [], maps: {}, statics: [] };
+// what the bake covers: meshes that never move, change or glow (screens, LEDs, signs, glass and the
+// rocket stay live, as does the ground outside), and whose look is just colour and texture: the
+// tailored furniture's leather, fabric and wood grain (bump maps, sheen) stays live too
+function staticMeshes() {
+  const skip = new Set();
+  for (const root of [rocket.group, vault.wheel]) root && root.traverse((o) => skip.add(o));
+  const live = (m) => m.transparent || m.isMeshBasicMaterial || m.isMeshPhysicalMaterial || !!m.bumpMap || !!m.normalMap || !!m.emissiveMap || (m.emissive && m.emissiveIntensity > 0 && m.emissive.getHex() !== 0);
+  const out = [];
+  world.traverse((o) => {
+    if (!o.isMesh || o.isSkinnedMesh || skip.has(o) || o.userData.outside) return;
+    if ((Array.isArray(o.material) ? o.material : [o.material]).some(live)) return;
+    out.push(o);
+  });
+  return out;
+}
+// The scene Blender bakes, and the lights it needs (run locally: office3d/bake/README.md)
+async function bakeExport() {
+  const { GLTFExporter } = await import("three/addons/exporters/GLTFExporter.js");
+  const out = new THREE.Scene();
+  world.updateMatrixWorld(true);
+  for (const o of staticMeshes()) { const c = new THREE.Mesh(o.geometry, o.material); c.applyMatrix4(o.matrixWorld); out.add(c); }
+  const glb = await new GLTFExporter().parseAsync(out, { binary: true, maxTextureSize: 4096 });
+  // the page's own day and night settings (setNight), read back rather than copied
+  const hex = (c) => "#" + c.getHexString(), was = night, HIGHwas = HIGH;
+  HIGH = true;
+  const time = (isNight) => {
+    setNight(isNight);
+    return {
+      sun: { color: hex(sun.color), intensity: sun.intensity },
+      sky: { sky: hex(hemi.color), ground: hex(hemi.groundColor), intensity: hemi.intensity, env: scene.environmentIntensity },
+      rects: bounceLights.map((l) => ({ intensity: l.intensity })),
+    };
+  };
+  const day = time(false), nightly = time(true);
+  HIGH = HIGHwas; setNight(was);
+  const lights = {
+    W, D, rooms: ROOMS.map((r) => ({ id: r.id, x: r.x, z: r.z, w: r.w, d: r.d })),
+    sun: { from: sun.position.toArray(), to: sun.target.position.toArray(), day: day.sun, night: nightly.sun },
+    sky: { day: day.sky, night: nightly.sky },
+    points: roomLights.map(({ light, base, always }) => ({ at: light.getWorldPosition(new THREE.Vector3()).toArray(), color: "#" + light.color.getHexString(), intensity: base, distance: light.distance, decay: light.decay, always: !!always })),
+    // the soft panels over the lounge, lobby and war room (RectAreaLight: intensity is luminance)
+    rects: bounceLights.map((l, i) => ({ at: l.position.toArray(), to: l.position.clone().add(new THREE.Vector3(0, 0, -1).applyQuaternion(l.quaternion)).toArray(), width: l.width, height: l.height, color: hex(l.color), day: day.rects[i].intensity, night: nightly.rects[i].intensity })),
+  };
+  const put = (name, body) => fetch(`/bake/${name}`, { method: "POST", body }).then((r) => r.status);
+  return { meshes: out.children.length, glb: await put("office-export.glb", glb), lights: await put("office-lights.json", JSON.stringify(lights, null, 1)) };
+}
+async function useBaked() {
+  if (q.get("baked") === "0") return;
+  const meta = await fetch("/synty/baked/office.json", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  if (!meta) return;
+  const v = `?v=${meta.version}`;
+  const [gltf, day] = await Promise.all([loader.loadAsync(`/synty/baked/office.glb${v}`), lightmap("day", meta)]);
+  BAKED.meta = meta;
+  gltf.scene.traverse((o) => {
+    if (!o.isMesh) return;
+    const m = o.material, g = o.geometry;
+    // each surface's own colour and texture, times the light Blender worked out for it: from the
+    // lightmap for the building, from each corner's light (color: day, _night: night) for furniture
+    if (g.attributes.uv1) {
+      const b = new THREE.MeshBasicMaterial({ map: m.map, color: m.color, side: m.side, lightMap: day, lightMapIntensity: meta.day.scale * Math.PI });
+      o.material = b; BAKED.mats.push(b);
+    } else if (g.attributes.color) {
+      const b = new THREE.MeshBasicMaterial({ map: m.map, color: m.color.clone().multiplyScalar(meta.day.props), side: m.side, vertexColors: true });
+      b.userData.base = m.color.clone(); o.material = b;
+      BAKED.props.push({ mat: b, geo: g, day: g.attributes.color, night: g.attributes._night || g.attributes.color });
+    }
+  });
+  world.add(gltf.scene);
+  // the live building is hidden (the baked copy has the same shapes), and a shadow-only floor takes
+  // the shadows of whatever is live (agents, screens, the rocket)
+  BAKED.statics = staticMeshes();
+  for (const o of BAKED.statics) o.visible = false;
+  const catcher = new THREE.Mesh(new THREE.PlaneGeometry(W, D), new THREE.ShadowMaterial({ opacity: 0.3, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+  // drawn first and without depth, so status rings and rugs just above the floor stay on top of it
+  catcher.material.depthWrite = false; catcher.renderOrder = -1;
+  catcher.rotation.x = -Math.PI / 2; catcher.position.set(W / 2, 0, D / 2); catcher.receiveShadow = true; world.add(catcher);
+  gtao.blendIntensity = 0.6; // the bake already has its soft contact shadows
+  BAKED.on = true;
+}
+// day and night lightmaps; phones get the half-size ones
+function lightmap(which, meta) {
+  if (BAKED.maps[which]) return BAKED.maps[which];
+  const file = `/synty/baked/office-${which}${MOBILE && meta[which].small ? "-2k" : ""}.png?v=${meta.version}`;
+  BAKED.maps[which] = texLoader.loadAsync(file).then((t) => { t.channel = 1; t.flipY = false; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; });
+  return BAKED.maps[which];
+}
+async function bakedTime(isNight) {
+  if (!BAKED.on) return;
+  const which = isNight ? "night" : "day", t = await lightmap(which, BAKED.meta);
+  if ((night ? "night" : "day") !== which) return; // switched again while it loaded
+  for (const m of BAKED.mats) { m.lightMap = t; m.lightMapIntensity = BAKED.meta[which].scale * Math.PI; }
+  for (const p of BAKED.props) { p.geo.setAttribute("color", p[which]); p.mat.color.copy(p.mat.userData.base).multiplyScalar(BAKED.meta[which].props); }
+}
+
+// =============================================================================================
 // Loop
 // =============================================================================================
 const clock = new THREE.Clock();
@@ -1333,6 +1452,8 @@ function frame() {
   }
   try { await loadAll(); } catch (e) { document.getElementById("loading").textContent = "COULDN'T LOAD THE MODELS: " + e.message; return; }
   buildShell(); furnish(); furnishInterior({ THREE, world, place, topOf, detailBox, std, ROOMS }); refineInterior({ world, topOf, blocked, place, ROOMS }); batchDetails(); addRoomLights();
+  if (q.get("bake") === "export") { window.__bake = await bakeExport(); document.getElementById("loading").textContent = "EXPORTED FOR BLENDER: " + JSON.stringify(window.__bake); return; }
+  await useBaked().catch((e) => console.warn("baked lighting not used:", e));
   for (const [x, z] of DOORS) blocked[z][x] = false;
   setNight(night); applyQuality(); addEventListener("resize", resize);
   renderInspector();
@@ -1348,7 +1469,7 @@ function frame() {
   if (q.get("look")) { const v = q.get("look").split(",").map(Number); camera.position.set(v[0], v[1], v[2]); controls.target.set(v[3], v[4], v[5]); cam.goal = null; }
   if (q.get("follow") && CAST[q.get("follow")]) { select(CAST[q.get("follow")]); cam.goal = { zoom: 7 }; }
   if (q.get('view') === 'lounge') loungeTool.click();
-  window.__office = { agents, CAST, LIVE, ROOMS, camera, controls, renderer, overview, select, MODELS }; // for debugging from the browser console
+  window.__office = { agents, CAST, LIVE, ROOMS, camera, controls, renderer, composer, scene, overview, select, MODELS, BAKED }; // for debugging from the browser console
   document.getElementById("loading").remove();
   clock.getDelta(); frame();
 })();
