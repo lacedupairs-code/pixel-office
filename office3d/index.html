@@ -1317,6 +1317,7 @@ async function useBaked() {
   gltf.scene.traverse((o) => {
     if (!o.isMesh) return;
     const m = o.material, g = o.geometry;
+    if (!g.attributes.normal) g.computeVertexNormals(); // the file leaves them out; the ambient occlusion pass uses them
     // each surface's own colour and texture, times the light Blender worked out for it: from the
     // lightmap for the building, from each corner's light (color: day, _night: night) for furniture
     if (g.attributes.uv1) {

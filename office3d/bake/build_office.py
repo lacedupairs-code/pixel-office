@@ -107,6 +107,11 @@ def split_small(office):
     bpy.ops.object.mode_set(mode="OBJECT")
     props = next(o for o in bpy.context.selected_objects if o != office)
     props.name = props.data.name = "props"
+    # the models arrive with every triangle's corners apart: weld them, so faces can share their points
+    bpy.ops.object.select_all(action="DESELECT"); props.select_set(True); bpy.context.view_layer.objects.active = props
+    bpy.ops.object.mode_set(mode="EDIT"); bpy.ops.mesh.select_all(action="SELECT")
+    bpy.ops.mesh.remove_doubles(threshold=0.0001)
+    bpy.ops.object.mode_set(mode="OBJECT")
     PIECES[:] = pieces_of(props.data)
     print(f"SPLIT {len(office.data.polygons)} faces lightmapped, {len(props.data.polygons)} lit per corner", flush=True)
     return props
@@ -307,14 +312,22 @@ def main():
         lights(when)
         meta[when] = bake_arch(office, when)
         meta[when]["props"] = bake_props(props, when)
-    # day's light is the vertex colour (glTF COLOR_0, three.js "color"); night's goes in a plain
-    # per-corner attribute (glTF _NIGHT, three.js "_night"): with more than one vertex colour, the
-    # exporter makes up a white COLOR_0 when no material uses one
-    attrs = props.data.color_attributes
-    c = np.empty(len(attrs["night"].data) * 4, np.float32); attrs["night"].data.foreach_get("color", c)
-    attrs.remove(attrs["night"])
-    night = props.data.attributes.new("_NIGHT", "FLOAT_VECTOR", "CORNER")
-    night.data.foreach_set("vector", c.reshape(-1, 4)[:, :3].ravel())
+    # Per point rather than per corner (averaged), so faces share their points and the file stays small.
+    # Day's light is the vertex colour (glTF COLOR_0, three.js "color"); night's goes in a plain
+    # attribute (glTF _NIGHT, three.js "_night"): with more than one vertex colour, the exporter makes
+    # up a white COLOR_0 when no material uses one.
+    mesh = props.data
+    li = np.empty(len(mesh.loops), np.int32); mesh.loops.foreach_get("vertex_index", li)
+    count = np.maximum(np.bincount(li, minlength=len(mesh.vertices)), 1)[:, None]
+    point = {}
+    for name in ("day", "night"):
+        c = np.empty(len(mesh.loops) * 4, np.float32); mesh.color_attributes[name].data.foreach_get("color", c)
+        total = np.zeros((len(mesh.vertices), 4), np.float32); np.add.at(total, li, c.reshape(-1, 4))
+        point[name] = total / count
+        mesh.color_attributes.remove(mesh.color_attributes[name])
+    day = mesh.color_attributes.new("day", "FLOAT_COLOR", "POINT"); day.data.foreach_set("color", point["day"].ravel())
+    night = mesh.attributes.new("_NIGHT", "FLOAT_VECTOR", "POINT"); night.data.foreach_set("vector", point["night"][:, :3].ravel())
+    attrs = mesh.color_attributes
     attrs.active_color = attrs["day"]; attrs.render_color_index = attrs.find("day"); attrs.active_color_index = attrs.find("day")
     # the building with both UV sets; the bake nodes go
     for slot in office.material_slots:
@@ -324,7 +337,7 @@ def main():
                 nt.nodes.remove(nt.nodes[name])
     bpy.ops.export_scene.gltf(filepath=os.path.join(OUT, "office.glb"), export_format="GLB", use_selection=False,
                               export_lights=False, export_cameras=False, export_vertex_color="ACTIVE", export_all_vertex_colors=False,
-                              export_attributes=True)
+                              export_attributes=True, export_normals=False)  # the baked look needs no normals
     json.dump(meta, open(os.path.join(OUT, "office.json"), "w"), indent=1)
     print("DONE", json.dumps(meta), flush=True)
 
