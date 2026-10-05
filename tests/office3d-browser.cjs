@@ -33,8 +33,10 @@ const base = process.env.OFFICE_TEST_URL || 'http://localhost:7012';
     await page.locator('#fit').click();
     assert(await page.locator('#zoomIn').isVisible());
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-    await page.locator('#zoomIn').click(); await page.locator('#rotate').click();
+    // dragging rotates by default (as in the look tests); ROTATE switches it to moving
     assert.equal(await page.locator('#rotate').getAttribute('aria-pressed'), 'true');
+    await page.locator('#zoomIn').click(); await page.locator('#rotate').click();
+    assert.equal(await page.locator('#rotate').getAttribute('aria-pressed'), 'false');
     // Exercise live routing too: unfamiliar agents/bots must never revert to robots.
     await page.route('**/api/office-config', route => route.fulfill({ json: { ...config, hqUrl: base } }));
     await page.route('**/api/office', route => route.fulfill({ json: {

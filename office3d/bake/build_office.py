@@ -33,8 +33,8 @@ LIGHTS = json.load(open(os.path.join(OUT, "office-lights.json")))
 # three.js lights to Cycles: a sun's intensity is its irradiance in both; a hemisphere light's
 # intensity is irradiance, which a uniform sky gives at radiance intensity/pi; a point light's
 # candela is power/(4 pi) (the page's lights fade as d^-1.6, Cycles' as d^-2: POINT_BOOST evens it out). The boosts were
-# set by eye, comparing screenshots of the baked and live office (the bake has no ambient fill).
-SUN_BOOST, SKY_BOOST, POINT_BOOST = 1.15, 4.0, 3.2
+# set by eye: the sun stronger and the sky fill lower than the live office, for the look tests' contrast.
+SUN_BOOST, SKY_BOOST, POINT_BOOST = 1.6, 2.2, 3.2
 RECT_BOOST = 1.0  # a RectAreaLight's intensity is its radiance; a Blender area light's is power/(pi area)
 # pieces smaller than SMALL (m) across, or rounded/curved ones (more than CURVED faces: their edges are
 # a few lightmap texels wide and streak), are lit per corner; boxes, walls and floors get the lightmap
@@ -122,7 +122,9 @@ def load():
     bpy.ops.import_scene.gltf(filepath=os.path.join(OUT, "office-export.glb"))
     for o in [o for o in bpy.data.objects if o.type != "MESH"]:
         bpy.data.objects.remove(o)
-    meshes = [o for o in bpy.data.objects if o.type == "MESH"]
+    # what stays live on the page (tailored furniture, screens) only shades the bake: not joined, not
+    # baked, and removed before export
+    meshes = [o for o in bpy.data.objects if o.type == "MESH" and not o.name.startswith("occluder")]
     bpy.ops.object.select_all(action="DESELECT")
     for o in meshes:
         o.select_set(True)
@@ -329,6 +331,8 @@ def main():
     night = mesh.attributes.new("_NIGHT", "FLOAT_VECTOR", "POINT"); night.data.foreach_set("vector", point["night"][:, :3].ravel())
     attrs = mesh.color_attributes
     attrs.active_color = attrs["day"]; attrs.render_color_index = attrs.find("day"); attrs.active_color_index = attrs.find("day")
+    for o in [o for o in bpy.data.objects if o.name.startswith("occluder")]:
+        bpy.data.objects.remove(o)
     # the building with both UV sets; the bake nodes go
     for slot in office.material_slots:
         nt = slot.material.node_tree

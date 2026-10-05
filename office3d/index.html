@@ -119,7 +119,7 @@ main{grid-template-columns:minmax(0,1fr) 310px}
       <div class="nav-buttons">
         <button class="tool" id="zoomOut" aria-label="Zoom out" title="Zoom out (−)">−</button>
         <button class="tool" id="zoomIn" aria-label="Zoom in" title="Zoom in (+)">+</button>
-        <button class="tool nav-mode" id="rotate" aria-pressed="false" title="Toggle drag to rotate">ROTATE</button>
+        <button class="tool nav-mode" id="rotate" aria-pressed="false" title="Drag rotates the view; turn off to drag-move instead">ROTATE</button>
       </div>
       <div class="nav-buttons">
         <button class="tool" data-pan="left" aria-label="Move view left" title="Move left (A or left arrow)">←</button>
@@ -127,7 +127,7 @@ main{grid-template-columns:minmax(0,1fr) 310px}
         <button class="tool" data-pan="down" aria-label="Move view backward" title="Move backward (S or down arrow)">↓</button>
         <button class="tool" data-pan="right" aria-label="Move view right" title="Move right (D or right arrow)">→</button>
       </div>
-      <div class="nav-hint" id="navHint">Drag to move · Scroll to zoom · WASD / arrows</div>
+      <div class="nav-hint" id="navHint">Drag to rotate · Right-drag to move · Scroll to zoom · WASD / arrows</div>
     </div>
     <div class="toast" id="toast"></div>
     <div class="loading" id="loading">LOADING THE OFFICE…</div>
@@ -1036,14 +1036,15 @@ const navHint = document.getElementById("navHint");
 function setRotate(value) {
   rotating = value;
   controls.mouseButtons.LEFT = value ? THREE.MOUSE.ROTATE : THREE.MOUSE.PAN;
+  controls.mouseButtons.RIGHT = value ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE; // the other button does the other
   controls.touches.ONE = value ? THREE.TOUCH.ROTATE : THREE.TOUCH.PAN;
   rotateButton.setAttribute("aria-pressed", String(value));
   navHint.textContent = MOBILE
     ? `${value ? "Drag to rotate" : "Drag to move"} · Pinch to zoom · Two fingers to move`
-    : `${value ? "Drag to rotate" : "Drag to move"} · Scroll to zoom · WASD / arrows`;
+    : `${value ? "Drag to rotate · Right-drag to move" : "Drag to move · Right-drag to rotate"} · Scroll to zoom · WASD / arrows`;
 }
 rotateButton.onclick = () => setRotate(!rotating);
-setRotate(false);
+setRotate(true); // dragging turns the office around, as in the look tests; ROTATE switches to moving
 function zoomBy(factor) {
   manualNavigation();
   const offset = camera.position.clone().sub(controls.target);
@@ -1264,14 +1265,16 @@ const BAKED = { on: false, meta: null, mats: [], props: [], maps: {}, statics: [
 // what the bake covers: meshes that never move, change or glow (screens, LEDs, signs, glass and the
 // rocket stay live, as does the ground outside), and whose look is just colour and texture: the
 // tailored furniture's leather, fabric and wood grain (bump maps, sheen) stays live too
-function staticMeshes() {
+// (kept, if given, collects the still, solid meshes that stay live: they go to Blender only to cast shadows)
+function staticMeshes(kept) {
   const skip = new Set();
   for (const root of [rocket.group, vault.wheel]) root && root.traverse((o) => skip.add(o));
   const live = (m) => m.transparent || m.isMeshBasicMaterial || m.isMeshPhysicalMaterial || !!m.bumpMap || !!m.normalMap || !!m.emissiveMap || (m.emissive && m.emissiveIntensity > 0 && m.emissive.getHex() !== 0);
   const out = [];
   world.traverse((o) => {
-    if (!o.isMesh || o.isSkinnedMesh || skip.has(o) || o.userData.outside) return;
-    if ((Array.isArray(o.material) ? o.material : [o.material]).some(live)) return;
+    if (!o.isMesh || o.isSkinnedMesh || skip.has(o) || o.userData.outside || o.userData.catcher) return;
+    const ms = Array.isArray(o.material) ? o.material : [o.material];
+    if (ms.some(live)) { if (kept && !ms.some((m) => m.transparent || m.isMeshBasicMaterial)) kept.push(o); return; }
     out.push(o);
   });
   return out;
@@ -1281,7 +1284,10 @@ async function bakeExport() {
   const { GLTFExporter } = await import("three/addons/exporters/GLTFExporter.js");
   const out = new THREE.Scene();
   world.updateMatrixWorld(true);
-  for (const o of staticMeshes()) { const c = new THREE.Mesh(o.geometry, o.material); c.applyMatrix4(o.matrixWorld); out.add(c); }
+  const kept = [];
+  for (const o of staticMeshes(kept)) { const c = new THREE.Mesh(o.geometry, o.material); c.applyMatrix4(o.matrixWorld); out.add(c); }
+  // the live-kept furniture and screens shade the bake (named "occluder": Blender leaves them out of its file)
+  for (const o of kept) { const c = new THREE.Mesh(o.geometry, o.material); c.name = "occluder"; c.applyMatrix4(o.matrixWorld); out.add(c); }
   const glb = await new GLTFExporter().parseAsync(out, { binary: true, maxTextureSize: 4096 });
   // the page's own day and night settings (setNight), read back rather than copied
   const hex = (c) => "#" + c.getHexString(), was = night, HIGHwas = HIGH;
@@ -1332,13 +1338,32 @@ async function useBaked() {
   world.add(gltf.scene);
   // the live building is hidden (the baked copy has the same shapes), and a shadow-only floor takes
   // the shadows of whatever is live (agents, screens, the rocket)
-  BAKED.statics = staticMeshes();
+  const kept = [];
+  BAKED.statics = staticMeshes(kept);
   for (const o of BAKED.statics) o.visible = false;
+  // the bake has every still thing's shadow already: only what moves (agents, the rocket) casts live ones
+  for (const o of kept) o.castShadow = false;
   const catcher = new THREE.Mesh(new THREE.PlaneGeometry(W, D), new THREE.ShadowMaterial({ opacity: 0.3, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
   // drawn first and without depth, so status rings and rugs just above the floor stay on top of it
-  catcher.material.depthWrite = false; catcher.renderOrder = -1;
+  catcher.material.depthWrite = false; catcher.renderOrder = -1; catcher.userData.catcher = true;
   catcher.rotation.x = -Math.PI / 2; catcher.position.set(W / 2, 0, D / 2); catcher.receiveShadow = true; world.add(catcher);
   gtao.blendIntensity = 0.6; // the bake already has its soft contact shadows
+  // the look tests' grade (Blender's AgX "High Contrast"): a gentle S-curve and a little more colour,
+  // after tone mapping; ?grade=0 leaves it out
+  if (q.get("grade") !== "0") {
+    const { ShaderPass } = await import("three/addons/postprocessing/ShaderPass.js");
+    composer.addPass(new ShaderPass({
+      uniforms: { tDiffuse: { value: null }, amount: { value: 0.45 }, saturation: { value: 1.15 } },
+      vertexShader: "varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
+      fragmentShader: `uniform sampler2D tDiffuse; uniform float amount, saturation; varying vec2 vUv;
+        void main() {
+          vec4 c = texture2D(tDiffuse, vUv);
+          vec3 s = mix(c.rgb, c.rgb * c.rgb * (3.0 - 2.0 * c.rgb), amount);
+          float l = dot(s, vec3(0.2126, 0.7152, 0.0722));
+          gl_FragColor = vec4(clamp(mix(vec3(l), s, saturation), 0.0, 1.0), c.a);
+        }`,
+    }));
+  }
   BAKED.on = true;
 }
 // day and night lightmaps; phones get the half-size ones
