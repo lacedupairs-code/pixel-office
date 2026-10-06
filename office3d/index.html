@@ -7,6 +7,7 @@
 <base href="/office/">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="theme-switch.css">
 <style>
 :root{--bg:#0b0a12;--panel:#14111d;--panel2:#1c1828;--line:#2a2440;--text:#f1edf9;--mute:#a49cb8;--dim:#6e6683;--hq:#ff8a3d;--jarvis:#38e1ff;--bot:#ff6fb1;--agents:#a78bfa;--ok:#4ade80;--warn:#fbbf24}
 *{box-sizing:border-box}
@@ -89,6 +90,17 @@ main{grid-template-columns:minmax(0,1fr) 310px}
 @media(max-width:860px){main{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) 210px}.room-sign{font-size:8px;padding:3px 5px}}
 @media(max-width:520px){header{padding:10px;gap:9px}.room-sign{font-size:7px;padding:2px 4px}.av{width:52px;height:52px}.inspector{padding:12px}}
 </style>
+<style>
+/* Day/night controls share the scene's setting; the inspector remains readable in either. */
+:root[data-appearance=light]{--bg:#f4f2ef;--panel:#fffdf9;--panel2:#eae6df;--line:#c7c0b5;--text:#282a30;--mute:#555b65;--dim:#626976;--ok:#237446;--warn:#8c5906}
+:root[data-appearance=light] header{background:var(--panel);border-color:var(--line)}
+:root[data-appearance=light] .logo .b{color:var(--text);filter:none}
+:root[data-appearance=light] .sub{color:#326637}
+:root[data-appearance=light] :is(.stat,.tool,.navigation){background:var(--panel);color:var(--text);border-color:var(--line);box-shadow:none}
+:root[data-appearance=light] :is(aside,.inspector){border-color:var(--line)}
+.tools{align-items:center}.tools .theme-switch{color:var(--text)}
+@media(max-width:520px){.tools .tool{min-height:44px;font-size:11px}.tools{align-items:center;flex-wrap:wrap;max-width:calc(100% - 60px)}}
+</style>
 <script type="importmap">
 { "imports": {
   "three": "/vendor/three/build/three.module.js",
@@ -114,7 +126,13 @@ main{grid-template-columns:minmax(0,1fr) 310px}
     <div id="view"></div>
     <div class="labels" id="labels"></div>
     <div class="mock" id="mode">CONNECTING…</div><a class="tool classic" href="/classic/" title="The classic 2D Pixel Office">2D</a>
-    <div class="tools"><span class="tool" id="night">☾ NIGHT</span><span class="tool" id="quality">HIGH</span><button class="tool" id="desks" title="See the detailed workstations">DESKS</button><button class="tool" id="fit" title="Reset the camera to the office overview (Home)">⤢ OVERVIEW</button></div>
+    <div class="tools"><button type="button" class="theme-switch" id="night" role="switch" aria-label="Night mode" aria-checked="false"><svg class="theme-scene" viewBox="0 0 96 44" aria-hidden="true" focusable="false">
+  <rect class="theme-sky" x="1" y="1" width="94" height="42" rx="21" />
+  <g class="theme-clouds"><path d="M48 43a9 9 0 0 1 17-4 12 12 0 0 1 23-5 8 8 0 0 1 8 8v2H48Z"/><circle cx="86" cy="17" r="12"/></g>
+  <g class="theme-stars"><path d="m17 12 1 3 3 1-3 1-1 3-1-3-3-1 3-1Zm22 12 1 2 2 1-2 1-1 2-1-2-2-1 2-1Z"/><circle cx="10" cy="28" r="1"/><circle cx="29" cy="9" r="1"/><circle cx="47" cy="16" r="1.2"/></g>
+  <g class="theme-thumb"><circle class="theme-ring" r="36"/><circle class="theme-ring" r="29"/><circle class="theme-ring" r="23"/><circle class="theme-disc" r="17"/><g class="theme-craters"><circle cx="-6" cy="2" r="5"/><circle cx="5" cy="-7" r="3"/><circle cx="7" cy="6" r="3.5"/></g></g>
+  <rect class="theme-rim" x="1" y="1" width="94" height="42" rx="21" />
+</svg></button><span class="tool" id="quality">HIGH</span><button class="tool" id="desks" title="See the detailed workstations">DESKS</button><button class="tool" id="fit" title="Reset the camera to the office overview (Home)">⤢ OVERVIEW</button></div>
     <div class="navigation" role="group" aria-label="Camera navigation">
       <div class="nav-buttons">
         <button class="tool" id="zoomOut" aria-label="Zoom out" title="Zoom out (−)">−</button>
@@ -292,7 +310,7 @@ for (const [x,z,width] of [[10,16.5,5],[14,10,3],[15,2,5]]) {
   light.position.set(x-1.5,3,z-2); light.lookAt(x+.5,.25,z+.5); scene.add(light); bounceLights.push(light);
 }
 sun.shadow.radius = 3.5; sun.shadow.blurSamples = 8;
-let night = q.get("night") === "1";
+let night = q.has("night") ? q.get("night") === "1" : (() => { try { return localStorage.getItem('pixel-office.night') === 'true'; } catch { return false; } })();
 
 // =============================================================================================
 // Procedural textures for floors (canvas, so no image files are needed)
@@ -875,7 +893,10 @@ let flashAt = -9;
 // =============================================================================================
 function setNight(v) {
   night = v;
-  document.getElementById("night").textContent = night ? "☀ DAY" : "☾ NIGHT";
+  const toggle = document.getElementById("night");
+  toggle.dataset.dark = String(night); toggle.setAttribute('aria-checked', String(night));
+  toggle.title = night ? 'Switch to day mode' : 'Switch to night mode';
+  document.documentElement.dataset.appearance = night ? 'dark' : 'light';
   hemi.intensity = night ? 0.24 : 0.9; hemi.color.set(night ? "#8792b7" : "#f4e6d6");
   sun.intensity = night ? 0.3 : 2.65; sun.color.set(night ? "#a4b5d5" : "#fff0d3");
   for (const light of bounceLights) light.intensity = HIGH ? (night ? .18 : .65) : 0;
@@ -1009,7 +1030,7 @@ function renderInspector() {
 }
 setInterval(() => selected && renderInspector(), 1000);
 document.getElementById("filters").addEventListener("click", (e) => { const c = e.target.closest(".chip"); if (!c) return; filter = c.dataset.f; for (const x of document.querySelectorAll("#filters .chip")) x.classList.toggle("on", x === c); });
-document.getElementById("night").onclick = () => setNight(!night);
+document.getElementById("night").onclick = () => { setNight(!night); try { localStorage.setItem('pixel-office.night', String(night)); } catch { /* session-only */ } };
 document.getElementById("quality").onclick = () => { HIGH = !HIGH; applyQuality(); };
 document.getElementById("fit").onclick = () => { select(null); overview(); };
 document.getElementById("desks").onclick = () => {
