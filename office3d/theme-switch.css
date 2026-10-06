@@ -1,0 +1,21 @@
+/* Shared reference-inspired theme control. Scene colours are decorative tokens. */
+.theme-switch { --theme-sky-day:#86bfdc; --theme-sky-night:#202735; --theme-sun:#f4cc3f; --theme-moon:#dce1e8; --theme-crater:#9ca6b7; --theme-cloud:#f4fbff; --theme-star:#dfe9fc; position:relative; display:inline-flex; align-items:center; justify-content:center; flex:none; width:76px; min-width:76px; height:44px; min-height:44px; padding:0; border:0; border-radius:24px; background:transparent; cursor:pointer; isolation:isolate; }
+.theme-switch .theme-scene { display:block; width:76px; height:35px; overflow:hidden; border-radius:22px; pointer-events:none; }
+.theme-switch .theme-sky { fill:var(--theme-sky-day); transition:fill .24s ease-out; }
+.theme-switch .theme-clouds { fill:var(--theme-cloud); opacity:1; transition:opacity .24s ease-out; }
+.theme-switch .theme-stars { fill:var(--theme-star); opacity:0; transition:opacity .24s ease-out; }
+.theme-switch .theme-thumb { transform:translate(22px,22px); transition:transform .24s ease-out; }
+.theme-switch .theme-ring { fill:var(--theme-cloud); opacity:.13; }
+.theme-switch .theme-disc { fill:var(--theme-sun); stroke:rgb(0 0 0 / .15); stroke-width:1.5; transition:fill .24s ease-out; }
+.theme-switch .theme-craters { fill:var(--theme-crater); opacity:0; transition:opacity .24s ease-out; }
+.theme-switch .theme-rim { fill:none; stroke:currentColor; stroke-opacity:.4; stroke-width:2; }
+.theme-switch[data-dark=true] .theme-sky { fill:var(--theme-sky-night); }
+.theme-switch[data-dark=true] .theme-thumb { transform:translate(74px,22px); }
+.theme-switch[data-dark=true] .theme-disc { fill:var(--theme-moon); }
+.theme-switch[data-dark=true] .theme-clouds { opacity:0; }
+.theme-switch[data-dark=true] :is(.theme-stars,.theme-craters) { opacity:1; }
+.theme-switch:hover .theme-rim { stroke-opacity:.8; }
+.theme-switch:focus-visible { outline:2px solid currentColor; outline-offset:3px; }
+.theme-switch:active .theme-scene { opacity:.85; }
+.theme-switch:disabled { opacity:.5; cursor:not-allowed; }
+@media(prefers-reduced-motion:reduce) { .theme-switch .theme-scene * { transition:none; } }
