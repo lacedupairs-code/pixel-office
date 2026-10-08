@@ -24,7 +24,10 @@ const base = process.env.OFFICE_TEST_URL || 'http://localhost:7012';
     assert((await page.locator('.av img').getAttribute('src')).startsWith('data:image/png'));
     await page.locator('#fit').click();
     await page.waitForTimeout(1500);
-    await page.locator('[data-f="Agents"]').click();
+    await page.locator('[data-f="Agents"]').focus();
+    await page.keyboard.press('Enter');
+    assert.equal(await page.locator('[data-f="Agents"]').getAttribute('aria-pressed'), 'true');
+    assert.equal(await page.locator('[data-f="all"]').getAttribute('aria-pressed'), 'false');
     await page.waitForFunction(() => document.querySelector('.lbl.dim'));
     await page.locator('#lounge').click();
     await page.locator('#night').click();
@@ -33,7 +36,9 @@ const base = process.env.OFFICE_TEST_URL || 'http://localhost:7012';
     await page.locator('#night').focus(); await page.keyboard.press('Space');
     assert.equal(await page.locator('#night').getAttribute('aria-checked'),'false','Keyboard switches back to day');
     assert.equal(await page.locator('html').getAttribute('data-appearance'),'light');
-    await page.locator('#quality').click();
+    const wasHigh = await page.locator('#quality').getAttribute('aria-pressed');
+    await page.locator('#quality').focus(); await page.keyboard.press('Space');
+    assert.equal(await page.locator('#quality').getAttribute('aria-pressed'), String(wasHigh !== 'true'));
     await page.setViewportSize({ width: 390, height: 844 });
     await page.locator('#fit').click();
     assert(await page.locator('#zoomIn').isVisible());
@@ -57,6 +62,43 @@ const base = process.env.OFFICE_TEST_URL || 'http://localhost:7012';
     assert(await page.evaluate(() => __office.agents.every(a => !a.body.robot && a.body.character)));
     assert.equal(await page.locator('#sWait').innerText(), '1');
     assert(await page.evaluate(() => __office.LIVE.agents.has('agent:unfamiliar-agent') && __office.LIVE.agents.has('bot:new-bot')));
+    assert.equal(await page.evaluate(() => __office.CAST.guard.doing), 'No apps reported by HQ');
+    // An unreachable startup must recover without reload and must remove the sample cast.
+    await page.unroute('**/api/office');
+    let unavailable = true, feedReads = 0;
+    const maliciousName = '<img src=x onerror="window.injected=1">';
+    await page.route('**/api/office', route => {
+      feedReads++;
+      return unavailable ? route.fulfill({ status:503, json:{} }) : route.fulfill({ json:{
+        apps:[{id:'jarvis',name:'Jarvis',status:'failed',url:'javascript:alert(1)'},{id:'bot',name:'Bot',status:'stopped'}],
+        tasks:[],crews:[],ships:[],proofs:[],backup:{},
+        activity:[{id:'unsafe',type:'agent.test',appName:maliciousName,summary:'<svg onload="window.injected=2">',at:new Date().toISOString()}],
+        jarvis:{reached:true,handoffs:[],bots:[],agents:[{id:'unsafe',name:maliciousName,busy:true,job:{text:'<img src=x onerror="window.injected=3">'}}]},
+      }});
+    });
+    await page.goto(`${base}/?q=low&night=0`);
+    await page.waitForFunction(() => window.__office, { timeout:120000 });
+    assert.match(await page.locator('#mode').innerText(), /DEMO.*RETRYING/);
+    unavailable=false;
+    await page.waitForFunction(() => document.querySelector('#mode').textContent === 'LIVE · HQ', {timeout:20000});
+    assert(feedReads >= 2);
+    assert.equal(await page.evaluate(() => !!__office.CAST.hermes),false,'Sample characters are removed');
+    assert.equal(await page.evaluate(() => __office.CAST.guard.doing),'Jarvis is down');
+    await page.evaluate(() => __office.select(__office.LIVE.agents.get('agent:unsafe')));
+    assert((await page.locator('#insp').innerText()).includes(maliciousName));
+    assert.equal(await page.locator('#insp a').count(),0,'Unsafe application URL is omitted');
+    assert.equal(await page.locator('#feed img,#feed svg,.agent-name img,#insp img:not([src^="data:"])').count(),0);
+    assert.equal(await page.evaluate(() => !!window.injected),false);
+    unavailable=true;
+    await page.waitForFunction(() => document.querySelector('#mode').textContent.includes('LAST KNOWN'), {timeout:20000});
+    assert.match(await page.evaluate(() => __office.CAST.guard.doing), /stale/);
+    unavailable=false;
+    await page.waitForFunction(() => document.querySelector('#mode').textContent === 'LIVE · HQ', {timeout:20000});
+    await page.goto(`${base}/?demo=1&q=low`);
+    await page.waitForFunction(() => window.__office, {timeout:120000});
+    const beforeDemoReads=feedReads;
+    await page.waitForTimeout(6500);
+    assert.equal(feedReads,beforeDemoReads,'Explicit demo never polls live HQ');
     assert.deepEqual(errors, []);
     console.log('PASS: 12 rooms, human animation rigs and portraits, filtering, camera controls, mobile layout, and live unknown-agent/bot routing.');
   } finally { await browser.close(); }

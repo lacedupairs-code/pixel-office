@@ -10,7 +10,8 @@
     "dev": "concurrently \"ts-node-dev --respawn --transpile-only server/index.ts\" \"npm --prefix webview-ui run dev\"",
     "install:all": "npm install && npm --prefix webview-ui install",
     "lint": "tsc --noEmit -p tsconfig.json",
-    "test:office": "node tests/office3d-browser.cjs"
+    "test:office": "node tests/office3d-browser.cjs",
+    "test:live-ui": "node --test tests/live-ui.test.mjs"
   },
   "dependencies": {
     "chokidar": "^4.0.3",
