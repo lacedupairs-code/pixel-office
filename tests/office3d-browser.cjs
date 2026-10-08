@@ -50,6 +50,8 @@ const captureDir = process.env.OFFICE_SCREENSHOT_DIR;
     if (captureDir) await page.screenshot({path:`${captureDir}/office-phone-activity.png`});
     await page.locator('#night').click();
     assert.equal(await page.locator('html').getAttribute('data-appearance'),'dark');
+    assert.equal(await page.locator('.aside-switch [data-panel="activity"]').evaluate(el=>getComputedStyle(el).color),'rgb(17, 17, 17)');
+    await page.waitForTimeout(150); // Allow theme repaint before the visual capture.
     if (captureDir) await page.screenshot({path:`${captureDir}/office-phone-activity-dark.png`});
     await page.locator('#night').click();
     await page.getByRole('button',{name:'Inspector',exact:true}).focus(); await page.keyboard.press('Enter');
