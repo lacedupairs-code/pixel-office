@@ -25,11 +25,11 @@ Validation:
   its pressed state. No real agent jobs were sent.
 - Static captures checked actual rendered UI markup and styles at desktop and phone
   widths. They omit the 3D canvas. Long-text wrapping was improved after inspection.
-- Expanded `tests/office3d-browser.cjs` covers keyboard activation, recovery, escaping,
-  stale health, and explicit demo isolation. This expanded suite has not yet run.
-  T3 keyboard calls did not activate the focused controls and its screenshots timed out;
-  these limitations are not counted as passing keyboard or full-scene visual checks.
+- `npm run test:office`: expanded full 3D browser suite passed in headless Edge
+  using the licensed local assets. This includes keyboard activation, startup recovery,
+  escaping, unsafe URL rejection, stale health, later recovery, and explicit demo isolation.
+  The native T3 keyboard tool emitted no events; the existing project browser suite
+  provided the keyboard verification.
 
-Remaining checks: run the expanded browser suite on a licensed asset host; physical
-phone and screen reader. This package does not implement reduced motion or the mobile
-activity/status redesign from the later audit findings.
+Remaining checks: physical phone and screen reader. This package does not implement
+reduced motion or the mobile activity/status redesign from the later audit findings.
