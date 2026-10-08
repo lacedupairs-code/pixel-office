@@ -23,6 +23,8 @@ header{display:flex;align-items:center;gap:14px;padding:10px 16px;border-bottom:
 .stat b{font-size:13px;margin-left:4px}
 .chips{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
 .chip{font-family:Silkscreen,monospace;font-size:11px;padding:5px 10px;border:2px solid #000;border-radius:6px;background:var(--panel2);color:var(--mute);cursor:pointer;box-shadow:0 2px 0 #000;user-select:none}
+.chip:focus-visible,.tool:focus-visible{outline:3px solid var(--text);outline-offset:3px}
+.chip{min-height:36px}
 .chip.on{color:#111;background:#ffe36b}
 .chip .d{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px}
 main{display:grid;grid-template-columns:1fr 330px;min-height:0}
@@ -51,6 +53,8 @@ aside{border-left:2px solid #000;background:var(--panel);display:grid;grid-templ
 .inspector{padding:14px;border-bottom:2px solid #000;min-height:200px}
 h3{margin:0;font-family:Silkscreen,monospace;font-size:12px;color:var(--mute);font-weight:400}
 .who{display:flex;gap:12px;align-items:center;margin-top:10px}
+.who>div:last-child{min-width:0;overflow-wrap:anywhere}
+.kv>span,.ev>span{min-width:0;overflow-wrap:anywhere}
 .av{width:52px;height:52px;border-radius:12px;border:2px solid #000;display:grid;place-items:center;font-size:24px}
 .who .n{font-weight:700;font-size:16px}.who .r{color:var(--mute);font-size:12.5px}
 .tag{display:inline-block;font-family:Silkscreen,monospace;font-size:10px;padding:1px 6px;border-radius:4px;color:#000;margin-top:4px}
@@ -113,26 +117,26 @@ main{grid-template-columns:minmax(0,1fr) 310px}
 <header>
   <div><div class="logo"><span class="a">AGENT</span> <span class="b">OFFICE</span></div><div class="sub">EVERY AGENT IN HQ · JARVIS · LACEDUPBOT, LIVE</div></div>
   <div class="stats"><span class="stat">WORKING<b id="sWork" style="color:var(--ok)">0</b></span><span class="stat">NEEDS YOU<b id="sWait" style="color:var(--warn)">0</b></span><span class="stat">IN OFFICE<b id="sAll">0</b></span></div>
-  <div class="chips" id="filters">
-    <span class="chip on" data-f="all">ALL</span>
-    <span class="chip" data-f="HQ"><span class="d" style="background:var(--hq)"></span>HQ</span>
-    <span class="chip" data-f="Jarvis"><span class="d" style="background:var(--jarvis)"></span>JARVIS</span>
-    <span class="chip" data-f="Agents"><span class="d" style="background:var(--agents)"></span>AGENTS</span>
-    <span class="chip" data-f="LacedupBot"><span class="d" style="background:var(--bot)"></span>LACEDUPBOT</span>
+  <div class="chips" id="filters" role="group" aria-label="Show agents by organization">
+    <button type="button" class="chip on" data-f="all" aria-pressed="true">ALL</button>
+    <button type="button" class="chip" data-f="HQ" aria-pressed="false"><span class="d" style="background:var(--hq)"></span>HQ</button>
+    <button type="button" class="chip" data-f="Jarvis" aria-pressed="false"><span class="d" style="background:var(--jarvis)"></span>JARVIS</button>
+    <button type="button" class="chip" data-f="Agents" aria-pressed="false"><span class="d" style="background:var(--agents)"></span>AGENTS</button>
+    <button type="button" class="chip" data-f="LacedupBot" aria-pressed="false"><span class="d" style="background:var(--bot)"></span>LACEDUPBOT</button>
   </div>
 </header>
 <main>
   <div class="stage" id="stage">
     <div id="view"></div>
     <div class="labels" id="labels"></div>
-    <div class="mock" id="mode">CONNECTING…</div><a class="tool classic" href="/classic/" title="The classic 2D Pixel Office">2D</a>
+    <div class="mock" id="mode" role="status" aria-live="polite">CONNECTING…</div><a class="tool classic" href="/classic/" title="The classic 2D Pixel Office">2D</a>
     <div class="tools"><button type="button" class="theme-switch" id="night" role="switch" aria-label="Night mode" aria-checked="false"><svg class="theme-scene" viewBox="0 0 96 44" aria-hidden="true" focusable="false">
   <rect class="theme-sky" x="1" y="1" width="94" height="42" rx="21" />
   <g class="theme-clouds"><path d="M48 43a9 9 0 0 1 17-4 12 12 0 0 1 23-5 8 8 0 0 1 8 8v2H48Z"/><circle cx="86" cy="17" r="12"/></g>
   <g class="theme-stars"><path d="m17 12 1 3 3 1-3 1-1 3-1-3-3-1 3-1Zm22 12 1 2 2 1-2 1-1 2-1-2-2-1 2-1Z"/><circle cx="10" cy="28" r="1"/><circle cx="29" cy="9" r="1"/><circle cx="47" cy="16" r="1.2"/></g>
   <g class="theme-thumb"><circle class="theme-ring" r="36"/><circle class="theme-ring" r="29"/><circle class="theme-ring" r="23"/><circle class="theme-disc" r="17"/><g class="theme-craters"><circle cx="-6" cy="2" r="5"/><circle cx="5" cy="-7" r="3"/><circle cx="7" cy="6" r="3.5"/></g></g>
   <rect class="theme-rim" x="1" y="1" width="94" height="42" rx="21" />
-</svg></button><span class="tool" id="quality">HIGH</span><button class="tool" id="desks" title="See the detailed workstations">DESKS</button><button class="tool" id="fit" title="Reset the camera to the office overview (Home)">⤢ OVERVIEW</button></div>
+</svg></button><button type="button" class="tool" id="quality" aria-label="High graphics quality" aria-pressed="true">HIGH</button><button class="tool" id="desks" title="See the detailed workstations">DESKS</button><button class="tool" id="fit" title="Reset the camera to the office overview (Home)">⤢ OVERVIEW</button></div>
     <div class="navigation" role="group" aria-label="Camera navigation">
       <div class="nav-buttons">
         <button class="tool" id="zoomOut" aria-label="Zoom out" title="Zoom out (−)">−</button>
@@ -157,6 +161,7 @@ main{grid-template-columns:minmax(0,1fr) 310px}
 </main>
 </div>
 <script type="module">
+import { escapeHTML as esc, safeLink, appHealth, createLivePoller } from "./live-ui.mjs";
 import * as THREE from "three";
 import { DETAIL_PROPS, furnishInterior, dressHuman, typeAtDesk, disposeHuman } from "./interior.js";
 import { refineInterior, workstationTexture, styleHair, SecurityViews, smoothCharacterGeometry } from "./premium.js";
@@ -287,6 +292,7 @@ function applyQuality() {
   renderer.setPixelRatio(Math.min(devicePixelRatio, HIGH ? 2 : 1.25));
   sun.shadow.mapSize.set(HIGH ? 4096 : 1024, HIGH ? 4096 : 1024); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
   document.getElementById("quality").textContent = HIGH ? "HIGH" : "LOW";
+  document.getElementById("quality").setAttribute("aria-pressed", String(HIGH));
   resize();
 }
 function resize() {
@@ -753,7 +759,7 @@ function makeAgent(o) {
 
   // label: name tag, bubble, banner (HTML, crisp at any zoom)
   const el = document.createElement("div"); el.className = "lbl";
-  el.innerHTML = `<div class="ban" style="display:none"></div><div class="bub" style="display:none"></div><div class="name"><i style="background:${ORG[o.org]}"></i>${o.name}</div>`;
+  el.innerHTML = `<div class="ban" style="display:none"></div><div class="bub" style="display:none"></div><div class="name"><i style="background:${ORG[o.org]}"></i><span class="agent-name">${esc(o.name)}</span></div>`;
   labelsEl.appendChild(el);
   const a = { status: "idle", path: [], mode: "stand", speed: 1.7, ...o, body, group, ring, el, bubbleUntil: 0, bannerUntil: 0 };
   const s = o.seat && SEATS[o.seat], at = s || o.at || OUTSIDE;
@@ -936,7 +942,7 @@ function resetCast() {
   makeAgent({ id: "zero", name: "Agent Zero", org: "Agents", role: "AI agent · utility", look: "zero", seat: "pod16", icon: "0️⃣" });
   makeAgent({ id: "chief", name: "Chief", org: "LacedupBot", role: "LacedupBot · team lead bot", look: "chief", seat: "bot1", status: "working", doing: "Drafting the drop newsletter", icon: "👑" });
   makeAgent({ id: "scout", name: "Scout", org: "LacedupBot", role: "LacedupBot · research bot", look: "scout", seat: "bot4", icon: "🔎" });
-  makeAgent({ id: "guard", name: "Health check", org: "HQ", role: "Checks every app every 5 s", look: "guard", seat: "guard", status: "working", doing: "3 of 3 apps healthy", icon: "🛡" });
+  makeAgent({ id: "guard", name: "Health check", org: "HQ", role: "Sample app status", look: "guard", seat: "guard", status: "working", doing: "Sample day · 3 of 3 apps running", icon: "🛡" });
   makeAgent({ id: "photo", name: "Live proof", org: "HQ", role: "Screenshots each change", look: "photo", seat: "photo", icon: "📸" });
   makeAgent({ id: "shipper", name: "Ship", org: "HQ", role: "Ships to Live, rolls back on trouble", look: "shipper", seat: "ship", icon: "🚀" });
   makeAgent({ id: "courier", name: "GitHub sync", org: "HQ", role: "Keeps Live and GitHub in step", look: "courier", at: { x: 25, z: 13 }, icon: "✉" });
@@ -1023,13 +1029,13 @@ function portraitFor(a) {
 function renderInspector() {
   const el = document.getElementById("insp");
   if (!selected) { el.innerHTML = `<h3>INSPECTOR</h3><div class="empty">Click anyone to follow them. Drag to move, scroll or pinch to zoom. Use the camera buttons below, or turn on Rotate to look around.</div>`; return; }
-  const a = selected, [cx, cz] = cellOf(a), r = ROOMS.find((x) => x.id === zone[cz][cx]);
-  el.innerHTML = `<h3>INSPECTOR · ${cam.follow === selected ? "FOLLOWING" : "SELECTED"}</h3><div class="who"><div class="av" style="background:${ORG[a.org]}22;border-color:${ORG[a.org]}"><img alt="${a.name} portrait" src="${portraitFor(a)}"></div><div><div class="n">${a.name}</div><div class="r">${a.role}</div><span class="tag" style="background:${ORG[a.org]}">${a.org.toUpperCase()}</span></div></div>
-    <div class="kv"><span>Status</span><span>${STATUS_TEXT[a.status] || a.status}</span><span>Doing</span><span>${a.doing || "Nothing right now"}</span><span>Where</span><span>${r ? r.name[0] + r.name.slice(1).toLowerCase() : "Hallway"}</span></div>
-    ${a.link ? `<a class="btn" href="${a.link}" target="_blank" rel="noopener">OPEN IN ${a.org === "LacedupBot" ? "LACEDUPBOT" : a.org === "HQ" ? "HQ" : "JARVIS"} ▸</a>` : ""}`;
+  const a = selected, link = safeLink(a.link), [cx, cz] = cellOf(a), r = ROOMS.find((x) => x.id === zone[cz][cx]);
+  el.innerHTML = `<h3>INSPECTOR · ${cam.follow === selected ? "FOLLOWING" : "SELECTED"}</h3><div class="who"><div class="av" style="background:${ORG[a.org]}22;border-color:${ORG[a.org]}"><img alt="${esc(a.name)} portrait" src="${portraitFor(a)}"></div><div><div class="n">${esc(a.name)}</div><div class="r">${esc(a.role)}</div><span class="tag" style="background:${ORG[a.org]}">${a.org.toUpperCase()}</span></div></div>
+    <div class="kv"><span>Status</span><span>${esc(STATUS_TEXT[a.status] || a.status)}</span><span>Doing</span><span>${esc(a.doing || "Nothing right now")}</span><span>Where</span><span>${r ? r.name[0] + r.name.slice(1).toLowerCase() : "Hallway"}</span></div>
+    ${link ? `<a class="btn" href="${esc(link)}" target="_blank" rel="noopener">OPEN IN ${a.org === "LacedupBot" ? "LACEDUPBOT" : a.org === "HQ" ? "HQ" : "JARVIS"} ▸</a>` : ""}`;
 }
 setInterval(() => selected && renderInspector(), 1000);
-document.getElementById("filters").addEventListener("click", (e) => { const c = e.target.closest(".chip"); if (!c) return; filter = c.dataset.f; for (const x of document.querySelectorAll("#filters .chip")) x.classList.toggle("on", x === c); });
+document.getElementById("filters").addEventListener("click", (e) => { const c = e.target.closest(".chip"); if (!c) return; filter = c.dataset.f; for (const x of document.querySelectorAll("#filters .chip")) { x.classList.toggle("on", x === c); x.setAttribute("aria-pressed", String(x === c)); } });
 document.getElementById("night").onclick = () => { setNight(!night); try { localStorage.setItem('pixel-office.night', String(night)); } catch { /* session-only */ } };
 document.getElementById("quality").onclick = () => { HIGH = !HIGH; applyQuality(); };
 document.getElementById("fit").onclick = () => { select(null); overview(); };
@@ -1129,7 +1135,7 @@ renderer.domElement.addEventListener("pointerup", (e) => {
 // Live: the office follows HQ's feed (/api/office): every 3 s, who should be here, where, doing what
 // =============================================================================================
 let DEMO = true;
-const LIVE = { hq: null, agents: new Map(), first: true, fails: 0, seen: { ships: new Set(), proofs: new Set(), handoffs: new Set(), acts: new Set(), waits: new Set() } };
+const LIVE = { health: appHealth([]), hq: null, agents: new Map(), first: true, fails: 0, seen: { ships: new Set(), proofs: new Set(), handoffs: new Set(), acts: new Set(), waits: new Set() } };
 const BUILD_SEATS = ["b1_8", "b4_8", "b7_8", "b10_8", "b1_11", "b4_11", "b7_11", "b10_11"];
 const READ_SEATS = ["lib1", "lib2", "lib3"];
 const WAR_SEATS = ["war0", "war1", "war2", "war3", "war4", "war5"];
@@ -1150,8 +1156,8 @@ function desired(feed) {
   // the front desk and HQ's own helpers are always in
   put("jarvis", { name: "Jarvis", org: "Jarvis", role: "Your assistant · front desk", look: "jarvis", seat: "jarvis", status: feed.jarvis.reached ? "working" : "idle", doing: feed.jarvis.reached ? "Listening for you" : "Not answering right now", icon: "🧠", link: app("jarvis")?.url, permanent: true });
   put("ollama", { name: "Local model", org: "Jarvis", role: "Ollama on your GPU", look: "ollama", seat: "ollama", status: "idle", doing: null, icon: "🦙", permanent: true });
-  const down = feed.apps.filter((a) => a.status === "failed");
-  put("guard", { name: "Health check", org: "HQ", role: "Checks every app every 5 s", look: "guard", seat: "guard", status: down.length ? "error" : "working", doing: down.length ? `${down.map((a) => a.name).join(", ")} ${down.length > 1 ? "are" : "is"} down` : `${feed.apps.filter((a) => a.status === "running").length} of ${feed.apps.length} apps running`, icon: "🛡", link: hq, permanent: true });
+  LIVE.health = appHealth(feed.apps);
+  put("guard", { name: "Health check", org: "HQ", role: "App status from HQ", look: "guard", seat: "guard", status: LIVE.health.status, doing: LIVE.health.text, icon: "🛡", link: hq, permanent: true });
   const proof = feed.proofs.find((p) => p.status === "pending");
   put("photo", { name: "Live proof", org: "HQ", role: "Screenshots each change", look: "photo", seat: "photo", status: proof ? "working" : "idle", doing: proof ? "Taking desktop + phone screenshots" : null, icon: "📸", permanent: true });
   const ship = feed.ships.find((s) => s.status === "running");
@@ -1211,12 +1217,13 @@ function liveApply(feed) {
       const arriving = !first && !spec.permanent;
       a = makeAgent({ id: key, ...spec, seat: arriving ? undefined : home || undefined, at: arriving ? OUTSIDE : home ? undefined : spec.at || OUTSIDE });
       a.homeSeat = spec.seat ? null : home; LIVE.agents.set(key, a);
-      if (arriving) { hireFx(a, key.startsWith("crew:") ? "CREW LEAD" : "NEW HIRE"); if (home) { a.wantSeat = home; goTo(a, home, (x) => { x.wantSeat = null; }); } log(spec.org, `<b>${spec.name}</b> came in: ${short(spec.doing || spec.role, 60)}`); }
+      if (arriving) { hireFx(a, key.startsWith("crew:") ? "CREW LEAD" : "NEW HIRE"); if (home) { a.wantSeat = home; goTo(a, home, (x) => { x.wantSeat = null; }); } log(spec.org, `<b>${esc(spec.name)}</b> came in: ${esc(short(spec.doing || spec.role, 60))}`); }
       continue;
     }
     // what changed
     const statusChanged = a.status !== spec.status, doingChanged = (a.doing || null) !== (spec.doing || null);
     Object.assign(a, { name: spec.name, role: spec.role, link: spec.link, icon: spec.icon });
+    a.el.querySelector(".agent-name").textContent = spec.name;
     if (statusChanged || doingChanged) {
       setStatus(a, spec.status, spec.doing);
       if (spec.doing && !first) say(a, short(spec.doing, 36), 4, { waiting: "❗", error: "⚠", done: "✅", working: spec.icon, thinking: "💭" }[spec.status] || "");
@@ -1250,20 +1257,35 @@ function liveApply(feed) {
   for (const a of agents) { const k = `${a.id}:${a.status === "waiting"}`; if (a.status === "waiting" && !LIVE.seen.waits.has(k) && !first) toast(`🔔 ${a.name} needs you: ${short(a.doing, 50)}`); if (a.status === "waiting") LIVE.seen.waits.add(k); else LIVE.seen.waits.delete(`${a.id}:true`); }
   // the activity feed, newest at the top
   const fresh = feed.activity.filter((x) => !LIVE.seen.acts.has(x.id)).reverse();
-  for (const x of fresh) { LIVE.seen.acts.add(x.id); log(x.type.startsWith("agent") ? "Agents" : "HQ", `${x.appName ? `<b>${x.appName}</b> · ` : ""}${x.summary}`, x.at); }
+  for (const x of fresh) { LIVE.seen.acts.add(x.id); log(x.type.startsWith("agent") ? "Agents" : "HQ", `${x.appName ? `<b>${esc(x.appName)}</b> · ` : ""}${esc(x.summary)}`, x.at); }
   LIVE.first = false; refreshStats();
 }
 
-async function livePoll() {
-  try {
-    const r = await fetch(`${LIVE.hq}/api/office`, { credentials: "omit", cache: "no-store" });
-    if (!r.ok) throw new Error(`HQ said ${r.status}`);
-    liveApply(await r.json());
-    LIVE.fails = 0; setMode("LIVE · HQ", "#4ade80");
-  } catch (e) {
-    if (++LIVE.fails === 3) setMode("RECONNECTING…", "#fbbf24");
+async function readLiveFeed() {
+  const r = await fetch(`${LIVE.hq}/api/office`, { credentials: "omit", cache: "no-store", signal: AbortSignal.timeout(8000) });
+  if (!r.ok) throw new Error(`HQ said ${r.status}`);
+  const feed = await r.json();
+  if (!feed || !["apps", "tasks", "crews", "ships", "proofs", "activity"].every(key => Array.isArray(feed[key])) || !feed.jarvis || !["agents", "bots", "handoffs"].every(key => Array.isArray(feed.jarvis[key]))) throw new Error("Incomplete office feed");
+  return feed;
+}
+function acceptLiveFeed(feed) {
+  if (DEMO) {
+    // Drop sample agents and their scheduled scenes before accepting real work.
+    later.length = 0; crew.length = 0;
+    for (const a of [...agents]) removeAgent(a);
+    LIVE.agents.clear(); feedElClear(); DEMO = false;
   }
-  setTimeout(livePoll, 3000);
+  liveApply(feed); LIVE.fails = 0; setMode("LIVE · HQ", "#4ade80");
+}
+function feedElClear() { document.getElementById("feed").replaceChildren(); }
+function liveUnavailable() {
+  LIVE.fails++;
+  LIVE.health = appHealth([], true);
+  if (!DEMO) {
+    setMode("RECONNECTING · LAST KNOWN DATA", "#fbbf24");
+    setStatus(CAST.guard, LIVE.health.status, LIVE.health.text);
+    if (CAST.guard) say(CAST.guard, LIVE.health.text, 4, "⚠");
+  }
 }
 function setMode(text, color) { const m = document.getElementById("mode"); m.textContent = text; m.style.background = color; }
 // idle agents now and then fetch a coffee, so the office never looks frozen
@@ -1413,7 +1435,7 @@ function tick(dt) {
   if (DEMO) while (scriptIdx < SCRIPT.length && SCRIPT[scriptIdx][0] <= st) SCRIPT[scriptIdx++][1]();
   for (let i = later.length - 1; i >= 0; i--) if (later[i].at <= now) { const f = later[i].fn; later.splice(i, 1); f(); }
   if (DEMO && st > 95) { loopStart = now; scriptIdx = 0; resetCast(); log("HQ", "<i>(the sample day starts over)</i>"); }
-  const gd = CAST.guard; if (gd && gd.mode !== "walk" && Math.random() < dt * 0.06) goTo(gd, pick([{ x: 10, z: 13 }, { x: 4, z: 6 }, { x: 20, z: 6 }, "guard", "guard"]), (a) => { if (a.mode !== "sit") say(a, "All 3 apps healthy", 2.5, "🛡"); });
+  const gd = CAST.guard; if (gd && gd.mode !== "walk" && Math.random() < dt * 0.06) goTo(gd, pick([{ x: 10, z: 13 }, { x: 4, z: 6 }, { x: 20, z: 6 }, "guard", "guard"]), (a) => { if (a.mode !== "sit") say(a, DEMO ? "Sample day · 3 apps running" : LIVE.health.text, 2.5, "🛡"); });
   stepAgents(dt); updateBursts(dt);
 }
 function animateScene(dt) {
@@ -1506,10 +1528,20 @@ function frame() {
   renderInspector();
   // live when HQ answers (the page is on the tailnet beside it), the sample day otherwise
   LIVE.hq = cfg.hqUrl || (location.protocol === "https:" ? `https://${location.hostname}` : null);
-  let feed = null;
-  if (LIVE.hq && !q.get("demo")) feed = await fetch(`${LIVE.hq}/api/office`, { credentials: "omit", cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
-  if (feed) { DEMO = false; liveApply(feed); setMode("LIVE · HQ", "#4ade80"); setTimeout(livePoll, 3000); }
-  else { DEMO = true; resetCast(); setMode(LIVE.hq ? "DEMO · HQ NOT REACHABLE" : "DEMO · SAMPLE DAY", "#ffe36b"); log("HQ", "Showing a <b>sample day</b>: HQ isn't reachable from here"); }
+  const explicitDemo = q.has("demo");
+  if (LIVE.hq && !explicitDemo) {
+    try { acceptLiveFeed(await readLiveFeed()); } catch { liveUnavailable(); }
+  }
+  if (DEMO) {
+    resetCast();
+    setMode(explicitDemo || !LIVE.hq ? "DEMO · SAMPLE DAY" : "DEMO · RETRYING HQ", "#ffe36b");
+    log("HQ", explicitDemo || !LIVE.hq ? "Showing a <b>sample day</b>" : "Showing a <b>sample day</b> while reconnecting to HQ");
+  }
+  if (LIVE.hq && !explicitDemo) {
+    const poller = createLivePoller({ read: readLiveFeed, accept: acceptLiveFeed, unavailable: liveUnavailable });
+    const firstPoll = setTimeout(() => poller.start(), 3000);
+    addEventListener("pagehide", () => { clearTimeout(firstPoll); poller.stop(); }, { once: true });
+  }
   securityViews = new SecurityViews(renderer,scene,cctv); securityViews.enabled = HIGH;
   overview();
   const ff = Number(q.get("t")) || 0; for (let s = 0; s < ff; s += 1 / 30) tick(1 / 30);
