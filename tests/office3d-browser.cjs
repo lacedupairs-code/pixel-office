@@ -2,6 +2,7 @@
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const base = process.env.OFFICE_TEST_URL || 'http://localhost:7012';
+const captureDir = process.env.OFFICE_SCREENSHOT_DIR;
 
 (async () => {
   const browser = await chromium.launch({ channel: process.env.OFFICE_TEST_BROWSER || 'msedge', headless: true });
@@ -42,6 +43,19 @@ const base = process.env.OFFICE_TEST_URL || 'http://localhost:7012';
     await page.setViewportSize({ width: 390, height: 844 });
     await page.locator('#fit').click();
     assert(await page.locator('#zoomIn').isVisible());
+    assert(await page.locator('#mobileMode').isVisible());
+    await page.getByRole('button',{name:'Activity',exact:true}).click();
+    assert(await page.locator('#activityPanel').isVisible());
+    assert.equal(await page.locator('#insp').isVisible(),false);
+    if (captureDir) await page.screenshot({path:`${captureDir}/office-phone-activity.png`});
+    await page.locator('#night').click();
+    assert.equal(await page.locator('html').getAttribute('data-appearance'),'dark');
+    assert.equal(await page.locator('.aside-switch [data-panel="activity"]').evaluate(el=>getComputedStyle(el).color),'rgb(17, 17, 17)');
+    await page.waitForTimeout(150); // Allow theme repaint before the visual capture.
+    if (captureDir) await page.screenshot({path:`${captureDir}/office-phone-activity-dark.png`});
+    await page.locator('#night').click();
+    await page.getByRole('button',{name:'Inspector',exact:true}).focus(); await page.keyboard.press('Enter');
+    assert(await page.locator('#insp').isVisible());
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     // dragging rotates by default (as in the look tests); ROTATE switches it to moving
     assert.equal(await page.locator('#rotate').getAttribute('aria-pressed'), 'true');
@@ -99,6 +113,24 @@ const base = process.env.OFFICE_TEST_URL || 'http://localhost:7012';
     const beforeDemoReads=feedReads;
     await page.waitForTimeout(6500);
     assert.equal(feedReads,beforeDemoReads,'Explicit demo never polls live HQ');
+    // Reduced motion follows OS changes without hiding live information or controls.
+    await page.emulateMedia({reducedMotion:'reduce'});
+    await page.waitForFunction(() => __office.reducedMotion);
+    assert.equal(await page.evaluate(() => __office.controls.enableDamping),false);
+    await page.locator('#fit').click();
+    await page.waitForTimeout(150);
+    const stillA=await page.evaluate(()=>{const a=__office.agents[0];return {time:a.body.mixer.time,camera:__office.camera.position.toArray()};});
+    await page.waitForTimeout(300);
+    const stillB=await page.evaluate(()=>{const a=__office.agents[0];return {time:a.body.mixer.time,camera:__office.camera.position.toArray()};});
+    assert.equal(stillA.time,stillB.time,'Idle rig animations stop');
+    assert.deepEqual(stillA.camera,stillB.camera,'Camera settles immediately');
+    if (captureDir) {
+      await page.setViewportSize({width:1300,height:900});
+      await page.screenshot({path:`${captureDir}/office-reduced-motion.png`});
+    }
+    await page.emulateMedia({reducedMotion:'no-preference'});
+    await page.waitForFunction(() => !__office.reducedMotion);
+    assert.equal(await page.evaluate(() => __office.controls.enableDamping),true);
     assert.deepEqual(errors, []);
     console.log('PASS: 12 rooms, human animation rigs and portraits, filtering, camera controls, mobile layout, and live unknown-agent/bot routing.');
   } finally { await browser.close(); }

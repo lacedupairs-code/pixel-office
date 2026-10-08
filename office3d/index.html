@@ -104,6 +104,21 @@ main{grid-template-columns:minmax(0,1fr) 310px}
 :root[data-appearance=light] :is(aside,.inspector){border-color:var(--line)}
 .tools{align-items:center}.tools .theme-switch{color:var(--text)}
 @media(max-width:520px){.tools .tool{min-height:44px;font-size:11px}.tools{align-items:center;flex-wrap:wrap;max-width:calc(100% - 60px)}}
+.mobile-status,.aside-switch{display:none}
+@media(max-width:520px){
+  .app{grid-template-rows:auto auto minmax(0,1fr)}
+  .mobile-status{display:block;padding:7px 12px;font:600 14px Inter,system-ui,sans-serif;color:#111;background:var(--warn);overflow-wrap:anywhere}
+  main{grid-template-rows:minmax(0,1fr) min(35vh,280px)}
+  aside{grid-template-rows:auto minmax(0,1fr)}
+  .aside-switch{display:flex;gap:6px;padding:6px 8px;border-bottom:1px solid var(--line)}
+  .aside-switch button{flex:1;min-height:44px;font:600 14px Inter,system-ui,sans-serif}
+  .aside-switch button[aria-pressed="true"]{background:#ffe36b;color:#111}
+  :root[data-appearance=light] .aside-switch button[aria-pressed="true"]{background:#ffe36b;color:#111}
+  aside[data-panel="inspector"] .feed,aside[data-panel="activity"] .inspector{display:none}
+  aside[data-panel="activity"] .feed{display:grid;min-height:0}
+  .inspector{border-right:0}.ev{font-size:14px}
+}
+@media(prefers-reduced-motion:reduce){.bub,.ban,.toast{animation:none!important;transition:none!important}}
 </style>
 <script type="importmap">
 { "imports": {
@@ -125,6 +140,7 @@ main{grid-template-columns:minmax(0,1fr) 310px}
     <button type="button" class="chip" data-f="LacedupBot" aria-pressed="false"><span class="d" style="background:var(--bot)"></span>LACEDUPBOT</button>
   </div>
 </header>
+<div class="mobile-status" id="mobileMode" role="status" aria-live="polite">CONNECTING…</div>
 <main>
   <div class="stage" id="stage">
     <div id="view"></div>
@@ -154,9 +170,13 @@ main{grid-template-columns:minmax(0,1fr) 310px}
     <div class="toast" id="toast"></div>
     <div class="loading" id="loading">LOADING THE OFFICE…</div>
   </div>
-  <aside>
+  <aside data-panel="inspector">
+    <div class="aside-switch" role="group" aria-label="Office details">
+      <button type="button" class="tool" data-panel="inspector" aria-controls="insp" aria-pressed="true">Inspector</button>
+      <button type="button" class="tool" data-panel="activity" aria-controls="activityPanel" aria-pressed="false">Activity</button>
+    </div>
     <div class="inspector" id="insp"></div>
-    <div class="feed"><h3>ACTIVITY</h3><div id="feed"></div></div>
+    <div class="feed" id="activityPanel"><h3>ACTIVITY</h3><div id="feed"></div></div>
   </aside>
 </main>
 </div>
@@ -184,6 +204,8 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 // Settings
 // =============================================================================================
 const q = new URLSearchParams(location.search);
+const motionPreference = matchMedia("(prefers-reduced-motion: reduce)");
+let reducedMotion = motionPreference.matches;
 const MOBILE = matchMedia("(pointer: coarse)").matches || innerWidth < 800;
 let HIGH = q.get("q") ? q.get("q") === "high" : !MOBILE;
 const ORG = { HQ: "#ff8a3d", Jarvis: "#38e1ff", Agents: "#a78bfa", LacedupBot: "#ff6fb1" };
@@ -242,7 +264,8 @@ scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 scene.environmentIntensity = 0.35;
 const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 200);
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true; controls.dampingFactor = 0.08;
+controls.enableDamping = !reducedMotion; controls.dampingFactor = 0.08;
+motionPreference.addEventListener("change", e => { reducedMotion = e.matches; controls.enableDamping = !reducedMotion; });
 controls.minPolarAngle = 0.45; controls.maxPolarAngle = 1.15;
 controls.minDistance = 3; controls.maxDistance = 80;
 controls.cursorStyle = "grab";
@@ -741,6 +764,7 @@ function makeBody(look) {
 const ANIM = { idle: ["Idle_Loop", "Idle"], walk: ["Walk_Loop", "Walking"], sit: ["Sitting_Idle_Loop", "Sitting"], work: ["Sitting_Talking_Loop", "Sitting"], happy: ["Dance_Loop", "Dance"], wave: ["Interact", "Wave"], carry: ["Walk_Formal_Loop", "Walking"], yes: ["PickUp_Table", "ThumbsUp"], talk: ["Idle_Talking_Loop", "Yes"] };
 const ONCE = new Set(["wave", "yes"]);
 function play(a, name, fade = 0.3) {
+  if (reducedMotion) fade = 0;
   const clipName = ANIM[name][a.body.robot ? 1 : 0];
   const next = a.body.actions[clipName]; if (!next || a.action === next) return;
   next.reset().setEffectiveWeight(1).fadeIn(fade).play();
@@ -748,6 +772,7 @@ function play(a, name, fade = 0.3) {
   if (name === "happy") a.happyUntil = now + 2.6;
   if (a.action) a.action.fadeOut(fade);
   a.action = next; a.animName = name;
+  if (reducedMotion) a.body.mixer.update(0.1); // Apply the new pose once, then keep it still.
 }
 const restAnim = (a) => (a.mode === "sit" ? (a.status === "working" || a.status === "thinking" ? "work" : "sit") : "idle");
 function makeAgent(o) {
@@ -825,13 +850,16 @@ function arrive(a) {
 }
 function stepAgents(dt) {
   for (const a of agents) {
-    a.body.mixer.update(dt);
-    typeAtDesk(THREE, a, now);
-    if (a.halo) { a.halo.rotation.z += dt * 1.5; a.halo.position.y = 0.05 + Math.sin(now * 2) * 0.02; }
+    if (!reducedMotion) { a.body.mixer.update(dt); typeAtDesk(THREE, a, now); }
+    if (a.halo && !reducedMotion) { a.halo.rotation.z += dt * 1.5; a.halo.position.y = 0.05 + Math.sin(now * 2) * 0.02; }
     if (a.mode !== "walk") {
       const over = (a.animName === "happy" && now > (a.happyUntil || 0)) || (ONCE.has(a.animName) && a.action && !a.action.isRunning());
       if (over || ((a.animName === "sit" || a.animName === "work") && a.animName !== restAnim(a))) play(a, restAnim(a));
       continue;
+    }
+    if (reducedMotion) {
+      const end = a.path.at(-1); if (end) a.group.position.set(end[0], 0, end[1]);
+      a.path.length = 0; arrive(a); continue;
     }
     const next = a.path[0]; if (!next) { arrive(a); continue; }
     const p = a.group.position, dx = next[0] - p.x, dz = next[1] - p.z, d = Math.hypot(dx, dz), sp = a.speed * dt;
@@ -850,7 +878,7 @@ function setStatus(a, s, doing) { if (!a) return; a.status = s; if (doing !== un
 // =============================================================================================
 const beams = [], bursts = [];
 function beam(a, b, color, secs = 2.4) {
-  if (!a || !b) return;
+  if (reducedMotion || !a || !b) return;
   const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85, toneMapped: false });
   const mesh = new THREE.Mesh(new THREE.BufferGeometry(), mat); world.add(mesh);
   const orb = new THREE.Mesh(new THREE.SphereGeometry(0.09, 16, 12), new THREE.MeshBasicMaterial({ color: "#ffffff", toneMapped: false })); world.add(orb);
@@ -859,7 +887,7 @@ function beam(a, b, color, secs = 2.4) {
 function updateBeams() {
   for (let i = beams.length - 1; i >= 0; i--) {
     const bm = beams[i];
-    if (now > bm.until || !agents.includes(bm.a) || !agents.includes(bm.b)) { world.remove(bm.mesh); world.remove(bm.orb); bm.mesh.geometry.dispose(); beams.splice(i, 1); continue; }
+    if (reducedMotion || now > bm.until || !agents.includes(bm.a) || !agents.includes(bm.b)) { world.remove(bm.mesh); world.remove(bm.orb); bm.mesh.geometry.dispose(); beams.splice(i, 1); continue; }
     const A = bm.a.group.position.clone().setY(0.9), B = bm.b.group.position.clone().setY(0.9);
     const M = A.clone().lerp(B, 0.5); M.y += Math.min(2.5, A.distanceTo(B) * 0.25 + 0.5);
     const curve = new THREE.QuadraticBezierCurve3(A, M, B);
@@ -870,12 +898,14 @@ function updateBeams() {
 }
 const sparkGeo = new THREE.OctahedronGeometry(0.05);
 function sparkle(pos, color = "#fde047", n = 24) {
+  if (reducedMotion) return;
   const mat = new THREE.MeshBasicMaterial({ color, toneMapped: false, transparent: true });
   const mesh = new THREE.InstancedMesh(sparkGeo, mat, n); world.add(mesh);
   const ps = Array.from({ length: n }, () => ({ p: pos.clone().add(new THREE.Vector3(0, 0.7, 0)), v: new THREE.Vector3(rnd(-1.4, 1.4), rnd(1, 3.2), rnd(-1.4, 1.4)) }));
   bursts.push({ mesh, mat, ps, born: now, life: 1.3, g: -5 });
 }
 function confetti() {
+  if (reducedMotion) return;
   const n = 400, mat = new THREE.MeshBasicMaterial({ toneMapped: false, side: THREE.DoubleSide });
   const mesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.08, 0.05), mat, n); world.add(mesh);
   const cols = ["#f87171", "#fbbf24", "#4ade80", "#38bdf8", "#a78bfa", "#f472b6"].map((c) => new THREE.Color(c));
@@ -886,7 +916,7 @@ const tmpM = new THREE.Matrix4(), tmpQ = new THREE.Quaternion(), one = new THREE
 function updateBursts(dt) {
   for (let i = bursts.length - 1; i >= 0; i--) {
     const b = bursts[i], age = now - b.born;
-    if (age > b.life) { world.remove(b.mesh); b.mesh.dispose(); bursts.splice(i, 1); continue; }
+    if (reducedMotion || age > b.life) { world.remove(b.mesh); b.mesh.dispose(); bursts.splice(i, 1); continue; }
     b.ps.forEach((p, k) => { p.v.y += b.g * dt; p.p.addScaledVector(p.v, dt); if (b.spin) { p.r += dt * 6; tmpQ.setFromEuler(new THREE.Euler(p.r, p.r * 0.7, 0)); } else tmpQ.identity(); tmpM.compose(p.p, tmpQ, one); b.mesh.setMatrixAt(k, tmpM); });
     b.mesh.instanceMatrix.needsUpdate = true; b.mat.opacity = Math.min(1, (b.life - age) * 2);
   }
@@ -1036,6 +1066,11 @@ function renderInspector() {
 }
 setInterval(() => selected && renderInspector(), 1000);
 document.getElementById("filters").addEventListener("click", (e) => { const c = e.target.closest(".chip"); if (!c) return; filter = c.dataset.f; for (const x of document.querySelectorAll("#filters .chip")) { x.classList.toggle("on", x === c); x.setAttribute("aria-pressed", String(x === c)); } });
+document.querySelector(".aside-switch").addEventListener("click", e => {
+  const button = e.target.closest("button[data-panel]"); if (!button) return;
+  document.querySelector("aside").dataset.panel = button.dataset.panel;
+  for (const other of document.querySelectorAll(".aside-switch button")) other.setAttribute("aria-pressed", String(other === button));
+});
 document.getElementById("night").onclick = () => { setNight(!night); try { localStorage.setItem('pixel-office.night', String(night)); } catch { /* session-only */ } };
 document.getElementById("quality").onclick = () => { HIGH = !HIGH; applyQuality(); };
 document.getElementById("fit").onclick = () => { select(null); overview(); };
@@ -1287,10 +1322,11 @@ function liveUnavailable() {
     if (CAST.guard) say(CAST.guard, LIVE.health.text, 4, "⚠");
   }
 }
-function setMode(text, color) { const m = document.getElementById("mode"); m.textContent = text; m.style.background = color; }
+function setMode(text, color) { const m = document.getElementById("mode"); m.textContent = text; m.style.background = color; const mobile = document.getElementById("mobileMode"); mobile.textContent = text; mobile.style.background = color; }
 // idle agents now and then fetch a coffee, so the office never looks frozen
 setInterval(() => {
   if (DEMO) return;
+  if (reducedMotion) return;
   const idle = agents.filter((a) => a.status === "idle" && a.mode === "sit" && a.homeSeat && !a.id.startsWith("task:"));
   const a = idle[Math.floor(Math.random() * idle.length)]; if (!a || seatTaken("coffee", a)) return;
   const home = a.homeSeat; a.wantSeat = "coffee";
@@ -1435,31 +1471,31 @@ function tick(dt) {
   if (DEMO) while (scriptIdx < SCRIPT.length && SCRIPT[scriptIdx][0] <= st) SCRIPT[scriptIdx++][1]();
   for (let i = later.length - 1; i >= 0; i--) if (later[i].at <= now) { const f = later[i].fn; later.splice(i, 1); f(); }
   if (DEMO && st > 95) { loopStart = now; scriptIdx = 0; resetCast(); log("HQ", "<i>(the sample day starts over)</i>"); }
-  const gd = CAST.guard; if (gd && gd.mode !== "walk" && Math.random() < dt * 0.06) goTo(gd, pick([{ x: 10, z: 13 }, { x: 4, z: 6 }, { x: 20, z: 6 }, "guard", "guard"]), (a) => { if (a.mode !== "sit") say(a, DEMO ? "Sample day · 3 apps running" : LIVE.health.text, 2.5, "🛡"); });
+  const gd = CAST.guard; if (!reducedMotion && gd && gd.mode !== "walk" && Math.random() < dt * 0.06) goTo(gd, pick([{ x: 10, z: 13 }, { x: 4, z: 6 }, { x: 20, z: 6 }, "guard", "guard"]), (a) => { if (a.mode !== "sit") say(a, DEMO ? "Sample day · 3 apps running" : LIVE.health.text, 2.5, "🛡"); });
   stepAgents(dt); updateBursts(dt);
 }
 function animateScene(dt) {
   updateBeams();
-  for (const s of screens) { const busy = agents.some((a) => a.seatId === s.seat && a.mode === "sit" && a.status !== "idle") || (s.seat === "ollama" && CAST.ollama && CAST.ollama.status === "thinking"); const on = s.synty ? (busy ? .48 : .18) : busy ? 1.6 : .12; s.mat.emissiveIntensity += (on - s.mat.emissiveIntensity) * .1; if (busy && s.tex) s.tex.offset.y -= dt * .25; }
-  for (const r of racks) r.led.material.emissiveIntensity = Math.sin(now * (3 + (r.k % 3)) + r.k * 1.7 + r.i * 2) > 0.1 ? 1.8 : 0.15;
-  if (gpuGlow.mat) gpuGlow.mat.emissiveIntensity = CAST.ollama && CAST.ollama.status === "thinking" ? 2.2 + Math.sin(now * 14) : 0.2;
-  for (const m of cctv) if (!m.userData.securityView) m.emissiveMap.offset.y -= dt * 0.15;
-  if (arcade.mat) arcade.mat.emissiveIntensity = 1.2 + Math.sin(now * 6) * 0.4;
-  if (vault.wheel) vault.wheel.rotation.z = vault.spin && now - vault.spin < 2 ? (now - vault.spin) * 6 : vault.wheel.rotation.z;
+  for (const s of screens) { const busy = agents.some((a) => a.seatId === s.seat && a.mode === "sit" && a.status !== "idle") || (s.seat === "ollama" && CAST.ollama && CAST.ollama.status === "thinking"); const on = s.synty ? (busy ? .48 : .18) : busy ? 1.6 : .12; s.mat.emissiveIntensity += (on - s.mat.emissiveIntensity) * .1; if (!reducedMotion && busy && s.tex) s.tex.offset.y -= dt * .25; }
+  for (const r of racks) r.led.material.emissiveIntensity = (reducedMotion ? 1 : Math.sin(now * (3 + (r.k % 3)) + r.k * 1.7 + r.i * 2)) > 0.1 ? 1.8 : 0.15;
+  if (gpuGlow.mat) gpuGlow.mat.emissiveIntensity = CAST.ollama && CAST.ollama.status === "thinking" ? 2.2 + (reducedMotion ? 0 : Math.sin(now * 14)) : 0.2;
+  for (const m of cctv) if (!reducedMotion && !m.userData.securityView) m.emissiveMap.offset.y -= dt * 0.15;
+  if (arcade.mat) arcade.mat.emissiveIntensity = 1.2 + (reducedMotion ? 0 : Math.sin(now * 6) * 0.4);
+  if (vault.wheel) vault.wheel.rotation.z = !reducedMotion && vault.spin && now - vault.spin < 2 ? (now - vault.spin) * 6 : vault.wheel.rotation.z;
   if (tvScreen.mesh) { if (!tvScreen.tex) { const c = Object.assign(document.createElement("canvas"), { width: 256, height: 144 }); tvScreen.c = c; tvScreen.tex = new THREE.CanvasTexture(c); tvScreen.tex.colorSpace = THREE.SRGBColorSpace; tvScreen.mesh.material.emissiveMap = tvScreen.tex; tvScreen.mesh.material.needsUpdate = true; }
-    if (Math.floor(now * 2) !== tvScreen.f) { tvScreen.f = Math.floor(now * 2); const g = tvScreen.c.getContext("2d"); g.fillStyle = "#0f2747"; g.fillRect(0, 0, 256, 144); g.font = "26px Silkscreen"; g.fillStyle = "#93c5fd"; g.fillText(`SHIPS TODAY ${shipsToday}`, 18, 52); g.fillStyle = "#4ade80"; g.fillText("● ● ● 3/3 UP", 18, 100); tvScreen.tex.needsUpdate = true; } }
+    if (Math.floor(now * 2) !== tvScreen.f) { tvScreen.f = Math.floor(now * 2); const g = tvScreen.c.getContext("2d"); g.fillStyle = "#0f2747"; g.fillRect(0, 0, 256, 144); g.font = "26px Silkscreen"; g.fillStyle = "#93c5fd"; g.fillText(`SHIPS TODAY ${shipsToday}`, 18, 52); g.fillStyle = DEMO || LIVE.health.status === "working" ? "#4ade80" : LIVE.health.status === "error" ? "#f87171" : "#fbbf24"; g.fillText(DEMO ? "SAMPLE · 3/3 UP" : short(LIVE.health.text, 20), 18, 100); tvScreen.tex.needsUpdate = true; } }
   // flash
-  const fk = now - flashAt; flashLight.intensity = fk < 0.35 ? (1 - fk / 0.35) * 25 : 0;
+  const fk = reducedMotion ? 10 : now - flashAt; flashLight.intensity = fk < 0.35 ? (1 - fk / 0.35) * 25 : 0;
   for (const m of softboxes) m.emissiveIntensity = fk < 0.35 ? 4 : 0.9;
   // rocket
   if (rocket.group) {
-    const k = rocket.born ? now - rocket.born : -1;
+    const k = reducedMotion ? 5 : rocket.born ? now - rocket.born : -1;
     if (k >= 0 && k < 5) { rocket.flame.visible = k > 0.4; rocket.flame.scale.y = 0.8 + Math.random() * 0.5; rocket.light.intensity = k > 0.4 ? 8 : 0; rocket.group.position.y = 0.15 + (k > 1 ? Math.pow(k - 1, 2.2) * 2.2 : Math.sin(k * 80) * 0.01); if (k > 0.5 && Math.random() < 0.5) sparkle(new THREE.Vector3(29, rocket.group.position.y - 0.6, 2.3), "#fb923c", 4); }
     else if (k >= 5) { rocket.born = 0; rocket.group.position.y = 0.15; rocket.flame.visible = false; rocket.light.intensity = 0; }
   }
   for (const a of agents) {
     const c = STATUS_COLOR[a.status]; a.ring.visible = !!c;
-    if (c) { a.ring.material.color.set(c); a.ring.material.opacity = a.status === "waiting" ? 0.45 + 0.45 * Math.sin(now * 7) : 0.85; a.ring.scale.setScalar(a.status === "waiting" ? 1 + 0.12 * Math.sin(now * 7) : 1); }
+    if (c) { a.ring.material.color.set(c); a.ring.material.opacity = !reducedMotion && a.status === "waiting" ? 0.45 + 0.45 * Math.sin(now * 7) : 0.85; a.ring.scale.setScalar(!reducedMotion && a.status === "waiting" ? 1 + 0.12 * Math.sin(now * 7) : 1); }
   }
 }
 function updateCamera(dt) {
@@ -1471,12 +1507,12 @@ function updateCamera(dt) {
   }
   if (cam.follow && agents.includes(cam.follow)) {
     const p = cam.follow.group.position;
-    const delta = v3.set(p.x, 0.4, p.z).sub(controls.target).multiplyScalar(Math.min(1, dt * 4));
+    const delta = v3.set(p.x, 0.4, p.z).sub(controls.target).multiplyScalar((reducedMotion ? 1 : Math.min(1, dt * 4)));
     controls.target.add(delta); camera.position.add(delta);
   }
   if (cam.goal) {
-    if (cam.goal.zoom) { const dir = camera.position.clone().sub(controls.target); const want = cam.goal.zoom; const len = dir.length(); dir.setLength(len + (want - len) * Math.min(1, dt * 3)); camera.position.copy(controls.target).add(dir); if (Math.abs(len - want) < 0.05) cam.goal = null; }
-    else { controls.target.lerp(cam.goal.target, Math.min(1, dt * 3)); camera.position.lerp(cam.goal.pos, Math.min(1, dt * 3)); if (camera.position.distanceTo(cam.goal.pos) < 0.05) cam.goal = null; }
+    if (cam.goal.zoom) { const dir = camera.position.clone().sub(controls.target); const want = cam.goal.zoom; const len = dir.length(); dir.setLength(len + (want - len) * (reducedMotion ? 1 : Math.min(1, dt * 3))); camera.position.copy(controls.target).add(dir); if (Math.abs(len - want) < 0.05) cam.goal = null; }
+    else { controls.target.lerp(cam.goal.target, (reducedMotion ? 1 : Math.min(1, dt * 3))); camera.position.lerp(cam.goal.pos, (reducedMotion ? 1 : Math.min(1, dt * 3))); if (camera.position.distanceTo(cam.goal.pos) < 0.05) cam.goal = null; }
   }
   controls.update();
 }
@@ -1548,7 +1584,7 @@ function frame() {
   if (q.get("look")) { const v = q.get("look").split(",").map(Number); camera.position.set(v[0], v[1], v[2]); controls.target.set(v[3], v[4], v[5]); cam.goal = null; }
   if (q.get("follow") && CAST[q.get("follow")]) { select(CAST[q.get("follow")]); cam.goal = { zoom: 7 }; }
   if (q.get('view') === 'lounge') loungeTool.click();
-  window.__office = { agents, CAST, LIVE, ROOMS, camera, controls, renderer, composer, scene, overview, select, MODELS, BAKED }; // for debugging from the browser console
+  window.__office = { get reducedMotion() { return reducedMotion; }, agents, CAST, LIVE, ROOMS, camera, controls, renderer, composer, scene, overview, select, MODELS, BAKED }; // for debugging from the browser console
   document.getElementById("loading").remove();
   clock.getDelta(); frame();
 })();
