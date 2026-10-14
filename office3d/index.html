@@ -182,6 +182,7 @@ main{grid-template-columns:minmax(0,1fr) 310px}
 </div>
 <script type="module">
 import { escapeHTML as esc, safeLink, appHealth, createLivePoller } from "./live-ui.mjs";
+import { blockedWorkers } from "./blocked-work.mjs";
 import * as THREE from "three";
 import { DETAIL_PROPS, furnishInterior, dressHuman, typeAtDesk, disposeHuman } from "./interior.js";
 import { refineInterior, workstationTexture, styleHair, SecurityViews, smoothCharacterGeometry } from "./premium.js";
@@ -1226,6 +1227,13 @@ function desired(feed) {
     } else {
       put(`task:${t.conversationId}`, { name: `Build · ${t.appName}`, org: "HQ", role: `Claude Code · ${t.mode === "read-only" ? "read-only" : "edit"} task`, look: BUILD_LOOKS[n++ % BUILD_LOOKS.length], pool: t.status === "queued" ? null : t.mode === "read-only" ? READ_SEATS : BUILD_SEATS, seat: t.status === "queued" ? "counter" : undefined, status: st, doing: t.status === "queued" ? `Queued: ${t.title}` : t.status === "failed" ? `Failed: ${t.title}` : t.title, icon: t.mode === "read-only" ? "📚" : "⌨", link: appLink(t.appId) });
     }
+  }
+  // The same persisted blockers Jarvis/HQ display, including plans older than the recent feed.
+  for (const blocked of blockedWorkers(feed.blockedWork, hq)) {
+    const existing = want.get(blocked.key);
+    put(blocked.key, { ...(existing || { name: `Build · ${blocked.appName}`, org: "HQ", role: "Review in HQ",
+      look: BUILD_LOOKS[n++ % BUILD_LOOKS.length], pool: READ_SEATS, icon: "📋" }),
+      status: blocked.status, doing: blocked.doing, link: blocked.link });
   }
   // Jarvis's AI agents in the lounge
   feed.jarvis.agents.forEach((a, i) => {
