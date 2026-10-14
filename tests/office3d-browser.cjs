@@ -63,7 +63,9 @@ const captureDir = process.env.OFFICE_SCREENSHOT_DIR;
     assert.equal(await page.locator('#rotate').getAttribute('aria-pressed'), 'false');
     // Exercise live routing too: unfamiliar agents/bots must never revert to robots.
     await page.route('**/api/office-config', route => route.fulfill({ json: { ...config, hqUrl: base } }));
+    const blocked=[{id:'plan:fixture-task',kind:'plan',appId:'shop',appName:'Synthetic shop',taskId:'fixture-task',conversationId:'fixture-task',title:'Review checkout',href:'#/app/shop/build/fixture-task'}];
     await page.route('**/api/office', route => route.fulfill({ json: {
+      blockedWork: blocked,
       apps: [], tasks: [], crews: [], ships: [], proofs: [], activity: [], backup: {},
       jarvis: { reached: true, handoffs: [], agents: [
         { id: 'hermes', name: 'Hermes', busy: true, job: { text: 'Researching' } },
@@ -74,7 +76,13 @@ const captureDir = process.env.OFFICE_SCREENSHOT_DIR;
     await page.waitForFunction(() => window.__office, { timeout: 120000 });
     assert.match(await page.locator('#mode').innerText(), /LIVE/);
     assert(await page.evaluate(() => __office.agents.every(a => !a.body.robot && a.body.character)));
-    assert.equal(await page.locator('#sWait').innerText(), '1');
+    assert.equal(await page.locator('#sWait').innerText(), '2');
+    assert.equal(await page.evaluate(()=>__office.LIVE.agents.get('task:fixture-task').status),'waiting');
+    await page.evaluate(()=>__office.select(__office.LIVE.agents.get('task:fixture-task')));
+    assert.equal(await page.getByRole('link',{name:/OPEN IN HQ/}).getAttribute('href'),base+'/#/app/shop/build/fixture-task');
+    blocked.length=0;
+    await page.waitForFunction(()=>!__office.LIVE.agents.has('task:fixture-task'),{},{timeout:15000});
+    assert.equal(await page.locator('#sWait').innerText(),'1');
     assert(await page.evaluate(() => __office.LIVE.agents.has('agent:unfamiliar-agent') && __office.LIVE.agents.has('bot:new-bot')));
     assert.equal(await page.evaluate(() => __office.CAST.guard.doing), 'No apps reported by HQ');
     // An unreachable startup must recover without reload and must remove the sample cast.
