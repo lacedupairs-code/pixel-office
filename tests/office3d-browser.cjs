@@ -63,10 +63,11 @@ const captureDir = process.env.OFFICE_SCREENSHOT_DIR;
     assert.equal(await page.locator('#rotate').getAttribute('aria-pressed'), 'false');
     // Exercise live routing too: unfamiliar agents/bots must never revert to robots.
     await page.route('**/api/office-config', route => route.fulfill({ json: { ...config, hqUrl: base } }));
-    const blocked=[{id:'plan:fixture-task',kind:'plan',appId:'shop',appName:'Synthetic shop',taskId:'fixture-task',conversationId:'fixture-task',title:'Review checkout',href:'#/app/shop/build/fixture-task'}];
+    const blocked=[{id:'plan:fixture-task',kind:'plan',appId:'shop',appName:'Synthetic shop',taskId:'fixture-task',conversationId:'fixture-task',agentName:'Nova',title:'Review checkout',href:'#/app/shop/build/fixture-task'}];
+    const namedTasks=[{id:'newer',conversationId:'fixture-live',appId:'shop',appName:'Synthetic shop',agentName:'Juniper',status:'running',model:'gpt-6.1',mode:'edit',title:'Current task'},{id:'older',conversationId:'fixture-live',appId:'shop',appName:'Synthetic shop',agentName:'Juniper',status:'done',model:'gpt-6.1',mode:'edit',title:'Older task'}];
     await page.route('**/api/office', route => route.fulfill({ json: {
       blockedWork: blocked,
-      apps: [], tasks: [], crews: [], ships: [], proofs: [], activity: [], backup: {},
+      apps: [], tasks: namedTasks, crews: [], ships: [], proofs: [], activity: [], backup: {},
       jarvis: { reached: true, handoffs: [], agents: [
         { id: 'hermes', name: 'Hermes', busy: true, job: { text: 'Researching' } },
         { id: 'unfamiliar-agent', name: 'New coworker', waiting: true, job: { text: 'Review request' } },
@@ -79,7 +80,20 @@ const captureDir = process.env.OFFICE_SCREENSHOT_DIR;
     assert.equal(await page.locator('#sWait').innerText(), '2');
     assert.equal(await page.evaluate(()=>__office.LIVE.agents.get('task:fixture-task').status),'waiting');
     await page.evaluate(()=>__office.select(__office.LIVE.agents.get('task:fixture-task')));
-    assert.equal(await page.getByRole('link',{name:/OPEN IN HQ/}).getAttribute('href'),base+'/#/app/shop/build/fixture-task');
+    assert.equal(await page.getByRole('link',{name:/OPEN IN HQ/}).getAttribute('href'),base+'/#/app/shop/canvas/build/fixture-task');
+    assert.equal(await page.evaluate(()=>__office.LIVE.agents.get('task:fixture-task').name),'Nova');
+    assert.equal(await page.evaluate(()=>__office.LIVE.agents.get('task:fixture-live').status),'working');
+    assert.match(await page.evaluate(()=>__office.LIVE.agents.get('task:fixture-live').role),/Codex/);
+    blocked[0].agentName='Aurora';
+    await page.waitForFunction(()=>__office.LIVE.agents.get('task:fixture-task').name==='Aurora',{},{timeout:15000});
+    await page.waitForFunction(()=>document.querySelector('#insp .n')?.textContent==='Aurora');
+    assert.equal(await page.evaluate(()=>[...__office.LIVE.agents.keys()].filter(k=>k==='task:fixture-live').length),1);
+    if(captureDir){
+      for(const width of [1440,390]){
+        await page.setViewportSize({width,height:900});
+        await page.screenshot({path:`${captureDir}/office-named-${width}.png`});
+      }
+    }
     blocked.length=0;
     await page.waitForFunction(()=>!__office.LIVE.agents.has('task:fixture-task'),{},{timeout:15000});
     assert.equal(await page.locator('#sWait').innerText(),'1');
