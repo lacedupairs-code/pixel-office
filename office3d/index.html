@@ -183,6 +183,7 @@ main{grid-template-columns:minmax(0,1fr) 310px}
 <script type="module">
 import { escapeHTML as esc, safeLink, appHealth, createLivePoller } from "./live-ui.mjs";
 import { blockedWorkers } from "./blocked-work.mjs";
+import { newestConversations, conversationLink, conversationModel } from "./conversations.mjs";
 import * as THREE from "three";
 import { DETAIL_PROPS, furnishInterior, dressHuman, typeAtDesk, disposeHuman } from "./interior.js";
 import { refineInterior, workstationTexture, styleHair, SecurityViews, smoothCharacterGeometry } from "./premium.js";
@@ -1214,18 +1215,17 @@ function desired(feed) {
     if (c.integrationTaskId) partOf.set(c.integrationTaskId, { c, lead: true });
   }
   // Build tasks, one person per conversation
-  const convs = new Map(); for (const t of feed.tasks) convs.set(t.conversationId, t); // newest message wins (feed is newest first → keep first)
-  const firstOf = new Map(); for (const t of feed.tasks) if (!firstOf.has(t.conversationId)) firstOf.set(t.conversationId, t);
+  const convs = newestConversations(feed.tasks);
   let n = 0;
-  for (const t of firstOf.values()) {
+  for (const t of convs.values()) {
     const crewInfo = partOf.get(t.id) || partOf.get(t.conversationId);
     if (crewInfo?.lead) continue;
     const st = { queued: "idle", running: "working", done: "done", failed: "error", cancelled: "idle" }[t.status] || "idle";
     if (crewInfo) {
       const { c, m, merging } = crewInfo;
-      put(`task:${t.conversationId}`, { name: `Part ${m.idx + 1} · ${short(m.title, 18)}`, org: "HQ", role: `Claude Code · crew part ${m.idx + 1}/${c.members.length}`, look: PART_LOOKS[m.idx % 3], pool: merging && t.status === "done" ? WAR_SEATS.slice(2) : BUILD_SEATS, status: merging ? "done" : st, doing: merging ? "Brought its work to the merge" : t.title, carryOnMove: merging, icon: "⌨", link: appLink(t.appId) });
+      put(`task:${t.conversationId}`, { name: t.agentName || `Part ${m.idx + 1} · ${short(m.title, 18)}`, org: "HQ", role: `${conversationModel(t.model)} · crew part ${m.idx + 1}/${c.members.length}`, look: PART_LOOKS[m.idx % 3], pool: merging && t.status === "done" ? WAR_SEATS.slice(2) : BUILD_SEATS, status: merging ? "done" : st, doing: merging ? "Brought its work to the merge" : t.title, carryOnMove: merging, icon: "⌨", link: conversationLink(hq, t.appId, t.conversationId) });
     } else {
-      put(`task:${t.conversationId}`, { name: `Build · ${t.appName}`, org: "HQ", role: `Claude Code · ${t.mode === "read-only" ? "read-only" : "edit"} task`, look: BUILD_LOOKS[n++ % BUILD_LOOKS.length], pool: t.status === "queued" ? null : t.mode === "read-only" ? READ_SEATS : BUILD_SEATS, seat: t.status === "queued" ? "counter" : undefined, status: st, doing: t.status === "queued" ? `Queued: ${t.title}` : t.status === "failed" ? `Failed: ${t.title}` : t.title, icon: t.mode === "read-only" ? "📚" : "⌨", link: appLink(t.appId) });
+      put(`task:${t.conversationId}`, { name: t.agentName || `Build · ${t.appName}`, org: "HQ", role: `${conversationModel(t.model)} · ${t.mode === "read-only" ? "read-only" : "edit"} task · ${t.appName}`, look: BUILD_LOOKS[n++ % BUILD_LOOKS.length], pool: t.status === "queued" ? null : t.mode === "read-only" ? READ_SEATS : BUILD_SEATS, seat: t.status === "queued" ? "counter" : undefined, status: st, doing: t.status === "queued" ? `Queued: ${t.title}` : t.status === "failed" ? `Failed: ${t.title}` : t.title, icon: t.mode === "read-only" ? "📚" : "⌨", link: conversationLink(hq, t.appId, t.conversationId) });
     }
   }
   // The same persisted blockers Jarvis/HQ display, including plans older than the recent feed.
@@ -1233,6 +1233,7 @@ function desired(feed) {
     const existing = want.get(blocked.key);
     put(blocked.key, { ...(existing || { name: `Build · ${blocked.appName}`, org: "HQ", role: "Review in HQ",
       look: BUILD_LOOKS[n++ % BUILD_LOOKS.length], pool: READ_SEATS, icon: "📋" }),
+      name: blocked.name || existing?.name || `Build · ${blocked.appName}`,
       status: blocked.status, doing: blocked.doing, link: blocked.link });
   }
   // Jarvis's AI agents in the lounge
@@ -1302,6 +1303,7 @@ function liveApply(feed) {
   const fresh = feed.activity.filter((x) => !LIVE.seen.acts.has(x.id)).reverse();
   for (const x of fresh) { LIVE.seen.acts.add(x.id); log(x.type.startsWith("agent") ? "Agents" : "HQ", `${x.appName ? `<b>${esc(x.appName)}</b> · ` : ""}${esc(x.summary)}`, x.at); }
   LIVE.first = false; refreshStats();
+  if (selected) renderInspector();
 }
 
 async function readLiveFeed() {
